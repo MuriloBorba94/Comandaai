@@ -72,6 +72,12 @@ sem precisar editar o arquivo `hosts`.
 Senha de usuário existe no banco **somente como hash** — não há como recuperar,
 nem para você. Quando alguém esquece, o caminho é redefinir.
 
+Pela interface, o super-admin faz isso em **Plataforma → Tenants → Editar**: a
+tela lista os usuários do restaurante e define nova senha sem pedir a antiga.
+Também é lá que se ajusta plano, status da assinatura e o bloqueio manual.
+
+Pelo terminal, quando não há navegador à mão:
+
 Para ver quais tenants existem, o usuário de cada um e o endereço de acesso:
 
 ```bash

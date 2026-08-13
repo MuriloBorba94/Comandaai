@@ -84,6 +84,18 @@ def create_app(config_object=Config) -> Flask:
     register_tenancy(app)
     register_cli(app)
 
+    @app.template_global()
+    def url_do_tenant(slug: str, caminho: str = "/") -> str:
+        """Monta o endereço público de um tenant a partir da configuração.
+
+        Evita `localhost:5000` cravado em template, que quebraria em produção.
+        """
+        base = (app.config.get("TENANT_BASE_DOMAINS") or ["localhost"])[0]
+        porta = str(app.config.get("PORT", "5000"))
+        esquema = "https" if app.config.get("SESSION_COOKIE_SECURE") else "http"
+        sufixo = "" if porta in ("80", "443") else f":{porta}"
+        return f"{esquema}://{slug}.{base}{sufixo}{caminho}"
+
     @app.template_filter("brl")
     def brl(valor) -> str:
         """Formata número no padrão brasileiro: 1234.5 -> "1.234,50"."""

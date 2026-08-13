@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ tenant.nome_fantasia }} — Plataforma{% endblock %}
+{% block header_title %}Comanda ai — Plataforma{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('platform.tenants_list') }}">Voltar</a>
+  <a href="{{ url_do_tenant(tenant.slug) }}" target="_blank" rel="noopener">Abrir loja</a>
+  <a href="{{ url_for('platform.logout') }}">Sair</a>
+{% endblock %}
+{% block content %}
+
+  <div class="card">
+    <h1>{{ tenant.nome_fantasia }}</h1>
+    <p class="muted">
+      Loja em <a href="{{ url_do_tenant(tenant.slug) }}" target="_blank" rel="noopener">{{ url_do_tenant(tenant.slug) }}</a>
+      · criada em {{ tenant.created_at.strftime('%d/%m/%Y') }}
+    </p>
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label for="nome_fantasia">Nome do restaurante</label>
+      <input id="nome_fantasia" name="nome_fantasia" value="{{ tenant.nome_fantasia }}" required maxlength="120">
+
+      <label for="slug">Slug (subdomínio)</label>
+      <input id="slug" name="slug" value="{{ tenant.slug }}" required maxlength="50">
+      <p class="muted">
+        Só letras minúsculas, números e hífen. <strong>Mudar o slug muda o endereço
+        da loja</strong> — o link antigo para de funcionar, e você precisa avisar o
+        cliente. As fotos já enviadas continuam funcionando.
+      </p>
+
+      <label for="razao_social">Razão social</label>
+      <input id="razao_social" name="razao_social" value="{{ tenant.razao_social or '' }}" maxlength="160">
+
+      <label for="cnpj">CNPJ</label>
+      <input id="cnpj" name="cnpj" value="{{ tenant.cnpj or '' }}" maxlength="20">
+
+      <label for="email_contato">E-mail de contato</label>
+      <input id="email_contato" name="email_contato" type="email" value="{{ tenant.email_contato }}" required maxlength="160">
+
+      <label for="telefone_contato">Telefone de contato</label>
+      <input id="telefone_contato" name="telefone_contato" value="{{ tenant.telefone_contato or '' }}" maxlength="20">
+
+      <label for="plano">Plano</label>
+      <select id="plano" name="plano">
+        {% for plano in planos %}
+          <option value="{{ plano }}" {% if tenant.plano == plano %}selected{% endif %}>{{ plano }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="status">Status da assinatura</label>
+      <select id="status" name="status">
+        {% for status in statuses %}
+          <option value="{{ status }}" {% if tenant.status == status %}selected{% endif %}>{{ status }}</option>
+        {% endfor %}
+      </select>
+      <p class="muted">
+        <code>canceled</code> e <code>suspended</code> bloqueiam o acesso do
+        restaurante na hora, inclusive a vitrine pública.
+      </p>
+
+      <label class="check-inline">
+        <input type="checkbox" name="ativo" {% if tenant.ativo %}checked{% endif %}>
+        Tenant ativo
+      </label>
+      <p class="muted">
+        Desmarcar é o bloqueio manual, independente do status da assinatura — para
+        suspender por abuso sem mexer na cobrança.
+      </p>
+
+      <button type="submit">Salvar</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h1>Acesso do restaurante</h1>
+    <p class="muted">
+      A senha antiga não é pedida, e nem poderia: ela existe no banco apenas como
+      hash e é irrecuperável. Use isto quando o cliente perder o acesso.
+    </p>
+
+    {% for usuario in usuarios %}
+      <div class="usuario-bloco">
+        <div class="usuario-cabeca">
+          <strong>{{ usuario.username }}</strong>
+          <span class="muted">{{ usuario.nome }} · {{ usuario.role }}{% if not usuario.ativo %} · inativo{% endif %}</span>
+        </div>
+        <form method="post" action="{{ url_for('platform.tenant_usuario_senha', tenant_id=tenant.id, usuario_id=usuario.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="linha-senha">
+            <input name="nova_senha" type="password" placeholder="Nova senha" autocomplete="new-password" required
+                   aria-label="Nova senha de {{ usuario.username }}">
+            <input name="repetir_senha" type="password" placeholder="Repetir senha" autocomplete="new-password" required
+                   aria-label="Repetir a nova senha de {{ usuario.username }}">
+            <button type="submit">Definir senha</button>
+          </div>
+        </form>
+      </div>
+    {% else %}
+      <p>Este tenant não tem nenhum usuário.</p>
+    {% endfor %}
+  </div>
+{% endblock %}

@@ -10,7 +10,8 @@
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label for="slug">Slug (subdomínio)</label>
-      <input id="slug" name="slug" value="{{ form.slug or '' }}" placeholder="ex.: pizzariadojoao" required>
+      <input id="slug" name="slug" value="{{ form.slug or '' }}" placeholder="ex.: pizzaria-joao" required maxlength="50">
+      <p class="muted">Só letras minúsculas, números e hífen. É o endereço da loja.</p>
 
       <label for="nome_fantasia">Nome do restaurante</label>
       <input id="nome_fantasia" name="nome_fantasia" value="{{ form.nome_fantasia or '' }}" required>
@@ -20,9 +21,9 @@
 
       <label for="plano">Plano</label>
       <select id="plano" name="plano">
-        <option value="trial" {% if form.plano == 'trial' %}selected{% endif %}>Trial</option>
-        <option value="starter" {% if form.plano == 'starter' %}selected{% endif %}>Starter</option>
-        <option value="pro" {% if form.plano == 'pro' %}selected{% endif %}>Pro</option>
+        {% for plano in planos %}
+          <option value="{{ plano }}" {% if form.plano == plano %}selected{% endif %}>{{ plano }}</option>
+        {% endfor %}
       </select>
 
       <hr>
@@ -32,7 +33,11 @@
       <input id="admin_username" name="admin_username" value="{{ form.admin_username or '' }}" required>
 
       <label for="admin_password">Senha admin</label>
-      <input id="admin_password" name="admin_password" type="password" required>
+      <input id="admin_password" name="admin_password" type="password" required autocomplete="new-password">
+      <p class="muted">
+        Ao menos 6 caracteres. Se o cliente esquecer, você redefine pela tela de
+        edição do tenant — não há como recuperar a senha original.
+      </p>
 
       <button type="submit">Criar tenant</button>
     </form>

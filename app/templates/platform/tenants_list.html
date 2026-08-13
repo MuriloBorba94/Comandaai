@@ -10,19 +10,32 @@
     <h1>Tenants</h1>
     <table>
       <thead>
-        <tr><th>Slug</th><th>Nome</th><th>Plano</th><th>Status</th><th>Acesso</th></tr>
+        <tr><th>Slug</th><th>Nome</th><th>Plano</th><th>Status</th><th>Usuários</th><th></th></tr>
       </thead>
       <tbody>
         {% for tenant in tenants %}
         <tr>
-          <td>{{ tenant.slug }}</td>
+          <td><code>{{ tenant.slug }}</code></td>
           <td>{{ tenant.nome_fantasia }}</td>
           <td>{{ tenant.plano }}</td>
-          <td>{{ tenant.status }}</td>
-          <td><a href="http://{{ tenant.slug }}.localhost:5000/" target="_blank">abrir</a></td>
+          <td>
+            {{ tenant.status }}
+            {% if not tenant.ativo %}<div class="muted">desativado</div>{% endif %}
+          </td>
+          <td class="muted">
+            {% for usuario in tenant.usuarios|sort(attribute="username") %}
+              {{ usuario.username }}{% if not loop.last %}, {% endif %}
+            {% else %}—{% endfor %}
+          </td>
+          <td>
+            <div class="row-actions">
+              <a class="btn" href="{{ url_for('platform.tenant_editar', tenant_id=tenant.id) }}">Editar</a>
+              <a class="btn btn-secundario" href="{{ url_do_tenant(tenant.slug) }}" target="_blank" rel="noopener">Abrir</a>
+            </div>
+          </td>
         </tr>
         {% else %}
-        <tr><td colspan="5">Nenhum tenant cadastrado ainda.</td></tr>
+        <tr><td colspan="6">Nenhum tenant cadastrado ainda.</td></tr>
         {% endfor %}
       </tbody>
     </table>

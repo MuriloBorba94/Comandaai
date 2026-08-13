@@ -172,6 +172,16 @@ input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
 .pedido-card form { display: inline; }
 .pedido-card button { padding: 6px 10px; font-size: 13px; margin: 2px 2px 0 0; }
 
+/* Reset de senha na tela de edição de tenant */
+.usuario-bloco {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.usuario-bloco:last-child { border-bottom: none; }
+.usuario-cabeca { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.linha-senha { display: flex; gap: 8px; flex-wrap: wrap; }
+.linha-senha input { flex: 1 1 180px; margin-bottom: 0; }
+
 /* Barra "ao vivo" do painel da cozinha */
 .barra-ao-vivo {
   display: flex;
