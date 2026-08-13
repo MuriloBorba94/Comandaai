@@ -25,6 +25,16 @@ class Tenant(TimestampMixin, db.Model):
     assinatura_id_externo = db.Column(db.String(120), index=True)
     proxima_cobranca_em = db.Column(db.DateTime)
 
+    # Quantas mesas o salão tem. 0 = não atende mesa, e o fluxo de comanda fica
+    # indisponível para este tenant. No sistema original o limite de mesas era
+    # uma constante no código (1..30), o que não serve quando cada restaurante
+    # tem um salão diferente.
+    qtd_mesas = db.Column(db.Integer, default=0, nullable=False)
+
+    # Janela de tempo estimado informada ao cliente, por tenant.
+    tempo_estimado_min = db.Column(db.Integer, default=40, nullable=False)
+    tempo_estimado_max = db.Column(db.Integer, default=60, nullable=False)
+
     # Kill-switch manual do super-admin da plataforma, independente do
     # status de cobrança (ex.: suspender por abuso sem tocar na assinatura).
     ativo = db.Column(db.Boolean, default=True, nullable=False)
@@ -33,3 +43,8 @@ class Tenant(TimestampMixin, db.Model):
     produtos = db.relationship("Produto", back_populates="tenant", cascade="all, delete-orphan")
     categorias = db.relationship("Categoria", back_populates="tenant", cascade="all, delete-orphan")
     adicionais = db.relationship("Adicional", back_populates="tenant", cascade="all, delete-orphan")
+    pedidos = db.relationship("Pedido", back_populates="tenant", cascade="all, delete-orphan")
+
+    @property
+    def atende_mesa(self) -> bool:
+        return (self.qtd_mesas or 0) > 0

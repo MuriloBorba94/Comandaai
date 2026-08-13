@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Configurações — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Configurações da loja</h1>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label for="qtd_mesas">Quantidade de mesas do salão</label>
+      <input id="qtd_mesas" name="qtd_mesas" type="number" min="0" max="200" value="{{ tenant.qtd_mesas }}">
+      <p class="muted">
+        Deixe em <strong>0</strong> se você não atende mesa — o fluxo de comanda fica indisponível.
+      </p>
+
+      <label for="tempo_estimado_min">Tempo estimado mínimo (minutos)</label>
+      <input id="tempo_estimado_min" name="tempo_estimado_min" type="number" min="1" value="{{ tenant.tempo_estimado_min }}">
+
+      <label for="tempo_estimado_max">Tempo estimado máximo (minutos)</label>
+      <input id="tempo_estimado_max" name="tempo_estimado_max" type="number" min="1" value="{{ tenant.tempo_estimado_max }}">
+      <p class="muted">
+        Essa janela é o que o cliente vê ao acompanhar o pedido. Ela aumenta
+        automaticamente quando há muitos pedidos na fila.
+      </p>
+
+      <button type="submit">Salvar</button>
+    </form>
+  </div>
+{% endblock %}

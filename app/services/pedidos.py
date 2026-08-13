@@ -1,0 +1,374 @@
+"""Regras de pedido: montagem do carrinho, criação e transições de status.
+
+Portado do order_service.py do sistema single-tenant, com as adaptações que o
+multi-tenant exige e três correções em relação ao original:
+
+1. Adicionais eram liberados por `if product.categoria == "Burgers"` e buscados
+   sem filtro de dono. Agora um adicional só entra se estiver na lista do próprio
+   produto (produto_adicional) — o que também resolve o filtro por tenant.
+2. O número da mesa vivia dentro do texto de `endereco` ("Mesa 01") e era lido
+   de volta por parsing; agora é uma coluna inteira.
+3. A faixa de mesas era a constante 1..30 no código; agora vem de
+   Tenant.qtd_mesas, porque cada salão é diferente.
+
+Como no original, preço, subtotal, total e desconto são SEMPRE calculados aqui.
+Nada disso é aceito do navegador — é a diferença entre um cardápio e um caixa.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
+
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+
+from ..extensions import db
+from ..models.pedido import (
+    CAMPO_TIMESTAMP,
+    STATUS_ATIVOS,
+    STATUS_CANCELADO,
+    STATUS_CONFIRMADO,
+    STATUS_ENTREGUE,
+    STATUS_EM_PREPARO,
+    STATUS_NOVO,
+    STATUS_PRONTO,
+    STATUS_SAIU_ENTREGA,
+    STATUS_TODOS,
+    TIPO_ENTREGA,
+    TIPO_MESA,
+    TIPO_RETIRADA,
+    TIPOS,
+    Pedido,
+    PedidoItem,
+    PedidoItemAdicional,
+)
+from ..models.produto import Produto
+
+MAX_ITENS_CARRINHO = 50
+MAX_QUANTIDADE_ITEM = 30
+
+TRANSICOES_PERMITIDAS = {
+    STATUS_NOVO: {STATUS_CONFIRMADO, STATUS_EM_PREPARO, STATUS_CANCELADO},
+    STATUS_CONFIRMADO: {STATUS_EM_PREPARO, STATUS_CANCELADO},
+    STATUS_EM_PREPARO: {STATUS_PRONTO, STATUS_CANCELADO},
+    STATUS_PRONTO: {STATUS_SAIU_ENTREGA, STATUS_ENTREGUE, STATUS_CANCELADO},
+    STATUS_SAIU_ENTREGA: {STATUS_ENTREGUE, STATUS_CANCELADO},
+    STATUS_ENTREGUE: set(),
+    STATUS_CANCELADO: set(),
+}
+
+PAGAMENTO_COMANDA = "Comanda Aberta"
+FORMAS_PAGAMENTO = ("Dinheiro", "Cartão na entrega", "PIX na entrega")
+
+
+def _dinheiro(valor) -> Decimal:
+    """Arredonda para centavos, evitando o acúmulo de erro do float."""
+    return Decimal(str(valor or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _texto(valor, limite: int) -> str:
+    return (str(valor or "").strip())[:limite]
+
+
+def normalizar_mesa(valor, qtd_mesas: int) -> int:
+    """Valida o número da mesa contra o salão do tenant.
+
+    Sem isso, "0" e "-1" entram no banco e a comanda vira fantasma: existe, soma
+    no faturamento, mas não aparece no mapa para ninguém fechar.
+    """
+    if qtd_mesas <= 0:
+        raise ValueError("Este restaurante não atende pedidos de mesa.")
+    try:
+        numero = int(str(valor).strip())
+    except (TypeError, ValueError):
+        raise ValueError(f"Número de mesa inválido: use um número de 1 a {qtd_mesas}.") from None
+    if numero < 1 or numero > qtd_mesas:
+        raise ValueError(f"A mesa {numero} não existe. Use um número de 1 a {qtd_mesas}.")
+    return numero
+
+
+def calcular_carrinho(tenant_id: int, carrinho) -> tuple[list[PedidoItem], Decimal]:
+    """Transforma o carrinho enviado em itens validados, com preço do servidor.
+
+    O carrinho é uma lista de dicts com produto_id, quantidade, adicionais (ids)
+    e observacao. Qualquer preço que venha junto é ignorado.
+    """
+    if not isinstance(carrinho, list) or not carrinho:
+        raise ValueError("O carrinho está vazio.")
+    if len(carrinho) > MAX_ITENS_CARRINHO:
+        raise ValueError("O carrinho tem itens demais.")
+
+    itens: list[PedidoItem] = []
+    subtotal = Decimal("0.00")
+
+    for bruto in carrinho:
+        try:
+            produto_id = int(bruto.get("produto_id"))
+            quantidade = int(bruto.get("quantidade", 1))
+        except (AttributeError, TypeError, ValueError):
+            raise ValueError("Item inválido no carrinho.") from None
+        quantidade = max(1, min(quantidade, MAX_QUANTIDADE_ITEM))
+
+        produto = Produto.query.filter_by(id=produto_id, tenant_id=tenant_id).first()
+        if produto is None or not produto.disponivel:
+            raise ValueError("Um produto do carrinho não está mais disponível.")
+
+        # Só adicionais que ESTE produto aceita, e que estão disponíveis. Como a
+        # lista vem do próprio produto (já filtrado por tenant), um id de outro
+        # tenant ou de outro produto simplesmente não é encontrado.
+        ids_pedidos = {int(v) for v in (bruto.get("adicionais") or []) if str(v).strip().isdigit()}
+        extras = [
+            adicional
+            for adicional in produto.adicionais
+            if adicional.id in ids_pedidos and adicional.disponivel
+        ]
+
+        preco_base = _dinheiro(produto.preco)
+        preco_unitario = preco_base + sum((_dinheiro(e.preco) for e in extras), Decimal("0.00"))
+        total_linha = preco_unitario * quantidade
+
+        item = PedidoItem(
+            produto_id=produto.id,
+            nome=produto.nome,
+            preco_base=float(preco_base),
+            preco_unitario=float(preco_unitario),
+            quantidade=quantidade,
+            total=float(total_linha),
+            observacao=_texto(bruto.get("observacao"), 180) or None,
+        )
+        item.adicionais = [
+            PedidoItemAdicional(adicional_id=e.id, nome=e.nome, preco=float(_dinheiro(e.preco)))
+            for e in extras
+        ]
+        itens.append(item)
+        subtotal += total_linha
+
+    return itens, subtotal
+
+
+def calcular_estimativa(tenant, tipo: str) -> tuple[int, int]:
+    """Janela de tempo informada ao cliente, esticada conforme a fila atual."""
+    base_min = int(tenant.tempo_estimado_min or 40)
+    base_max = int(tenant.tempo_estimado_max or 60)
+
+    ativos = Pedido.query.filter(
+        Pedido.tenant_id == tenant.id, Pedido.status.in_(STATUS_ATIVOS)
+    ).count()
+    extra_fila = min(45, (ativos // 4) * 10)
+
+    if tipo == TIPO_MESA:
+        base_min, base_max = max(15, base_min - 20), max(30, base_max - 20)
+    elif tipo == TIPO_RETIRADA:
+        base_min = max(20, base_min - 10)
+        base_max = max(base_min + 10, base_max - 10)
+
+    return base_min + extra_fila, base_max + extra_fila
+
+
+def _proximo_numero(tenant_id: int) -> int:
+    maior = db.session.query(func.max(Pedido.numero)).filter_by(tenant_id=tenant_id).scalar()
+    return int(maior or 0) + 1
+
+
+def pedido_por_request_id(tenant_id: int, client_request_id: str | None) -> Pedido | None:
+    if not client_request_id:
+        return None
+    return Pedido.query.filter_by(tenant_id=tenant_id, client_request_id=client_request_id).first()
+
+
+def criar_pedido(tenant, payload: dict) -> Pedido:
+    """Cria um pedido a partir do payload do checkout (ou do salão).
+
+    Devolve o pedido já existente quando o mesmo client_request_id chega de novo,
+    em vez de duplicar — é o que protege contra duplo clique e reenvio.
+    """
+    client_request_id = _texto(payload.get("client_request_id"), 64) or None
+    existente = pedido_por_request_id(tenant.id, client_request_id)
+    if existente is not None:
+        return existente
+
+    cliente = _texto(payload.get("cliente"), 100)
+    telefone = "".join(ch for ch in _texto(payload.get("telefone"), 20) if ch.isdigit())
+    tipo = _texto(payload.get("tipo"), 20)
+    observacao = _texto(payload.get("observacao"), 500) or None
+
+    if len(cliente) < 2:
+        raise ValueError("Informe o nome do cliente.")
+    if tipo not in TIPOS:
+        raise ValueError("Tipo de pedido inválido.")
+
+    mesa = None
+    endereco = None
+    pagamento = _texto(payload.get("pagamento"), 80)
+
+    if tipo == TIPO_MESA:
+        mesa = normalizar_mesa(payload.get("mesa"), tenant.qtd_mesas or 0)
+        if mesa_ocupada(tenant.id, mesa):
+            raise ValueError(f"A mesa {mesa} já tem uma comanda aberta.")
+        # Mesa não escolhe pagamento na abertura: paga no fechamento da comanda.
+        pagamento = PAGAMENTO_COMANDA
+    else:
+        if len(telefone) < 10:
+            raise ValueError("Informe um WhatsApp válido com DDD.")
+        if not pagamento:
+            raise ValueError("Escolha a forma de pagamento.")
+        if tipo == TIPO_ENTREGA:
+            endereco = _texto(payload.get("endereco"), 350)
+            if len(endereco) < 8:
+                raise ValueError("Informe o endereço completo para entrega.")
+
+    itens, subtotal = calcular_carrinho(tenant.id, payload.get("carrinho"))
+    estimado_min, estimado_max = calcular_estimativa(tenant, tipo)
+
+    # A taxa de entrega é 0 até a Fase 3 (taxa por bairro). Fica explícita aqui
+    # para o cálculo do total já estar no lugar quando ela existir.
+    taxa_entrega = Decimal("0.00")
+    desconto = Decimal("0.00")  # cupom é a Fase 3
+
+    pedido = Pedido(
+        tenant_id=tenant.id,
+        client_request_id=client_request_id,
+        cliente=cliente,
+        telefone=telefone or None,
+        tipo=tipo,
+        mesa=mesa,
+        comanda_aberta=(tipo == TIPO_MESA),
+        endereco=endereco,
+        pagamento=pagamento,
+        observacao=observacao,
+        taxa_entrega=float(taxa_entrega),
+        desconto=float(desconto),
+        status=STATUS_NOVO,
+        origem=_texto(payload.get("origem"), 20) or "site",
+        tempo_estimado_min=estimado_min,
+        tempo_estimado_max=estimado_max,
+    )
+    pedido.itens = itens
+    pedido.recalcular_total()
+
+    # A numeração por tenant é calculada com MAX+1, então dois pedidos
+    # simultâneos podem tentar o mesmo número. A unique constraint barra, e aqui
+    # tentamos de novo com o número seguinte em vez de estourar erro na cara do
+    # cliente.
+    for tentativa in range(5):
+        pedido.numero = _proximo_numero(tenant.id)
+        db.session.add(pedido)
+        try:
+            db.session.commit()
+            return pedido
+        except IntegrityError:
+            db.session.rollback()
+            if client_request_id:
+                # Pode ter sido o reenvio do mesmo pedido chegando em paralelo.
+                duplicado = pedido_por_request_id(tenant.id, client_request_id)
+                if duplicado is not None:
+                    return duplicado
+            if tentativa == 4:
+                raise ValueError("Não foi possível registrar o pedido. Tente novamente.") from None
+    raise ValueError("Não foi possível registrar o pedido. Tente novamente.")
+
+
+def transicionar(pedido: Pedido, novo_status: str, actor: str | None = None) -> Pedido:
+    """Move o pedido de status respeitando o fluxo, e registra o horário."""
+    novo_status = _texto(novo_status, 30)
+    if novo_status not in STATUS_TODOS:
+        raise ValueError("Status inválido.")
+
+    atual = pedido.status or STATUS_NOVO
+    if novo_status not in TRANSICOES_PERMITIDAS.get(atual, set()):
+        raise ValueError(f"Não é possível mudar de '{atual}' para '{novo_status}'.")
+
+    # "Saiu para entrega" não faz sentido para retirada nem para mesa. O sistema
+    # original permitia, e o pedido de balcão aparecia como se estivesse na rua.
+    if novo_status == STATUS_SAIU_ENTREGA and pedido.tipo != TIPO_ENTREGA:
+        raise ValueError("Somente pedidos de entrega podem sair para entrega.")
+
+    pedido.status = novo_status
+    campo = CAMPO_TIMESTAMP.get(novo_status)
+    if campo:
+        setattr(pedido, campo, datetime.now())
+
+    if novo_status in (STATUS_ENTREGUE, STATUS_CANCELADO):
+        pedido.comanda_aberta = False
+
+    db.session.commit()
+    return pedido
+
+
+def adicionar_itens_comanda(pedido: Pedido, carrinho, actor: str | None = None) -> Pedido:
+    """Acrescenta itens a uma comanda de mesa já aberta.
+
+    Passa pelo mesmo calcular_carrinho do cardápio, então mesa e site produzem
+    exatamente o mesmo formato de item — no original, o painel concatenava texto
+    livre e somava um valor digitado à mão.
+    """
+    if not pedido.comanda_aberta:
+        raise ValueError("Esta comanda não está aberta.")
+    if pedido.status == STATUS_CANCELADO:
+        raise ValueError("Este pedido foi cancelado.")
+
+    novos, _ = calcular_carrinho(pedido.tenant_id, carrinho)
+    for item in novos:
+        pedido.itens.append(item)
+
+    # A cozinha já podia ter dado o pedido por concluído; item novo volta à fila.
+    if pedido.status in (STATUS_PRONTO, STATUS_ENTREGUE):
+        pedido.status = STATUS_CONFIRMADO
+
+    pedido.recalcular_total()
+    db.session.commit()
+    return pedido
+
+
+def fechar_comanda(pedido: Pedido, pagamento: str) -> Pedido:
+    """Fecha a comanda da mesa registrando como o cliente pagou."""
+    if not pedido.comanda_aberta:
+        raise ValueError("Esta comanda já foi fechada.")
+    forma = _texto(pagamento, 80)
+    if not forma:
+        raise ValueError("Escolha a forma de pagamento.")
+    if not pedido.itens:
+        raise ValueError("Não é possível fechar uma comanda sem itens.")
+
+    pedido.pagamento = forma
+    pedido.comanda_aberta = False
+    pedido.status = STATUS_ENTREGUE
+    pedido.entregue_em = datetime.now()
+    pedido.recalcular_total()
+    db.session.commit()
+    return pedido
+
+
+def mesa_ocupada(tenant_id: int, mesa: int) -> bool:
+    return (
+        Pedido.query.filter_by(tenant_id=tenant_id, mesa=mesa, comanda_aberta=True).first() is not None
+    )
+
+
+def mesas_ativas(tenant_id: int) -> dict[int, Pedido]:
+    """Mesas com comanda aberta, indexadas pelo número da mesa."""
+    abertas = (
+        Pedido.query.filter_by(tenant_id=tenant_id, comanda_aberta=True)
+        .order_by(Pedido.created_at.desc())
+        .all()
+    )
+    return {pedido.mesa: pedido for pedido in abertas if pedido.mesa}
+
+
+def pedidos_ativos(tenant_id: int) -> list[Pedido]:
+    return (
+        Pedido.query.filter(Pedido.tenant_id == tenant_id, Pedido.status.in_(STATUS_ATIVOS))
+        .order_by(Pedido.created_at.asc())
+        .all()
+    )
+
+
+def proximos_status(pedido: Pedido) -> list[str]:
+    """Transições que a cozinha pode oferecer para este pedido, já filtradas."""
+    permitidos = TRANSICOES_PERMITIDAS.get(pedido.status or STATUS_NOVO, set())
+    if pedido.tipo != TIPO_ENTREGA:
+        permitidos = permitidos - {STATUS_SAIU_ENTREGA}
+    # Mantém a ordem natural do fluxo, com Cancelado no fim.
+    ordem = [s for s in STATUS_TODOS if s != STATUS_CANCELADO] + [STATUS_CANCELADO]
+    return [status for status in ordem if status in permitidos]

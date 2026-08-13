@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Mesas — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}Salão · {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Mesas</h1>
+    <p class="muted">Mesa em vermelho tem comanda aberta. Clique para lançar itens ou fechar.</p>
+    <div class="mesas">
+      {% for numero in numeros %}
+        {% set pedido = ocupadas.get(numero) %}
+        <a class="mesa {% if pedido %}mesa-ocupada{% endif %}"
+           href="{{ url_for('operacao.mesa_detalhe', numero=numero) }}">
+          <strong>{{ "%02d"|format(numero) }}</strong>
+          {% if pedido %}
+            <span class="muted">R$ {{ pedido.total|brl }}</span>
+          {% else %}
+            <span class="muted">livre</span>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Pedido #{{ pedido.numero }} — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('public.index') }}">Cardápio</a>
+{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Pedido #{{ pedido.numero }}</h1>
+    <p class="status-atual">{{ pedido.status }}</p>
+
+    {% if pedido.status == "Cancelado" %}
+      <p class="muted">Este pedido foi cancelado. Fale com o restaurante se tiver dúvida.</p>
+    {% elif pedido.status != "Entregue" and pedido.tempo_estimado_min %}
+      <p class="muted">
+        Previsão de {{ pedido.tempo_estimado_min }} a {{ pedido.tempo_estimado_max }} minutos.
+      </p>
+    {% endif %}
+
+    <p class="muted">{{ pedido.descricao_local }} · {{ pedido.pagamento }}</p>
+  </div>
+
+  <div class="card">
+    <h1>Itens</h1>
+    {% for item in pedido.itens %}
+      <div class="menu-item">
+        <div class="menu-corpo">
+          <h3>{{ item.quantidade }}x {{ item.nome }}</h3>
+          {% if item.adicionais %}
+            <p class="muted">
+              Adicionais: {% for extra in item.adicionais %}{{ extra.nome }}{% if not loop.last %}, {% endif %}{% endfor %}
+            </p>
+          {% endif %}
+          {% if item.observacao %}<p class="muted">Obs.: {{ item.observacao }}</p>{% endif %}
+        </div>
+        <div class="menu-preco">R$ {{ item.total|brl }}</div>
+      </div>
+    {% endfor %}
+
+    <p class="total-linha">Subtotal: R$ {{ pedido.subtotal|brl }}</p>
+    {% if pedido.taxa_entrega %}<p class="total-linha">Entrega: R$ {{ pedido.taxa_entrega|brl }}</p>{% endif %}
+    {% if pedido.desconto %}<p class="total-linha">Desconto: −R$ {{ pedido.desconto|brl }}</p>{% endif %}
+    <p class="total-linha"><strong>Total: R$ {{ pedido.total|brl }}</strong></p>
+
+    {% if pedido.observacao %}<p class="muted">Observação: {{ pedido.observacao }}</p>{% endif %}
+  </div>
+{% endblock %}

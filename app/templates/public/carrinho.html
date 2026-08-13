@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Carrinho — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('public.index') }}">Voltar ao cardápio</a>
+{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Seu pedido</h1>
+
+    {% if not itens %}
+      <p>Seu carrinho está vazio. <a href="{{ url_for('public.index') }}">Escolher itens</a>.</p>
+    {% else %}
+      {% for item in itens %}
+        <div class="menu-item">
+          <div class="menu-corpo">
+            <h3>{{ item.quantidade }}x {{ item.nome }}</h3>
+            {% if item.adicionais %}
+              <p class="muted">
+                Adicionais: {% for extra in item.adicionais %}{{ extra.nome }} (+R$ {{ extra.preco|brl }}){% if not loop.last %}, {% endif %}{% endfor %}
+              </p>
+            {% endif %}
+            {% if item.observacao %}<p class="muted">Obs.: {{ item.observacao }}</p>{% endif %}
+          </div>
+          <div class="menu-preco">R$ {{ item.total|brl }}</div>
+          <form method="post" action="{{ url_for('public.carrinho_remover') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="indice" value="{{ loop.index0 }}">
+            <button type="submit" class="btn-secundario">Remover</button>
+          </form>
+        </div>
+      {% endfor %}
+
+      <p class="total-linha">Total: <strong>R$ {{ subtotal|brl }}</strong></p>
+      <p class="muted">A taxa de entrega ainda não é cobrada nesta versão.</p>
+    {% endif %}
+  </div>
+
+  {% if itens %}
+  <div class="card">
+    <h1>Seus dados</h1>
+    <form method="post" action="{{ url_for('public.pedido_criar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {# Torna o envio idempotente: clicar duas vezes não gera dois pedidos. #}
+      <input type="hidden" name="client_request_id" value="{{ client_request_id }}">
+
+      <label for="cliente">Seu nome</label>
+      <input id="cliente" name="cliente" required maxlength="100">
+
+      <label for="telefone">WhatsApp (com DDD)</label>
+      <input id="telefone" name="telefone" required maxlength="20" placeholder="81999998888">
+
+      <label for="tipo">Como você quer receber?</label>
+      <select id="tipo" name="tipo">
+        {% for tipo in tipos %}
+          <option value="{{ tipo }}">{{ tipo }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="endereco">Endereço (somente para entrega)</label>
+      <input id="endereco" name="endereco" maxlength="350" placeholder="Rua, número, bairro e referência">
+
+      <label for="pagamento">Forma de pagamento</label>
+      <select id="pagamento" name="pagamento">
+        {% for forma in formas_pagamento %}
+          <option value="{{ forma }}">{{ forma }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="observacao">Observação do pedido</label>
+      <input id="observacao" name="observacao" maxlength="500" placeholder="Opcional">
+
+      <button type="submit">Finalizar pedido</button>
+    </form>
+  </div>
+  {% endif %}
+{% endblock %}

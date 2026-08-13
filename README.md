@@ -15,6 +15,9 @@ O que já existe aqui:
 - **Cardápio completo por tenant** (Fase 1): `Categoria` ordenável, `Adicional`
   vinculado por produto, `Produto` com foto, e vitrine pública agrupada na
   ordem que cada tenant define.
+- **Pedidos, cozinha e mesa** (Fase 2): carrinho e checkout na vitrine, página
+  pública de acompanhamento por token, painel `/cozinha` com máquina de estados,
+  e comanda de mesa com mapa do salão.
 - Migrations versionadas com Flask-Migrate/Alembic desde o início.
 
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):

@@ -46,12 +46,14 @@ def create_app(config_object=Config) -> Flask:
     from .cli import register_cli
     from .routes.admin import admin_bp
     from .routes.auth import auth_bp
+    from .routes.operacao import operacao_bp
     from .routes.platform import platform_bp
     from .routes.public import public_bp
 
     app.register_blueprint(public_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(operacao_bp)
     app.register_blueprint(platform_bp)
 
     register_tenancy(app)

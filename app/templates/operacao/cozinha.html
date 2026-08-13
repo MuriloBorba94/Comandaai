@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Cozinha — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}Cozinha · {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Pedidos em andamento ({{ total_ativos }})</h1>
+    {% if not total_ativos %}
+      <p>Nenhum pedido em andamento agora.</p>
+    {% endif %}
+  </div>
+
+  {% if total_ativos %}
+  <div class="colunas">
+    {% for status, pedidos in colunas %}
+      <div class="coluna">
+        <h2>{{ status }} ({{ pedidos|length }})</h2>
+        {% for pedido in pedidos %}
+          <div class="pedido-card">
+            <h3>#{{ pedido.numero }} · {{ pedido.cliente }}</h3>
+            <p class="muted">{{ pedido.descricao_local }}</p>
+            <ul>
+              {% for item in pedido.itens %}
+                <li>
+                  {{ item.quantidade }}x {{ item.nome }}
+                  {% if item.adicionais %}
+                    <br><span class="muted">+ {% for e in item.adicionais %}{{ e.nome }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                  {% endif %}
+                  {% if item.observacao %}
+                    <br><span class="muted">Obs.: {{ item.observacao }}</span>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+            {% if pedido.observacao %}<p class="muted">Pedido: {{ pedido.observacao }}</p>{% endif %}
+            <p class="muted">R$ {{ pedido.total|brl }} · {{ pedido.pagamento }}</p>
+
+            {# Só as transições válidas para este pedido aparecem, então a tela
+               nunca oferece um botão que o serviço vai recusar. #}
+            {% for proximo in proximos_status(pedido) %}
+              <form method="post" action="{{ url_for('operacao.pedido_status', pedido_id=pedido.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="status" value="{{ proximo }}">
+                <button type="submit" {% if proximo == "Cancelado" %}class="btn-secundario"{% endif %}>{{ proximo }}</button>
+              </form>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="muted">—</p>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endblock %}

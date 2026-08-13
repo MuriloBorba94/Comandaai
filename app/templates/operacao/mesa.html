@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Mesa {{ "%02d"|format(numero) }} — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}Mesa {{ "%02d"|format(numero) }} · {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('operacao.mesas') }}">Voltar ao salão</a>
+  <a href="{{ url_for('operacao.cozinha') }}">Cozinha</a>
+{% endblock %}
+{% block content %}
+  <div class="card">
+    {% if pedido %}
+      <h1>Comanda aberta · Pedido #{{ pedido.numero }}</h1>
+      <p class="muted">{{ pedido.cliente }} · {{ pedido.status }}</p>
+      {% for item in pedido.itens %}
+        <div class="menu-item">
+          <div class="menu-corpo">
+            <h3>{{ item.quantidade }}x {{ item.nome }}</h3>
+            {% if item.adicionais %}
+              <p class="muted">+ {% for e in item.adicionais %}{{ e.nome }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+            {% endif %}
+            {% if item.observacao %}<p class="muted">Obs.: {{ item.observacao }}</p>{% endif %}
+          </div>
+          <div class="menu-preco">R$ {{ item.total|brl }}</div>
+        </div>
+      {% endfor %}
+      <p class="total-linha"><strong>Total: R$ {{ pedido.total|brl }}</strong></p>
+
+      <form method="post" action="{{ url_for('operacao.mesa_fechar', numero=numero) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="pagamento">Fechar comanda — forma de pagamento</label>
+        <select id="pagamento" name="pagamento">
+          {% for forma in formas_pagamento %}
+            <option value="{{ forma }}">{{ forma }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Fechar comanda</button>
+      </form>
+    {% else %}
+      <h1>Mesa livre</h1>
+      <p class="muted">O primeiro item lançado abre a comanda desta mesa.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h1>Lançar item</h1>
+    {% for nome_grupo, itens in grupos %}
+      <section class="menu-grupo">
+        <h2>{{ nome_grupo }}</h2>
+        {% for produto in itens %}
+          <article class="menu-item">
+            <div class="menu-corpo">
+              <h3>{{ produto.nome }}</h3>
+              {% set extras = produto.adicionais | selectattr("disponivel") | list %}
+              <form method="post" action="{{ url_for('operacao.mesa_lancar_item', numero=numero) }}" class="form-add">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="produto_id" value="{{ produto.id }}">
+                {% if not pedido %}
+                  {# Só na abertura: identifica a comanda (opcional). #}
+                  <input name="cliente" maxlength="100" placeholder="Nome do cliente (opcional)">
+                {% endif %}
+                {% if extras %}
+                  <div class="checks">
+                    {% for extra in extras|sort(attribute="nome") %}
+                      <label>
+                        <input type="checkbox" name="adicionais" value="{{ extra.id }}">
+                        {{ extra.nome }} (+R$ {{ extra.preco|brl }})
+                      </label>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                <div class="linha-add">
+                  <input class="campo-obs" name="observacao" maxlength="180" placeholder="Ex.: sem cebola">
+                  <input class="campo-qtd" name="quantidade" type="number" value="1" min="1" max="30" aria-label="Quantidade">
+                  <button type="submit">Lançar</button>
+                </div>
+              </form>
+            </div>
+            <div class="menu-preco">R$ {{ produto.preco|brl }}</div>
+          </article>
+        {% endfor %}
+      </section>
+    {% else %}
+      <p>Nenhum produto disponível para lançar.</p>
+    {% endfor %}
+  </div>
+{% endblock %}

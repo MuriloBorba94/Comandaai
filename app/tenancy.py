@@ -5,7 +5,7 @@ from flask import Flask, abort, current_app, g, render_template, request, sessio
 from .models.tenant import Tenant
 
 # Rotas que exigem um tenant identificado; sem ele, 404 em vez de ambiguidade.
-TENANT_REQUIRED_BLUEPRINTS = {"admin", "auth", "api"}
+TENANT_REQUIRED_BLUEPRINTS = {"admin", "auth", "api", "operacao"}
 
 BLOCKED_STATUSES = {"canceled", "suspended"}
 

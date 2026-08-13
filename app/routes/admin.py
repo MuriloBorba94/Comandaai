@@ -61,15 +61,52 @@ def _adicionais_do_tenant() -> list[Adicional]:
     return Adicional.query.filter_by(tenant_id=g.tenant.id).order_by(Adicional.nome).all()
 
 
+@admin_bp.route("/configuracoes", methods=["GET", "POST"])
+@admin_required
+def configuracoes():
+    """Ajustes da loja feitos pelo próprio dono do restaurante."""
+    if request.method == "POST":
+        qtd_mesas = max(0, min(_to_int(request.form.get("qtd_mesas")), 200))
+        minimo = max(1, _to_int(request.form.get("tempo_estimado_min")) or 40)
+        maximo = max(minimo, _to_int(request.form.get("tempo_estimado_max")) or 60)
+
+        # Reduzir o salão não pode deixar comanda aberta fora da faixa: ela
+        # sumiria do mapa e ninguém conseguiria fechar (o "fantasma" que o
+        # sistema original produzia com mesa inválida).
+        from ..services.pedidos import mesas_ativas
+
+        fora_da_faixa = [numero for numero in mesas_ativas(g.tenant.id) if numero > qtd_mesas]
+        if fora_da_faixa:
+            flash(
+                "Feche primeiro as comandas das mesas "
+                + ", ".join(str(n) for n in sorted(fora_da_faixa))
+                + " antes de reduzir o salão.",
+                "erro",
+            )
+            return redirect(url_for("admin.configuracoes"))
+
+        g.tenant.qtd_mesas = qtd_mesas
+        g.tenant.tempo_estimado_min = minimo
+        g.tenant.tempo_estimado_max = maximo
+        db.session.commit()
+        flash("Configurações salvas.", "sucesso")
+        return redirect(url_for("admin.configuracoes"))
+
+    return render_template("admin/configuracoes.html", tenant=g.tenant)
+
+
 @admin_bp.route("/")
 @admin_required
 def dashboard():
+    from ..services.pedidos import pedidos_ativos
+
     return render_template(
         "admin/dashboard.html",
         tenant=g.tenant,
         total_produtos=Produto.query.filter_by(tenant_id=g.tenant.id).count(),
         total_categorias=Categoria.query.filter_by(tenant_id=g.tenant.id).count(),
         total_adicionais=Adicional.query.filter_by(tenant_id=g.tenant.id).count(),
+        total_ativos=len(pedidos_ativos(g.tenant.id)),
     )
 
 

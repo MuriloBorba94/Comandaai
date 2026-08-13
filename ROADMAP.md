@@ -16,8 +16,13 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    global (agora cada produto declara os seus, via `produto_adicional`).
    Continua sem carrinho/pedido — isso é a Fase 2.
 
-2. **Pedidos + cozinha.** Portar `Pedido` e seu fluxo de status/timestamps;
-   painel `/cozinha` tenant-scoped.
+2. ~~**Pedidos + cozinha.**~~ **CONCLUÍDA.** `Pedido` com `PedidoItem`/
+   `PedidoItemAdicional` (nome e preço congelados na venda), máquina de estados
+   com timestamps, carrinho e checkout na vitrine, página pública de
+   acompanhamento por token, painel `/cozinha` e fluxo de mesa/comanda com mapa
+   do salão. Numeração reinicia por tenant e o salão é configurável em
+   `/admin/configuracoes` (no original, a faixa de mesas era constante no
+   código). Ainda sem taxa por bairro e sem cupom — Fase 3.
 
 3. **Cupons + bairros de entrega.** Portar `Cupom`/`CupomUso` (padrão de
    reserva de uso) e `BairroEntrega`.
