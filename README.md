@@ -67,6 +67,29 @@ tenant, acesse por `http://app.localhost:5000` (área da plataforma) ou
 modernos resolvem qualquer `*.localhost` para `127.0.0.1` automaticamente,
 sem precisar editar o arquivo `hosts`.
 
+## Descobrir usuários e redefinir senha
+
+Senha de usuário existe no banco **somente como hash** — não há como recuperar,
+nem para você. Quando alguém esquece, o caminho é redefinir.
+
+Para ver quais tenants existem, o usuário de cada um e o endereço de acesso:
+
+```bash
+.venv\Scripts\flask listar-tenants
+```
+
+Para redefinir a senha de um usuário de tenant:
+
+```bash
+.venv\Scripts\flask definir-senha --tenant pizzaria-joao --usuario joao
+```
+
+A senha é pedida no terminal, com entrada oculta e confirmação. Ela **não** é
+aceita como argumento de linha de comando de propósito: assim não fica no
+histórico do shell nem visível na lista de processos. O filtro inclui o tenant,
+então dois restaurantes podem ter um usuário `admin` sem risco de trocar a senha
+do errado.
+
 Fluxo para testar manualmente:
 1. Login do super-admin em `http://app.localhost:5000/plataforma/login`.
 2. Criar um tenant (isso já cria o primeiro usuário admin dele).
