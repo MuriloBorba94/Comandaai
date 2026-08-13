@@ -8,9 +8,13 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    admin da plataforma, uma entidade de exemplo (`Produto`) provando
    isolamento entre tenants.
 
-1. **Cardápio.** Portar `Produto`/`Adicional`/categorias do repo atual para
-   modelos tenant-scoped; vitrine pública por tenant (sem carrinho/pedido
-   ainda).
+1. ~~**Cardápio.**~~ **CONCLUÍDA.** `Categoria`, `Adicional` e `Produto`
+   tenant-scoped, com upload de foto isolado por tenant e vitrine pública
+   agrupada pela ordem que cada tenant define. Duas correções em relação ao
+   repo original, que não sobreviveriam ao multi-tenant: a categoria deixou de
+   ser texto livre com ordem fixa no código, e o adicional deixou de ser lista
+   global (agora cada produto declara os seus, via `produto_adicional`).
+   Continua sem carrinho/pedido — isso é a Fase 2.
 
 2. **Pedidos + cozinha.** Portar `Pedido` e seu fluxo de status/timestamps;
    painel `/cozinha` tenant-scoped.

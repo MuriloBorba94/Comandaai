@@ -33,6 +33,7 @@ def create_app(config_object=Config) -> Flask:
 
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     Path(app.config["LOG_FOLDER"]).mkdir(parents=True, exist_ok=True)
+    Path(app.config["UPLOAD_FOLDER"]).mkdir(parents=True, exist_ok=True)
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -56,6 +57,17 @@ def create_app(config_object=Config) -> Flask:
     register_tenancy(app)
     register_cli(app)
 
+    @app.template_filter("brl")
+    def brl(valor) -> str:
+        """Formata número no padrão brasileiro: 1234.5 -> "1.234,50"."""
+        try:
+            numero = float(valor or 0)
+        except (TypeError, ValueError):
+            numero = 0.0
+        # Formata no padrão en_US e troca os separadores, evitando depender de
+        # locale instalado no sistema (que varia entre Windows e Linux).
+        return f"{numero:,.2f}".replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+
     @app.after_request
     def security_headers(response):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -77,6 +89,14 @@ def create_app(config_object=Config) -> Flask:
     @app.errorhandler(404)
     def not_found(error):
         return render_template("error.html", code=404, message="Página não encontrada."), 404
+
+    @app.errorhandler(413)
+    def payload_too_large(error):
+        limite_mb = app.config["MAX_CONTENT_LENGTH"] // (1024 * 1024)
+        message = f"Arquivo grande demais. O limite por imagem é {limite_mb} MB."
+        if request.path.startswith("/api/"):
+            return jsonify(status="erro", mensagem=message), 413
+        return render_template("error.html", code=413, message=message), 413
 
     @app.errorhandler(429)
     def too_many_requests(error):

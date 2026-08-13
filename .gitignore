@@ -5,5 +5,7 @@ __pycache__/
 instance/
 logs/
 .pytest_cache/
+# Imagens enviadas pelos tenants: conteúdo do usuário, não código.
+app/static/uploads/
 *.db
 *.db-*

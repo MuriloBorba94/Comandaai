@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Adicionais — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Novo adicional</h1>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="nome">Nome</label>
+      <input id="nome" name="nome" required placeholder="Ex.: Bacon extra, Borda catupiry">
+      <label for="preco">Preço</label>
+      <input id="preco" name="preco" value="0,00">
+      <button type="submit">Criar</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h1>Adicionais</h1>
+    <p class="muted">
+      Cadastrar aqui só cria o adicional. Para ele aparecer, marque-o na edição
+      de cada produto que o aceita — assim "Bacon extra" não aparece num refrigerante.
+    </p>
+
+    {% for adicional in adicionais %}
+      <div class="linha-edicao">
+        <form class="linha-form" method="post" action="{{ url_for('admin.adicional_salvar', adicional_id=adicional.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input class="campo-nome" name="nome" value="{{ adicional.nome }}" required aria-label="Nome do adicional">
+          <input class="campo-ordem" name="preco" value="{{ "%.2f"|format(adicional.preco)|replace(".", ",") }}" aria-label="Preço">
+          <label class="check-inline">
+            <input type="checkbox" name="disponivel" {% if adicional.disponivel %}checked{% endif %}> Disponível
+          </label>
+          <span class="muted">{{ adicional.produtos|length }} produto(s)</span>
+          <button type="submit">Salvar</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.adicional_excluir', adicional_id=adicional.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-secundario">Excluir</button>
+        </form>
+      </div>
+    {% else %}
+      <p>Nenhum adicional ainda.</p>
+    {% endfor %}
+  </div>
+{% endblock %}

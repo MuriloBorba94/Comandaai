@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Categorias — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Nova categoria</h1>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="nome">Nome</label>
+      <input id="nome" name="nome" required placeholder="Ex.: Burgers, Bebidas, Pizzas Doces">
+      <label for="ordem">Ordem na vitrine</label>
+      <input id="ordem" name="ordem" type="number" value="0">
+      <p class="muted">Menor número aparece primeiro. Empates saem em ordem alfabética.</p>
+      <button type="submit">Criar</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h1>Categorias</h1>
+    <p class="muted">
+      Desativar uma categoria esconde os produtos dela da vitrine, sem apagar nada.
+      Excluir a categoria mantém os produtos, que passam a aparecer em "Outros".
+    </p>
+
+    {# Um formulário por categoria. Não use tabela aqui: <form> não pode
+       envolver <td>, e o navegador moveria o form para fora da tabela. #}
+    {% for categoria in categorias %}
+      <div class="linha-edicao">
+        <form class="linha-form" method="post" action="{{ url_for('admin.categoria_salvar', categoria_id=categoria.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input class="campo-nome" name="nome" value="{{ categoria.nome }}" required aria-label="Nome da categoria">
+          <input class="campo-ordem" name="ordem" type="number" value="{{ categoria.ordem }}" aria-label="Ordem">
+          <label class="check-inline">
+            <input type="checkbox" name="ativa" {% if categoria.ativa %}checked{% endif %}> Ativa
+          </label>
+          <span class="muted">{{ categoria.produtos|length }} produto(s)</span>
+          <button type="submit">Salvar</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.categoria_excluir', categoria_id=categoria.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-secundario">Excluir</button>
+        </form>
+      </div>
+    {% else %}
+      <p>Nenhuma categoria ainda.</p>
+    {% endfor %}
+  </div>
+{% endblock %}

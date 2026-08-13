@@ -1,13 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Painel — {{ tenant.nome_fantasia }}{% endblock %}
 {% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}
-  <a href="{{ url_for('admin.produtos') }}">Produtos</a>
-  <a href="{{ url_for('auth.logout') }}">Sair</a>
-{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
 {% block content %}
-  <div class="card">
-    <p>Produtos cadastrados</p>
-    <div class="stat">{{ total_produtos }}</div>
+  <div class="card stats">
+    <div>
+      <p>Produtos</p>
+      <div class="stat">{{ total_produtos }}</div>
+    </div>
+    <div>
+      <p>Categorias</p>
+      <div class="stat">{{ total_categorias }}</div>
+    </div>
+    <div>
+      <p>Adicionais</p>
+      <div class="stat">{{ total_adicionais }}</div>
+    </div>
   </div>
 {% endblock %}

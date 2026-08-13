@@ -31,3 +31,5 @@ class Tenant(TimestampMixin, db.Model):
 
     usuarios = db.relationship("Usuario", back_populates="tenant", cascade="all, delete-orphan")
     produtos = db.relationship("Produto", back_populates="tenant", cascade="all, delete-orphan")
+    categorias = db.relationship("Categoria", back_populates="tenant", cascade="all, delete-orphan")
+    adicionais = db.relationship("Adicional", back_populates="tenant", cascade="all, delete-orphan")

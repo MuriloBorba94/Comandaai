@@ -11,15 +11,23 @@ O que já existe aqui:
   usuários com o mesmo `username`, sem conflito).
 - Um `PlatformAdmin` separado — o super-admin (você, o revendedor) que cria e
   gerencia os tenants, sem se misturar com os admins de cada loja.
-- Uma entidade de exemplo (`Produto`) provando, de ponta a ponta, que os dados
-  de um tenant nunca aparecem para outro.
+- Rate limit por IP nas rotas de login, contando somente tentativas que falham.
+- **Cardápio completo por tenant** (Fase 1): `Categoria` ordenável, `Adicional`
+  vinculado por produto, `Produto` com foto, e vitrine pública agrupada na
+  ordem que cada tenant define.
 - Migrations versionadas com Flask-Migrate/Alembic desde o início.
 
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):
-cardápio completo, pedidos, cozinha, cupons, PIX, WhatsApp, impressão,
-estoque/financeiro, cobrança recorrente real, deploy de produção. Este
-esqueleto só precisa provar que o núcleo multi-tenant funciona; a lógica de
-negócio será portada de `C:\borbas_burguer_v17` fase por fase.
+pedidos, cozinha, cupons, PIX, WhatsApp, impressão, estoque/financeiro,
+cobrança recorrente real, deploy de produção. A lógica de negócio é portada de
+`C:\borbas_burguer_v17` fase por fase.
+
+### Fotos de produto
+
+As imagens ficam em `app/static/uploads/<slug-do-tenant>/`, fora do git. O
+upload valida o **conteúdo** do arquivo com Pillow (não a extensão, que é dado
+do cliente), converte para WebP e redimensiona. O limite é 5 MB por imagem
+(`MAX_CONTENT_LENGTH`).
 
 ## Como rodar localmente
 

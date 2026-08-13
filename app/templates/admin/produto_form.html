@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ produto.nome }} — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Editar produto</h1>
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label for="nome">Nome</label>
+      <input id="nome" name="nome" value="{{ produto.nome }}" required>
+
+      <label for="descricao">Descrição</label>
+      <input id="descricao" name="descricao" maxlength="300" value="{{ produto.descricao or '' }}">
+
+      <label for="preco">Preço</label>
+      <input id="preco" name="preco" value="{{ "%.2f"|format(produto.preco)|replace(".", ",") }}" required>
+
+      <label for="categoria_id">Categoria</label>
+      <select id="categoria_id" name="categoria_id">
+        <option value="">— Sem categoria —</option>
+        {% for categoria in categorias %}
+          <option value="{{ categoria.id }}" {% if produto.categoria_id == categoria.id %}selected{% endif %}>
+            {{ categoria.nome }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <label>Foto atual</label>
+      {% if produto.imagem %}
+        <img class="thumb" src="{{ url_for('static', filename='uploads/' + produto.imagem) }}" alt="{{ produto.nome }}">
+        <label class="check-inline">
+          <input type="checkbox" name="remover_imagem"> Remover a foto atual
+        </label>
+      {% else %}
+        <p class="muted">Este produto não tem foto.</p>
+      {% endif %}
+
+      <label for="imagem">Trocar a foto</label>
+      <input id="imagem" name="imagem" type="file" accept="image/*">
+      <p class="muted">Enviar uma nova foto substitui a atual. Até 5 MB.</p>
+
+      {% if adicionais %}
+        <label>Adicionais aceitos por este produto</label>
+        <div class="checks">
+          {% for adicional in adicionais %}
+            <label>
+              <input type="checkbox" name="adicionais" value="{{ adicional.id }}"
+                     {% if adicional.id in ids_vinculados %}checked{% endif %}>
+              {{ adicional.nome }} (+R$ {{ adicional.preco|brl }})
+            </label>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">
+          Nenhum adicional cadastrado.
+          <a href="{{ url_for('admin.adicionais') }}">Cadastrar adicionais</a>.
+        </p>
+      {% endif %}
+
+      <label class="check-inline">
+        <input type="checkbox" name="disponivel" {% if produto.disponivel %}checked{% endif %}>
+        Disponível no cardápio
+      </label>
+
+      <button type="submit">Salvar</button>
+      <a class="btn btn-secundario" href="{{ url_for('admin.produtos') }}">Cancelar</a>
+    </form>
+  </div>
+{% endblock %}

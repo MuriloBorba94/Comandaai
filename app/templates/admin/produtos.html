@@ -1,19 +1,57 @@
 {% extends "base.html" %}
 {% block title %}Produtos — {{ tenant.nome_fantasia }}{% endblock %}
 {% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}
-  <a href="{{ url_for('admin.dashboard') }}">Painel</a>
-  <a href="{{ url_for('auth.logout') }}">Sair</a>
-{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
 {% block content %}
   <div class="card">
     <h1>Novo produto</h1>
-    <form method="post">
+    {# enctype é obrigatório para o campo de imagem chegar em request.files. #}
+    <form method="post" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
       <label for="nome">Nome</label>
       <input id="nome" name="nome" required>
+
+      <label for="descricao">Descrição</label>
+      <input id="descricao" name="descricao" maxlength="300" placeholder="Opcional">
+
       <label for="preco">Preço</label>
-      <input id="preco" name="preco" required>
+      <input id="preco" name="preco" required placeholder="Ex.: 32,90">
+
+      <label for="categoria_id">Categoria</label>
+      <select id="categoria_id" name="categoria_id">
+        <option value="">— Sem categoria —</option>
+        {% for categoria in categorias %}
+          <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+        {% endfor %}
+      </select>
+      {% if not categorias %}
+        <p class="muted">
+          Você ainda não tem categorias.
+          <a href="{{ url_for('admin.categorias') }}">Criar categorias</a> deixa o cardápio organizado.
+        </p>
+      {% endif %}
+
+      <label for="imagem">Foto</label>
+      <input id="imagem" name="imagem" type="file" accept="image/*">
+      <p class="muted">Opcional. JPG, PNG ou WebP, até 5 MB. A imagem é convertida e redimensionada automaticamente.</p>
+
+      {% if adicionais %}
+        <label>Adicionais aceitos por este produto</label>
+        <div class="checks">
+          {% for adicional in adicionais %}
+            <label>
+              <input type="checkbox" name="adicionais" value="{{ adicional.id }}">
+              {{ adicional.nome }} (+R$ {{ adicional.preco|brl }})
+            </label>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <label class="check-inline">
+        <input type="checkbox" name="disponivel" checked> Disponível no cardápio
+      </label>
+
       <button type="submit">Adicionar</button>
     </form>
   </div>
@@ -21,21 +59,39 @@
   <div class="card">
     <h1>Produtos</h1>
     <table>
-      <thead><tr><th>Nome</th><th>Preço</th><th></th></tr></thead>
+      <thead>
+        <tr><th>Foto</th><th>Nome</th><th>Categoria</th><th>Preço</th><th>Adicionais</th><th>Status</th><th></th></tr>
+      </thead>
       <tbody>
         {% for produto in produtos %}
         <tr>
-          <td>{{ produto.nome }}</td>
-          <td>R$ {{ "%.2f"|format(produto.preco) }}</td>
           <td>
-            <form class="inline" method="post" action="{{ url_for('admin.produto_excluir', produto_id=produto.id) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit">Excluir</button>
-            </form>
+            {% if produto.imagem %}
+              <img class="thumb" src="{{ url_for('static', filename='uploads/' + produto.imagem) }}" alt="{{ produto.nome }}">
+            {% else %}
+              <div class="thumb-vazia">sem foto</div>
+            {% endif %}
+          </td>
+          <td>
+            {{ produto.nome }}
+            {% if produto.descricao %}<div class="muted">{{ produto.descricao }}</div>{% endif %}
+          </td>
+          <td>{{ produto.categoria.nome if produto.categoria else "—" }}</td>
+          <td>R$ {{ produto.preco|brl }}</td>
+          <td>{{ produto.adicionais|length or "—" }}</td>
+          <td>{{ "Disponível" if produto.disponivel else "Oculto" }}</td>
+          <td>
+            <div class="row-actions">
+              <a class="btn btn-secundario" href="{{ url_for('admin.produto_editar', produto_id=produto.id) }}">Editar</a>
+              <form class="inline" method="post" action="{{ url_for('admin.produto_excluir', produto_id=produto.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit">Excluir</button>
+              </form>
+            </div>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="3">Nenhum produto cadastrado ainda.</td></tr>
+        <tr><td colspan="7">Nenhum produto cadastrado ainda.</td></tr>
         {% endfor %}
       </tbody>
     </table>

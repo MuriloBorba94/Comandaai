@@ -52,6 +52,14 @@ class Config:
 
     LOG_FOLDER = str(BASE_DIR / "logs")
 
+    # Imagens de produto. Cada tenant grava em uploads/<slug>/, e o arquivo é
+    # servido pelo /static do Flask — imagens de cardápio são públicas por
+    # natureza, então não há motivo para uma rota autenticada aqui.
+    UPLOAD_FOLDER = str(BASE_DIR / "app" / "static" / "uploads")
+    # Teto de tamanho do upload. Acima disso o Flask corta a requisição e
+    # devolve 413, tratado em app/__init__.py.
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024
+
     # Hostname reservado para a área da plataforma (super-admin); nunca é
     # tratado como tenant. Ex.: "app.localhost" em dev, "app.suaapp.com.br" em produção.
     PLATFORM_HOSTNAME = os.getenv("PLATFORM_HOSTNAME", "app.localhost").strip().lower()

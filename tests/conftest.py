@@ -24,6 +24,9 @@ class TestConfig(Config):
     # Fora de logs/, para os testes não sujarem o log real da aplicação com
     # tentativas de login falhas.
     LOG_FOLDER = str(Path(tempfile.gettempdir()) / "comanda-ai-testes" / "logs")
+    # Idem para uploads: nenhum teste deve gravar em app/static/uploads. Quem
+    # testa upload de verdade (test_cardapio.py) aponta para um tmp_path próprio.
+    UPLOAD_FOLDER = str(Path(tempfile.gettempdir()) / "comanda-ai-testes" / "uploads")
     PLATFORM_HOSTNAME = "app.localhost"
     TENANT_BASE_DOMAINS = ["localhost"]
     PLATFORM_ADMIN_USERNAME = "admin"

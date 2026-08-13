@@ -1,15 +1,39 @@
 {% extends "base.html" %}
-{% block title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block title %}{{ tenant.nome_fantasia }} — Cardápio{% endblock %}
 {% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
 {% block content %}
   <div class="card">
     <h1>Cardápio</h1>
-    <ul>
-      {% for produto in produtos %}
-        <li>{{ produto.nome }} — R$ {{ "%.2f"|format(produto.preco) }}</li>
-      {% else %}
-        <li>Nenhum produto disponível ainda.</li>
-      {% endfor %}
-    </ul>
+
+    {% for nome_grupo, itens in grupos %}
+      <section class="menu-grupo">
+        <h2>{{ nome_grupo }}</h2>
+        {% for produto in itens %}
+          <article class="menu-item">
+            {% if produto.imagem %}
+              <img class="thumb" src="{{ url_for('static', filename='uploads/' + produto.imagem) }}" alt="{{ produto.nome }}">
+            {% else %}
+              <div class="thumb-vazia">sem foto</div>
+            {% endif %}
+            <div class="menu-corpo">
+              <h3>{{ produto.nome }}</h3>
+              {% if produto.descricao %}<p class="muted">{{ produto.descricao }}</p>{% endif %}
+              {% set extras = produto.adicionais | selectattr("disponivel") | list %}
+              {% if extras %}
+                <p class="muted">
+                  Adicionais:
+                  {% for extra in extras|sort(attribute="nome") %}
+                    {{ extra.nome }} (+R$ {{ extra.preco|brl }}){% if not loop.last %}, {% endif %}
+                  {% endfor %}
+                </p>
+              {% endif %}
+            </div>
+            <div class="menu-preco">R$ {{ produto.preco|brl }}</div>
+          </article>
+        {% endfor %}
+      </section>
+    {% else %}
+      <p>Nenhum produto disponível ainda.</p>
+    {% endfor %}
   </div>
 {% endblock %}

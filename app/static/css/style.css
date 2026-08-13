@@ -71,3 +71,81 @@ button, .btn {
 .flash-sucesso { background: #eafaf1; color: #1c7d4d; }
 
 .stat { font-size: 32px; font-weight: 700; }
+
+/* ------------------------------- cardápio ------------------------------- */
+
+.stats { display: flex; gap: 16px; flex-wrap: wrap; }
+.stats > div { flex: 1 1 140px; }
+
+.muted { color: #777; font-size: 14px; }
+
+/* Miniatura na lista do admin e na vitrine. object-fit evita distorcer fotos
+   que o dono da loja enviar em proporções diferentes. */
+.thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.thumb-vazia {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+  font-size: 11px;
+  text-align: center;
+}
+
+/* Grade de checkboxes dos adicionais. */
+.checks { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 10px; }
+.checks label {
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.checks input[type="checkbox"] { width: auto; margin: 0; }
+
+input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
+.check-inline { font-weight: 400; display: flex; align-items: center; margin-bottom: 10px; }
+
+.row-actions { display: flex; gap: 6px; }
+.btn-secundario { background: #6b7280; }
+
+/* Linha editável (categorias/adicionais): um <form> por item, lado a lado. */
+.linha-edicao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.linha-edicao:last-child { border-bottom: none; }
+.linha-form { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
+.linha-edicao input { margin-bottom: 0; }
+.linha-edicao .check-inline { margin-bottom: 0; white-space: nowrap; }
+.campo-nome { flex: 1 1 180px; }
+.campo-ordem { width: 90px; flex: 0 0 90px; }
+
+/* Vitrine pública */
+.menu-grupo { margin-bottom: 28px; }
+.menu-grupo > h2 {
+  font-size: 18px;
+  border-bottom: 2px solid var(--brand);
+  padding-bottom: 6px;
+  margin: 0 0 12px;
+}
+.menu-item { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.menu-item:last-child { border-bottom: none; }
+.menu-item .thumb, .menu-item .thumb-vazia { width: 84px; height: 84px; flex: 0 0 84px; }
+.menu-item h3 { margin: 0 0 4px; font-size: 16px; }
+.menu-preco { font-weight: 700; color: var(--brand); white-space: nowrap; }
+.menu-corpo { flex: 1; }

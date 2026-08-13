@@ -1,19 +1,208 @@
 from __future__ import annotations
 
-from flask import Blueprint, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, g, redirect, render_template, request, url_for
 
 from ..decorators import admin_required
 from ..extensions import db
+from ..models.adicional import Adicional
+from ..models.categoria import Categoria
 from ..models.produto import Produto
+from ..services.imagens import remover_imagem, salvar_imagem_produto
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+
+def _to_float(valor: str | None) -> float:
+    """Interpreta preço digitado no padrão brasileiro.
+
+    Aceita "45,90", "45.90" e também "1.234,56" — neste último o ponto é
+    separador de milhar, e trocá-lo por vírgula às cegas produziria "1.234.56",
+    que não converte e viraria 0.0 silenciosamente.
+    """
+    texto = (valor or "").strip()
+    if not texto:
+        return 0.0
+    if "," in texto and "." in texto:
+        texto = texto.replace(".", "")  # ponto é milhar; a vírgula é o decimal
+    texto = texto.replace(",", ".")
+    try:
+        return float(texto)
+    except ValueError:
+        return 0.0
+
+
+def _to_int(valor: str | None) -> int:
+    try:
+        return int((valor or "0").strip())
+    except ValueError:
+        return 0
+
+
+def _categoria_do_tenant(categoria_id: str | None) -> Categoria | None:
+    """Resolve a categoria escolhida no formulário DENTRO do tenant atual.
+
+    Um id de categoria de outro tenant simplesmente não é encontrado, e o
+    produto fica sem categoria em vez de apontar para fora do tenant.
+    """
+    if not categoria_id or not str(categoria_id).strip().isdigit():
+        return None
+    return Categoria.query.filter_by(id=int(categoria_id), tenant_id=g.tenant.id).first()
+
+
+def _categorias_do_tenant() -> list[Categoria]:
+    return (
+        Categoria.query.filter_by(tenant_id=g.tenant.id)
+        .order_by(Categoria.ordem, Categoria.nome)
+        .all()
+    )
+
+
+def _adicionais_do_tenant() -> list[Adicional]:
+    return Adicional.query.filter_by(tenant_id=g.tenant.id).order_by(Adicional.nome).all()
 
 
 @admin_bp.route("/")
 @admin_required
 def dashboard():
-    total_produtos = Produto.query.filter_by(tenant_id=g.tenant.id).count()
-    return render_template("admin/dashboard.html", tenant=g.tenant, total_produtos=total_produtos)
+    return render_template(
+        "admin/dashboard.html",
+        tenant=g.tenant,
+        total_produtos=Produto.query.filter_by(tenant_id=g.tenant.id).count(),
+        total_categorias=Categoria.query.filter_by(tenant_id=g.tenant.id).count(),
+        total_adicionais=Adicional.query.filter_by(tenant_id=g.tenant.id).count(),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Categorias
+# --------------------------------------------------------------------------- #
+
+
+@admin_bp.route("/categorias", methods=["GET", "POST"])
+@admin_required
+def categorias():
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        if not nome:
+            flash("Informe o nome da categoria.", "erro")
+        elif Categoria.query.filter_by(tenant_id=g.tenant.id, nome=nome).first():
+            flash(f"Você já tem uma categoria chamada '{nome}'.", "erro")
+        else:
+            db.session.add(
+                Categoria(tenant_id=g.tenant.id, nome=nome, ordem=_to_int(request.form.get("ordem")))
+            )
+            db.session.commit()
+            flash("Categoria criada.", "sucesso")
+        return redirect(url_for("admin.categorias"))
+
+    return render_template("admin/categorias.html", tenant=g.tenant, categorias=_categorias_do_tenant())
+
+
+@admin_bp.route("/categorias/<int:categoria_id>/salvar", methods=["POST"])
+@admin_required
+def categoria_salvar(categoria_id: int):
+    categoria = Categoria.query.filter_by(id=categoria_id, tenant_id=g.tenant.id).first()
+    if categoria is None:
+        flash("Categoria não encontrada.", "erro")
+        return redirect(url_for("admin.categorias"))
+
+    nome = request.form.get("nome", "").strip()
+    duplicada = (
+        Categoria.query.filter(
+            Categoria.tenant_id == g.tenant.id,
+            Categoria.nome == nome,
+            Categoria.id != categoria.id,
+        ).first()
+        if nome
+        else None
+    )
+    if not nome:
+        flash("Informe o nome da categoria.", "erro")
+    elif duplicada:
+        flash(f"Você já tem uma categoria chamada '{nome}'.", "erro")
+    else:
+        categoria.nome = nome
+        categoria.ordem = _to_int(request.form.get("ordem"))
+        categoria.ativa = request.form.get("ativa") == "on"
+        db.session.commit()
+        flash("Categoria atualizada.", "sucesso")
+    return redirect(url_for("admin.categorias"))
+
+
+@admin_bp.route("/categorias/<int:categoria_id>/excluir", methods=["POST"])
+@admin_required
+def categoria_excluir(categoria_id: int):
+    categoria = Categoria.query.filter_by(id=categoria_id, tenant_id=g.tenant.id).first()
+    if categoria is not None:
+        # Os produtos NÃO são apagados junto: ficam sem categoria e continuam
+        # no cardápio, agrupados em "Sem categoria".
+        for produto in categoria.produtos:
+            produto.categoria_id = None
+        db.session.delete(categoria)
+        db.session.commit()
+        flash("Categoria removida. Os produtos dela ficaram sem categoria.", "sucesso")
+    return redirect(url_for("admin.categorias"))
+
+
+# --------------------------------------------------------------------------- #
+# Adicionais
+# --------------------------------------------------------------------------- #
+
+
+@admin_bp.route("/adicionais", methods=["GET", "POST"])
+@admin_required
+def adicionais():
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        if not nome:
+            flash("Informe o nome do adicional.", "erro")
+        elif Adicional.query.filter_by(tenant_id=g.tenant.id, nome=nome).first():
+            flash(f"Você já tem um adicional chamado '{nome}'.", "erro")
+        else:
+            db.session.add(
+                Adicional(tenant_id=g.tenant.id, nome=nome, preco=_to_float(request.form.get("preco")))
+            )
+            db.session.commit()
+            flash("Adicional criado.", "sucesso")
+        return redirect(url_for("admin.adicionais"))
+
+    return render_template("admin/adicionais.html", tenant=g.tenant, adicionais=_adicionais_do_tenant())
+
+
+@admin_bp.route("/adicionais/<int:adicional_id>/salvar", methods=["POST"])
+@admin_required
+def adicional_salvar(adicional_id: int):
+    adicional = Adicional.query.filter_by(id=adicional_id, tenant_id=g.tenant.id).first()
+    if adicional is None:
+        flash("Adicional não encontrado.", "erro")
+        return redirect(url_for("admin.adicionais"))
+
+    nome = request.form.get("nome", "").strip()
+    if not nome:
+        flash("Informe o nome do adicional.", "erro")
+    else:
+        adicional.nome = nome
+        adicional.preco = _to_float(request.form.get("preco"))
+        adicional.disponivel = request.form.get("disponivel") == "on"
+        db.session.commit()
+        flash("Adicional atualizado.", "sucesso")
+    return redirect(url_for("admin.adicionais"))
+
+
+@admin_bp.route("/adicionais/<int:adicional_id>/excluir", methods=["POST"])
+@admin_required
+def adicional_excluir(adicional_id: int):
+    adicional = Adicional.query.filter_by(id=adicional_id, tenant_id=g.tenant.id).first()
+    if adicional is not None:
+        db.session.delete(adicional)
+        db.session.commit()
+        flash("Adicional removido.", "sucesso")
+    return redirect(url_for("admin.adicionais"))
+
+
+# --------------------------------------------------------------------------- #
+# Produtos
+# --------------------------------------------------------------------------- #
 
 
 @admin_bp.route("/produtos", methods=["GET", "POST"])
@@ -21,20 +210,107 @@ def dashboard():
 def produtos():
     if request.method == "POST":
         nome = request.form.get("nome", "").strip()
-        preco_raw = request.form.get("preco", "0").replace(",", ".")
-        if nome:
-            try:
-                preco = float(preco_raw)
-            except ValueError:
-                preco = 0.0
-            produto = Produto(tenant_id=g.tenant.id, nome=nome, preco=preco)
-            db.session.add(produto)
-            db.session.commit()
-            flash("Produto adicionado.", "sucesso")
+        if not nome:
+            flash("Informe o nome do produto.", "erro")
+            return redirect(url_for("admin.produtos"))
+
+        categoria = _categoria_do_tenant(request.form.get("categoria_id"))
+        produto = Produto(
+            tenant_id=g.tenant.id,
+            nome=nome,
+            descricao=request.form.get("descricao", "").strip() or None,
+            preco=_to_float(request.form.get("preco")),
+            categoria_id=categoria.id if categoria else None,
+            disponivel=request.form.get("disponivel") == "on",
+        )
+        db.session.add(produto)
+        db.session.flush()  # precisa do id para nomear o arquivo da imagem
+
+        produto.definir_adicionais(request.form.getlist("adicionais"))
+
+        try:
+            imagem = salvar_imagem_produto(
+                request.files.get("imagem"), tenant_slug=g.tenant.slug, produto_id=produto.id
+            )
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc), "erro")
+            return redirect(url_for("admin.produtos"))
+
+        if imagem:
+            produto.imagem = imagem.caminho_relativo
+        db.session.commit()
+        flash("Produto adicionado.", "sucesso")
         return redirect(url_for("admin.produtos"))
 
-    lista = Produto.query.filter_by(tenant_id=g.tenant.id).order_by(Produto.nome).all()
-    return render_template("admin/produtos.html", tenant=g.tenant, produtos=lista)
+    lista = (
+        Produto.query.filter_by(tenant_id=g.tenant.id)
+        .outerjoin(Categoria)
+        .order_by(Categoria.ordem.nullslast(), Categoria.nome.nullslast(), Produto.nome)
+        .all()
+    )
+    return render_template(
+        "admin/produtos.html",
+        tenant=g.tenant,
+        produtos=lista,
+        categorias=_categorias_do_tenant(),
+        adicionais=_adicionais_do_tenant(),
+    )
+
+
+@admin_bp.route("/produtos/<int:produto_id>/editar", methods=["GET", "POST"])
+@admin_required
+def produto_editar(produto_id: int):
+    produto = Produto.query.filter_by(id=produto_id, tenant_id=g.tenant.id).first()
+    if produto is None:
+        flash("Produto não encontrado.", "erro")
+        return redirect(url_for("admin.produtos"))
+
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        if not nome:
+            flash("Informe o nome do produto.", "erro")
+            return redirect(url_for("admin.produto_editar", produto_id=produto.id))
+
+        categoria = _categoria_do_tenant(request.form.get("categoria_id"))
+        produto.nome = nome
+        produto.descricao = request.form.get("descricao", "").strip() or None
+        produto.preco = _to_float(request.form.get("preco"))
+        produto.categoria_id = categoria.id if categoria else None
+        produto.disponivel = request.form.get("disponivel") == "on"
+        produto.definir_adicionais(request.form.getlist("adicionais"))
+
+        try:
+            imagem = salvar_imagem_produto(
+                request.files.get("imagem"), tenant_slug=g.tenant.slug, produto_id=produto.id
+            )
+        except ValueError as exc:
+            db.session.rollback()
+            flash(str(exc), "erro")
+            return redirect(url_for("admin.produto_editar", produto_id=produto.id))
+
+        if request.form.get("remover_imagem") == "on" and not imagem:
+            remover_imagem(produto.imagem)
+            produto.imagem = None
+        elif imagem:
+            # Troca de imagem: apaga a antiga para não deixar arquivo órfão.
+            antiga = produto.imagem
+            produto.imagem = imagem.caminho_relativo
+            if antiga:
+                remover_imagem(antiga)
+
+        db.session.commit()
+        flash("Produto atualizado.", "sucesso")
+        return redirect(url_for("admin.produtos"))
+
+    return render_template(
+        "admin/produto_form.html",
+        tenant=g.tenant,
+        produto=produto,
+        categorias=_categorias_do_tenant(),
+        adicionais=_adicionais_do_tenant(),
+        ids_vinculados={adicional.id for adicional in produto.adicionais},
+    )
 
 
 @admin_bp.route("/produtos/<int:produto_id>/excluir", methods=["POST"])
@@ -42,7 +318,12 @@ def produtos():
 def produto_excluir(produto_id: int):
     produto = Produto.query.filter_by(id=produto_id, tenant_id=g.tenant.id).first()
     if produto:
+        caminho = produto.imagem
         db.session.delete(produto)
         db.session.commit()
+        # Só depois do commit: se a transação falhasse, o arquivo já teria ido.
+        if caminho:
+            remover_imagem(caminho)
+        current_app.logger.info("Produto %s removido do tenant %s", produto_id, g.tenant.slug)
         flash("Produto removido.", "sucesso")
     return redirect(url_for("admin.produtos"))
