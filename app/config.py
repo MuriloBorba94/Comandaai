@@ -37,6 +37,12 @@ class Config:
 
     WTF_CSRF_TIME_LIMIT = None
     RATELIMIT_STORAGE_URI = "memory://"
+    RATELIMIT_ENABLED = True
+
+    # Limite por IP nas rotas de login, para travar força bruta. Consome cota
+    # somente em tentativas que FALHAM (ver deduct_when em routes/auth.py e
+    # routes/platform.py), então logar corretamente várias vezes nunca bloqueia.
+    LOGIN_RATELIMIT = os.getenv("LOGIN_RATELIMIT", "5 per minute;30 per hour")
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"

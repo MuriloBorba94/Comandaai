@@ -78,6 +78,16 @@ def create_app(config_object=Config) -> Flask:
     def not_found(error):
         return render_template("error.html", code=404, message="Página não encontrada."), 404
 
+    @app.errorhandler(429)
+    def too_many_requests(error):
+        message = (
+            "Muitas tentativas de login a partir deste endereço. "
+            "Aguarde alguns minutos e tente novamente."
+        )
+        if request.path.startswith("/api/"):
+            return jsonify(status="erro", mensagem=message), 429
+        return render_template("error.html", code=429, message=message), 429
+
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
+
 import pytest
 
 from app import create_app
@@ -14,6 +17,13 @@ class TestConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
+    # Desligado por padrão para que os testes de isolamento possam fazer quantas
+    # tentativas de login precisarem. Quem testa o limiter é
+    # tests/test_login_ratelimit.py, que o religa explicitamente.
+    RATELIMIT_ENABLED = False
+    # Fora de logs/, para os testes não sujarem o log real da aplicação com
+    # tentativas de login falhas.
+    LOG_FOLDER = str(Path(tempfile.gettempdir()) / "comanda-ai-testes" / "logs")
     PLATFORM_HOSTNAME = "app.localhost"
     TENANT_BASE_DOMAINS = ["localhost"]
     PLATFORM_ADMIN_USERNAME = "admin"

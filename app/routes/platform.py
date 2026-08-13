@@ -1,17 +1,23 @@
 from __future__ import annotations
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
 from ..decorators import platform_admin_required
-from ..extensions import db
+from ..extensions import db, limiter
 from ..models.platform_admin import PlatformAdmin
 from ..models.tenant import Tenant
 from ..models.usuario import Usuario
+from .auth import login_falhou
 
 platform_bp = Blueprint("platform", __name__, url_prefix="/plataforma")
 
 
 @platform_bp.route("/login", methods=["GET", "POST"])
+@limiter.limit(
+    lambda: current_app.config["LOGIN_RATELIMIT"],
+    methods=["POST"],
+    deduct_when=login_falhou,
+)
 def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
@@ -21,6 +27,9 @@ def login():
             session.clear()
             session["platform_admin_id"] = admin.id
             return redirect(url_for("platform.tenants_list"))
+        current_app.logger.warning(
+            "Login de super-admin falhou: username=%r ip=%s", username, request.remote_addr
+        )
         flash("Usuário ou senha inválidos.", "erro")
     return render_template("platform/login.html")
 
