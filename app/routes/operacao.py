@@ -20,6 +20,7 @@ from flask import (
 )
 
 from ..decorators import login_required
+from ..services.recursos import requer_recurso
 from ..models.categoria import Categoria
 from ..models.pedido import (
     STATUS_ATIVOS,
@@ -84,6 +85,7 @@ def _linha_do_formulario() -> dict:
 
 @operacao_bp.route("/cozinha")
 @login_required
+@requer_recurso("cozinha")
 def cozinha():
     ativos = pedidos_ativos(g.tenant.id)
     # Uma coluna por status, na ordem do fluxo.
@@ -101,6 +103,7 @@ def cozinha():
 
 @operacao_bp.route("/cozinha/eventos")
 @login_required
+@requer_recurso("cozinha")
 def cozinha_eventos():
     """Resposta minúscula que diz se a fila mudou desde a última consulta.
 
@@ -116,6 +119,7 @@ def cozinha_eventos():
 
 @operacao_bp.route("/cozinha/pedidos/<int:pedido_id>/status", methods=["POST"])
 @login_required
+@requer_recurso("cozinha")
 def pedido_status(pedido_id: int):
     pedido = Pedido.query.filter_by(id=pedido_id, tenant_id=g.tenant.id).first()
     if pedido is None:
@@ -137,6 +141,7 @@ def pedido_status(pedido_id: int):
 
 @operacao_bp.route("/mesas")
 @login_required
+@requer_recurso("mesas")
 def mesas():
     if not g.tenant.atende_mesa:
         flash(
@@ -156,6 +161,7 @@ def mesas():
 
 @operacao_bp.route("/mesas/<int:numero>")
 @login_required
+@requer_recurso("mesas")
 def mesa_detalhe(numero: int):
     if not g.tenant.atende_mesa:
         return redirect(url_for("admin.configuracoes"))
@@ -175,6 +181,7 @@ def mesa_detalhe(numero: int):
 
 @operacao_bp.route("/mesas/<int:numero>/itens", methods=["POST"])
 @login_required
+@requer_recurso("mesas")
 def mesa_lancar_item(numero: int):
     linha = _linha_do_formulario()
     pedido = mesas_ativas(g.tenant.id).get(numero)
@@ -204,6 +211,7 @@ def mesa_lancar_item(numero: int):
 
 @operacao_bp.route("/mesas/<int:numero>/fechar", methods=["POST"])
 @login_required
+@requer_recurso("mesas")
 def mesa_fechar(numero: int):
     pedido = mesas_ativas(g.tenant.id).get(numero)
     if pedido is None:

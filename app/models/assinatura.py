@@ -18,6 +18,25 @@ COBRANCA_PAGA = "paga"
 COBRANCA_CANCELADA = "cancelada"
 STATUS_COBRANCA = (COBRANCA_PENDENTE, COBRANCA_PAGA, COBRANCA_CANCELADA)
 
+# Recursos que um plano pode liberar.
+#
+# O catálogo vive no código, não no banco, porque cada slug corresponde a um
+# caminho real da aplicação: um recurso cadastrável que nenhum código consulta
+# seria só um texto bonito na tela.
+#
+# O cardápio, o carrinho, o pedido e o acompanhamento pelo cliente NÃO entram
+# aqui: são a base do produto e nunca são bloqueados. Vender um plano que não
+# tira pedido não faria sentido.
+RECURSOS = (
+    ("cozinha", "Painel da cozinha", "Fila de pedidos por status, com atualização automática."),
+    ("mesas", "Salão e comanda de mesa", "Mapa de mesas, comanda aberta e fechamento."),
+    ("cupons", "Cupons de desconto", "Cupom com limite de usos e pedido mínimo."),
+    ("bairros", "Taxa de entrega por bairro", "Taxa e prazo próprios por região."),
+    ("fotos", "Fotos nos produtos", "Imagem no cardápio, otimizada automaticamente."),
+)
+
+RECURSOS_SLUGS = tuple(slug for slug, _, _ in RECURSOS)
+
 
 class Plano(TimestampMixin, db.Model):
     """Plano de assinatura oferecido pela plataforma, com o preço mensal.
@@ -39,9 +58,41 @@ class Plano(TimestampMixin, db.Model):
     ativo = db.Column(db.Boolean, default=True, nullable=False)
     ordem = db.Column(db.Integer, default=0, nullable=False)
 
+    # Slugs de RECURSOS liberados, separados por vírgula.
+    #
+    # NULL significa "não configurado", e aí o plano libera TUDO. É deliberado:
+    # sem isso, aplicar feature-gating num sistema em uso tiraria na hora todos
+    # os recursos de todos os clientes. A restrição só começa a valer quando
+    # alguém marca as caixas na tela de planos.
+    recursos = db.Column(db.Text)
+
     @property
     def gratuito(self) -> bool:
         return (self.preco_mensal or 0) <= 0
+
+    @property
+    def recursos_configurados(self) -> bool:
+        return self.recursos is not None
+
+    @property
+    def recursos_liberados(self) -> set[str]:
+        """Recursos que este plano libera. Plano não configurado libera todos."""
+        if self.recursos is None:
+            return set(RECURSOS_SLUGS)
+        return {
+            trecho.strip()
+            for trecho in self.recursos.split(",")
+            if trecho.strip() in RECURSOS_SLUGS
+        }
+
+    def definir_recursos(self, slugs) -> None:
+        """Grava os recursos liberados, ignorando slugs que não existem."""
+        validos = [slug for slug in RECURSOS_SLUGS if slug in set(slugs or [])]
+        # String vazia (e não NULL) registra "configurado, mas nada liberado".
+        self.recursos = ",".join(validos)
+
+    def libera(self, slug: str) -> bool:
+        return slug in self.recursos_liberados
 
     def __repr__(self) -> str:  # pragma: no cover - conveniência de debug
         return f"<Plano {self.slug!r} R$ {self.preco_mensal:.2f}>"

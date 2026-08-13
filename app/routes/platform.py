@@ -19,6 +19,7 @@ from ..extensions import db, limiter
 from ..models.assinatura import (
     COBRANCA_PAGA,
     COBRANCA_PENDENTE,
+    RECURSOS,
     Cobranca,
     Plano,
 )
@@ -353,15 +354,15 @@ def planos():
         elif Plano.query.filter_by(slug=slug).first():
             flash(f"Já existe um plano '{slug}'.", "erro")
         else:
-            db.session.add(
-                Plano(
-                    slug=slug,
-                    nome=nome,
-                    preco_mensal=_para_float(request.form.get("preco_mensal")),
-                    descricao=(request.form.get("descricao") or "").strip() or None,
-                    ordem=_para_int(request.form.get("ordem")),
-                )
+            plano = Plano(
+                slug=slug,
+                nome=nome,
+                preco_mensal=_para_float(request.form.get("preco_mensal")),
+                descricao=(request.form.get("descricao") or "").strip() or None,
+                ordem=_para_int(request.form.get("ordem")),
             )
+            plano.definir_recursos(request.form.getlist("recursos"))
+            db.session.add(plano)
             db.session.commit()
             flash(f"Plano '{nome}' criado.", "sucesso")
         return redirect(url_for("platform.planos"))
@@ -371,7 +372,7 @@ def planos():
     uso = {
         plano.slug: Tenant.query.filter_by(plano=plano.slug).count() for plano in lista
     }
-    return render_template("platform/planos.html", planos=lista, uso=uso)
+    return render_template("platform/planos.html", planos=lista, uso=uso, recursos=RECURSOS)
 
 
 @platform_bp.route("/planos/<int:plano_id>/salvar", methods=["POST"])
@@ -391,6 +392,7 @@ def plano_salvar(plano_id: int):
         plano.descricao = (request.form.get("descricao") or "").strip() or None
         plano.ordem = _para_int(request.form.get("ordem"))
         plano.ativo = request.form.get("ativo") == "on"
+        plano.definir_recursos(request.form.getlist("recursos"))
         db.session.commit()
         # O preço novo vale para cobranças futuras: as já emitidas guardam o
         # valor congelado.

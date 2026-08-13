@@ -18,6 +18,7 @@ from ..models.categoria import Categoria
 from ..models.pedido import Pedido, TIPO_ENTREGA, TIPO_RETIRADA
 from ..models.produto import Produto
 from ..services.cupons import validar_cupom
+from ..services.recursos import tenant_libera
 from ..services.pedidos import (
     FORMAS_PAGAMENTO,
     bairros_ativos,
@@ -128,7 +129,8 @@ def carrinho():
 
     # O cupom é revalidado contra o carrinho ATUAL: remover itens pode derrubar
     # o pedido mínimo, e nesse caso o desconto tem que desaparecer da tela.
-    codigo_cupom = session.get(CHAVE_CUPOM)
+    usa_cupons = tenant_libera(g.tenant, "cupons")
+    codigo_cupom = session.get(CHAVE_CUPOM) if usa_cupons else None
     desconto = 0.0
     aviso_cupom = None
     if codigo_cupom and itens:
@@ -147,7 +149,8 @@ def carrinho():
         total_sem_entrega=max(0.0, round(subtotal - desconto, 2)),
         codigo_cupom=codigo_cupom,
         aviso_cupom=aviso_cupom,
-        bairros=bairros_ativos(g.tenant.id),
+        usa_cupons=usa_cupons,
+        bairros=bairros_ativos(g.tenant.id) if tenant_libera(g.tenant, "bairros") else [],
         formas_pagamento=FORMAS_PAGAMENTO,
         tipos=(TIPO_ENTREGA, TIPO_RETIRADA),
         # Identificador do envio: se o cliente clicar duas vezes em "Finalizar",
@@ -160,6 +163,10 @@ def carrinho():
 def carrinho_cupom():
     if g.tenant is None:
         abort(404)
+
+    if not tenant_libera(g.tenant, "cupons"):
+        flash("Este restaurante não usa cupons de desconto.", "erro")
+        return redirect(url_for("public.carrinho"))
 
     linhas = _carrinho_da_sessao()
     itens, subtotal, erro = _itens_calculados(linhas)

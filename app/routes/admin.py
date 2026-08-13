@@ -12,6 +12,7 @@ from ..models.cupom import TIPOS_CUPOM, BairroEntrega, Cupom
 from ..models.produto import Produto
 from ..services.cupons import normalizar_codigo
 from ..services.imagens import remover_imagem, salvar_imagem_produto
+from ..services.recursos import requer_recurso, tenant_libera
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -51,6 +52,21 @@ def _to_datetime(valor: str | None) -> datetime | None:
         return datetime.fromisoformat(texto)
     except ValueError:
         return None
+
+
+def _imagem_enviada(produto: Produto):
+    """Processa a foto enviada, se o plano do tenant incluir fotos.
+
+    Quando não inclui, o arquivo é ignorado com aviso em vez de erro: o resto do
+    cadastro do produto continua valendo.
+    """
+    arquivo = request.files.get("imagem")
+    if not arquivo or not getattr(arquivo, "filename", ""):
+        return None
+    if not tenant_libera(g.tenant, "fotos"):
+        flash("O plano deste restaurante não inclui fotos nos produtos.", "erro")
+        return None
+    return salvar_imagem_produto(arquivo, tenant_slug=g.tenant.slug, produto_id=produto.id)
 
 
 def _categoria_do_tenant(categoria_id: str | None) -> Categoria | None:
@@ -107,7 +123,18 @@ def configuracoes():
         flash("Configurações salvas.", "sucesso")
         return redirect(url_for("admin.configuracoes"))
 
-    return render_template("admin/configuracoes.html", tenant=g.tenant)
+    from ..models.assinatura import RECURSOS, Plano
+    from ..services.recursos import recursos_do_tenant
+
+    liberados = recursos_do_tenant(g.tenant)
+    return render_template(
+        "admin/configuracoes.html",
+        tenant=g.tenant,
+        plano=Plano.query.filter_by(slug=g.tenant.plano).first(),
+        # Mostra o catálogo inteiro marcando o que está incluído: o dono precisa
+        # saber tanto o que tem quanto o que ganharia mudando de plano.
+        recursos=[(rotulo, explicacao, slug in liberados) for slug, rotulo, explicacao in RECURSOS],
+    )
 
 
 @admin_bp.route("/")
@@ -267,6 +294,7 @@ def _bairros_do_tenant() -> list[BairroEntrega]:
 
 @admin_bp.route("/bairros", methods=["GET", "POST"])
 @admin_required
+@requer_recurso("bairros")
 def bairros():
     if request.method == "POST":
         nome = request.form.get("nome", "").strip()
@@ -293,6 +321,7 @@ def bairros():
 
 @admin_bp.route("/bairros/<int:bairro_id>/salvar", methods=["POST"])
 @admin_required
+@requer_recurso("bairros")
 def bairro_salvar(bairro_id: int):
     bairro = BairroEntrega.query.filter_by(id=bairro_id, tenant_id=g.tenant.id).first()
     if bairro is None:
@@ -326,6 +355,7 @@ def bairro_salvar(bairro_id: int):
 
 @admin_bp.route("/bairros/<int:bairro_id>/excluir", methods=["POST"])
 @admin_required
+@requer_recurso("bairros")
 def bairro_excluir(bairro_id: int):
     bairro = BairroEntrega.query.filter_by(id=bairro_id, tenant_id=g.tenant.id).first()
     if bairro is not None:
@@ -344,6 +374,7 @@ def bairro_excluir(bairro_id: int):
 
 @admin_bp.route("/cupons", methods=["GET", "POST"])
 @admin_required
+@requer_recurso("cupons")
 def cupons():
     if request.method == "POST":
         codigo = normalizar_codigo(request.form.get("codigo"))
@@ -379,6 +410,7 @@ def cupons():
 
 @admin_bp.route("/cupons/<int:cupom_id>/salvar", methods=["POST"])
 @admin_required
+@requer_recurso("cupons")
 def cupom_salvar(cupom_id: int):
     cupom = Cupom.query.filter_by(id=cupom_id, tenant_id=g.tenant.id).first()
     if cupom is None:
@@ -409,6 +441,7 @@ def cupom_salvar(cupom_id: int):
 
 @admin_bp.route("/cupons/<int:cupom_id>/excluir", methods=["POST"])
 @admin_required
+@requer_recurso("cupons")
 def cupom_excluir(cupom_id: int):
     cupom = Cupom.query.filter_by(id=cupom_id, tenant_id=g.tenant.id).first()
     if cupom is not None:
@@ -450,9 +483,7 @@ def produtos():
         produto.definir_adicionais(request.form.getlist("adicionais"))
 
         try:
-            imagem = salvar_imagem_produto(
-                request.files.get("imagem"), tenant_slug=g.tenant.slug, produto_id=produto.id
-            )
+            imagem = _imagem_enviada(produto)
         except ValueError as exc:
             db.session.rollback()
             flash(str(exc), "erro")
@@ -503,9 +534,7 @@ def produto_editar(produto_id: int):
         produto.definir_adicionais(request.form.getlist("adicionais"))
 
         try:
-            imagem = salvar_imagem_produto(
-                request.files.get("imagem"), tenant_slug=g.tenant.slug, produto_id=produto.id
-            )
+            imagem = _imagem_enviada(produto)
         except ValueError as exc:
             db.session.rollback()
             flash(str(exc), "erro")

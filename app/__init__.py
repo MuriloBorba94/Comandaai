@@ -85,6 +85,19 @@ def create_app(config_object=Config) -> Flask:
     register_cli(app)
 
     @app.template_global()
+    def libera(slug: str) -> bool:
+        """Diz se o plano do tenant atual inclui um recurso.
+
+        Usado nos templates para não mostrar link de recurso que a pessoa não
+        pode abrir — a rota também barra, mas oferecer e negar seria pior.
+        """
+        from flask import g
+
+        from .services.recursos import tenant_libera
+
+        return tenant_libera(g.get("tenant"), slug)
+
+    @app.template_global()
     def url_do_tenant(slug: str, caminho: str = "/") -> str:
         """Monta o endereço público de um tenant a partir da configuração.
 

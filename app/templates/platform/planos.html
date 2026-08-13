@@ -30,6 +30,20 @@
       <label for="ordem">Ordem</label>
       <input id="ordem" name="ordem" type="number" value="0">
 
+      <label>O que este plano libera</label>
+      <div class="recursos">
+        {% for slug, rotulo, explicacao in recursos %}
+          <label>
+            <input type="checkbox" name="recursos" value="{{ slug }}" checked>
+            <span><strong>{{ rotulo }}</strong><br><span class="muted">{{ explicacao }}</span></span>
+          </label>
+        {% endfor %}
+      </div>
+      <p class="muted">
+        Cardápio, carrinho, pedido e acompanhamento pelo cliente são a base e
+        estão em todos os planos — não dá para desligá-los.
+      </p>
+
       <button type="submit">Criar plano</button>
     </form>
   </div>
@@ -48,23 +62,47 @@
         guardam o valor congelado, então o histórico não se reescreve.
       </p>
       {% for plano in planos %}
-        <div class="linha-edicao">
-          <form class="linha-form" method="post" action="{{ url_for('platform.plano_salvar', plano_id=plano.id) }}">
+        <div class="plano-bloco">
+          <form method="post" action="{{ url_for('platform.plano_salvar', plano_id=plano.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <span class="campo-ordem"><code>{{ plano.slug }}</code></span>
-            <input class="campo-nome" name="nome" value="{{ plano.nome }}" required aria-label="Nome do plano">
-            <input class="campo-ordem" name="preco_mensal" value="{{ "%.2f"|format(plano.preco_mensal)|replace(".", ",") }}" aria-label="Preço mensal">
-            <input class="campo-ordem" name="ordem" type="number" value="{{ plano.ordem }}" aria-label="Ordem">
-            <input name="descricao" value="{{ plano.descricao or '' }}" maxlength="200" placeholder="Descrição" aria-label="Descrição">
-            <label class="check-inline">
-              <input type="checkbox" name="ativo" {% if plano.ativo %}checked{% endif %}> Ativo
-            </label>
-            <span class="muted">{{ uso.get(plano.slug, 0) }} tenant(s)</span>
+
+            <div class="plano-cabeca">
+              <code>{{ plano.slug }}</code>
+              <input class="campo-nome" name="nome" value="{{ plano.nome }}" required aria-label="Nome do plano">
+              <span class="prefixo">R$</span>
+              <input class="campo-ordem" name="preco_mensal" value="{{ "%.2f"|format(plano.preco_mensal)|replace(".", ",") }}" aria-label="Preço mensal">
+              <input class="campo-ordem" name="ordem" type="number" value="{{ plano.ordem }}" aria-label="Ordem">
+              <label class="check-inline">
+                <input type="checkbox" name="ativo" {% if plano.ativo %}checked{% endif %}> Ativo
+              </label>
+              <span class="muted">{{ uso.get(plano.slug, 0) }} tenant(s)</span>
+            </div>
+
+            <input name="descricao" value="{{ plano.descricao or '' }}" maxlength="200"
+                   placeholder="Descrição mostrada ao contratante" aria-label="Descrição">
+
+            <div class="recursos">
+              {% for slug, rotulo, explicacao in recursos %}
+                <label>
+                  <input type="checkbox" name="recursos" value="{{ slug }}"
+                         {% if plano.libera(slug) %}checked{% endif %}>
+                  <span><strong>{{ rotulo }}</strong><br><span class="muted">{{ explicacao }}</span></span>
+                </label>
+              {% endfor %}
+            </div>
+
+            {% if not plano.recursos_configurados %}
+              <p class="muted">
+                Este plano ainda não foi configurado, então <strong>libera tudo</strong>.
+                Salvar aqui passa a valer exatamente o que estiver marcado.
+              </p>
+            {% endif %}
+
             <button type="submit">Salvar</button>
           </form>
           <form method="post" action="{{ url_for('platform.plano_excluir', plano_id=plano.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn-secundario">Excluir</button>
+            <button type="submit" class="btn-secundario">Excluir plano</button>
           </form>
         </div>
       {% endfor %}

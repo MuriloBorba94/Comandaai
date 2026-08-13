@@ -172,6 +172,46 @@ input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
 .pedido-card form { display: inline; }
 .pedido-card button { padding: 6px 10px; font-size: 13px; margin: 2px 2px 0 0; }
 
+/* Recursos liberados por plano */
+.recursos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px 20px;
+  margin: 6px 0 12px;
+}
+.recursos label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-weight: 400;
+  margin: 0;
+  font-size: 14px;
+}
+.recursos input[type="checkbox"] { margin-top: 3px; flex: 0 0 auto; }
+
+.plano-bloco {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.plano-bloco:last-child { border-bottom: none; }
+.plano-cabeca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.plano-cabeca input { margin-bottom: 0; }
+.plano-cabeca code { background: var(--bg); padding: 4px 8px; border-radius: 4px; }
+.prefixo { color: #777; font-size: 14px; }
+
+/* Lista do que o plano inclui, na visão do contratante */
+.inclui { list-style: none; padding: 0; margin: 8px 0 0; }
+.inclui li { padding: 5px 0; display: flex; gap: 8px; align-items: baseline; }
+.inclui .sim { color: #1c7d4d; font-weight: 700; }
+.inclui .nao { color: #999; font-weight: 700; }
+.inclui .fora { color: #999; }
+
 /* Cobranças da plataforma */
 .titulo-secao { font-size: 16px; margin: 22px 0 10px; }
 

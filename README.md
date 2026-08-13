@@ -47,6 +47,21 @@ a data já passou, e quando o **plano dele tem preço maior que zero**. Tenant c
 o fim do teste em branco nunca é cobrado nem suspenso — é o que protege os
 tenants criados antes desta fase.
 
+### O que cada plano libera
+
+Em **Plataforma → Planos**, além do preço, cada plano marca quais recursos
+inclui: painel da cozinha, salão e comanda, cupons, taxa por bairro e fotos nos
+produtos. O dono do restaurante vê a lista em **Configurações**, com o que tem e
+o que ganharia mudando de plano.
+
+Cardápio, carrinho, pedido e acompanhamento pelo cliente são a base do produto e
+estão em todos os planos — não há como desligá-los.
+
+**Plano que nunca foi configurado libera tudo.** É deliberado: sem isso, ativar
+essa restrição num sistema em uso tiraria na hora todos os recursos de todos os
+clientes. A restrição de um plano começa a valer no momento em que você salva a
+configuração dele.
+
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):
 pedidos, cozinha, cupons, PIX, WhatsApp, impressão, estoque/financeiro,
 cobrança recorrente real, deploy de produção. A lógica de negócio é portada de

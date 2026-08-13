@@ -48,6 +48,7 @@ from ..models.produto import Produto
 from .cupons import consumir as consumir_cupom
 from .cupons import liberar as liberar_cupom
 from .cupons import reservar_para_pedido
+from .recursos import tenant_libera
 
 MAX_ITENS_CARRINHO = 50
 MAX_QUANTIDADE_ITEM = 30
@@ -240,6 +241,9 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
     pagamento = _texto(payload.get("pagamento"), 80)
     codigo_cupom = _texto(payload.get("cupom"), 40)
 
+    if codigo_cupom and not tenant_libera(tenant, "cupons"):
+        raise ValueError("Este restaurante não usa cupons de desconto.")
+
     if tipo == TIPO_MESA:
         mesa = normalizar_mesa(payload.get("mesa"), tenant.qtd_mesas or 0)
         if mesa_ocupada(tenant.id, mesa):
@@ -259,7 +263,13 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
             endereco = _texto(payload.get("endereco"), 350)
             if len(endereco) < 8:
                 raise ValueError("Informe o endereço completo para entrega.")
-            bairro = _resolver_bairro(tenant.id, payload.get("bairro_id"))
+            # Sem o recurso de bairros no plano, a entrega sai com taxa zero
+            # em vez de exigir uma escolha que a loja não pode configurar.
+            bairro = (
+                _resolver_bairro(tenant.id, payload.get("bairro_id"))
+                if tenant_libera(tenant, "bairros")
+                else None
+            )
 
     itens, subtotal = calcular_carrinho(tenant.id, payload.get("carrinho"))
 

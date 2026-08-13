@@ -69,8 +69,10 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    valor de revenda do produto vem primeiro de pedidos + cozinha + WhatsApp +
    cobrança.
 
-10. **Hardening e operação.** Backup por tenant, audit log, feature-gating
-    por plano (`Tenant.plano`), ferramenta de impersonation para suporte,
+10. **Hardening e operação.** Backup por tenant, audit log,
+    ~~feature-gating por plano~~ (**feito junto com a Fase 4**: cada plano marca
+    quais recursos libera, e plano não configurado libera tudo para não tirar
+    acesso de quem já usa), ferramenta de impersonation para suporte,
     monitoramento de erros (ex. Sentry).
 
 11. **Migração do Borba's Burguer como "tenant zero".** Criar o `Tenant` do

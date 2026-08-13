@@ -5,7 +5,15 @@
 {% block content %}
   <div class="card stats">
     <div>
-      <p><a href="{{ url_for('operacao.cozinha') }}">Pedidos em andamento</a></p>
+      {# Só vira link se o plano incluir a cozinha: apontar para uma tela que a
+         pessoa não pode abrir é pior do que só mostrar o número. #}
+      <p>
+        {% if libera('cozinha') %}
+          <a href="{{ url_for('operacao.cozinha') }}">Pedidos em andamento</a>
+        {% else %}
+          Pedidos em andamento
+        {% endif %}
+      </p>
       <div class="stat">{{ total_ativos }}</div>
     </div>
     <div>

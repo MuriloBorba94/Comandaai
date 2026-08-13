@@ -4,6 +4,42 @@
 {% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
 {% block content %}
   <div class="card">
+    <h1>Seu plano</h1>
+    <p>
+      <strong>{{ plano.nome if plano else tenant.plano }}</strong>
+      {% if plano and plano.preco_mensal %}
+        · R$ {{ plano.preco_mensal|brl }} por mês
+      {% elif plano %}
+        · sem cobrança
+      {% endif %}
+      {% if tenant.status == "trial" and tenant.trial_termina_em %}
+        · teste grátis até {{ tenant.trial_termina_em.strftime('%d/%m/%Y') }}
+      {% endif %}
+    </p>
+    {% if plano and plano.descricao %}<p class="muted">{{ plano.descricao }}</p>{% endif %}
+
+    <ul class="inclui">
+      {% for rotulo, explicacao, incluido in recursos %}
+        <li>
+          {% if incluido %}
+            <span class="sim" aria-hidden="true">✓</span>
+            <span><strong>{{ rotulo }}</strong> — <span class="muted">{{ explicacao }}</span></span>
+          {% else %}
+            <span class="nao" aria-hidden="true">×</span>
+            <span class="fora">
+              <strong>{{ rotulo }}</strong> — não incluído no seu plano
+            </span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="muted">
+      Cardápio, carrinho, pedidos e acompanhamento pelo cliente estão em todos os
+      planos.
+    </p>
+  </div>
+
+  <div class="card">
     <h1>Configurações da loja</h1>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
