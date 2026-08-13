@@ -26,6 +26,13 @@ def _split_list(value: str) -> list[str]:
     return [chunk.strip().lower() for chunk in (value or "").split(",") if chunk.strip()]
 
 
+def _to_int(value: str | None, padrao: int) -> int:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return padrao
+
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-change-me-now")
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL") or f"sqlite:///{(BASE_DIR / 'instance' / 'saas.db').as_posix()}"
@@ -36,8 +43,25 @@ class Config:
     }
 
     WTF_CSRF_TIME_LIMIT = None
-    RATELIMIT_STORAGE_URI = "memory://"
+
+    # "memory://" guarda a contagem no processo: zera a cada restart e não é
+    # compartilhada entre workers, então com N workers o limite efetivo é N
+    # vezes maior. Em produção aponte para Redis
+    # (ex.: redis://localhost:6379/0), sem precisar mexer no código.
+    RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
     RATELIMIT_ENABLED = True
+
+    # Quantos proxies confiáveis existem na frente da aplicação.
+    #
+    # 0 (padrão) = o app responde direto ao cliente, e X-Forwarded-For é
+    # IGNORADO. Isso é deliberado: confiar no header quando não há proxy é pior
+    # do que não confiar, porque qualquer um pode enviá-lo e escapar do rate
+    # limit trocando o valor a cada tentativa.
+    #
+    # Em produção atrás de 1 proxy (Nginx, Caddy, Cloudflare), defina 1 — aí o
+    # IP real do cliente passa a ser usado no limite, em vez de todos os
+    # visitantes contarem como o IP do proxy.
+    TRUSTED_PROXIES = _to_int(os.getenv("TRUSTED_PROXIES"), 0)
 
     # Limite por IP nas rotas de login, para travar força bruta. Consome cota
     # somente em tentativas que FALHAM (ver deduct_when em routes/auth.py e

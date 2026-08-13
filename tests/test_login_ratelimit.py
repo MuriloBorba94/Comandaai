@@ -23,13 +23,21 @@ class RateLimitConfig(TestConfig):
     LOGIN_RATELIMIT = f"{LIMITE} per minute"
 
 
-@pytest.fixture()
-def app():
-    application = create_app(RateLimitConfig)
+class AtrasDeProxyConfig(RateLimitConfig):
+    """Como o app roda em produção: um proxy confiável na frente."""
+
+    TRUSTED_PROXIES = 1
+
+
+def _montar(config):
+    """Cria o app já com tenant, usuário e super-admin, e limiter zerado.
+
+    O limiter é um singleton de módulo: sem reset, a cota consumida por um teste
+    vazaria para o próximo.
+    """
+    application = create_app(config)
     with application.app_context():
         db.create_all()
-        # O limiter é um singleton de módulo: sem reset, a cota consumida por um
-        # teste vazaria para o próximo.
         limiter.reset()
 
         tenant = Tenant(
@@ -48,6 +56,16 @@ def app():
 
         limiter.reset()
         db.drop_all()
+
+
+@pytest.fixture()
+def app_atras_de_proxy():
+    yield from _montar(AtrasDeProxyConfig)
+
+
+@pytest.fixture()
+def app():
+    yield from _montar(RateLimitConfig)
 
 
 @pytest.fixture()
@@ -115,3 +133,50 @@ def test_pagina_de_bloqueio_explica_o_motivo(client):
     resposta = _post_login(client, "senha-errada", "10.0.0.7")
     assert resposta.status_code == 429
     assert "Muitas tentativas" in resposta.get_data(as_text=True)
+
+
+# --------------------------------------------------------------------------- #
+# X-Forwarded-For: só é respeitado quando há proxy confiável declarado
+# --------------------------------------------------------------------------- #
+
+
+def _post_com_xff(client, xff, senha="senha-errada", remote="10.9.9.9"):
+    return client.post(
+        "/login",
+        data={"username": "admin", "password": senha},
+        base_url="http://tenant-a.localhost",
+        environ_base={"REMOTE_ADDR": remote},
+        headers={"X-Forwarded-For": xff},
+    )
+
+
+def test_sem_proxy_o_xff_nao_burla_o_limite(client):
+    """TRUSTED_PROXIES=0: o header é ignorado, então trocá-lo não dá cota nova.
+
+    Este é o teste que importa para segurança: se o X-Forwarded-For fosse
+    respeitado sem proxy na frente, bastaria mandar um valor diferente a cada
+    tentativa para tentar senhas infinitamente.
+    """
+    for tentativa in range(LIMITE):
+        resposta = _post_com_xff(client, f"203.0.113.{tentativa}")
+        assert resposta.status_code == 200, f"tentativa {tentativa + 1} não devia bloquear ainda"
+
+    bloqueada = _post_com_xff(client, "203.0.113.250")
+    assert bloqueada.status_code == 429, "trocar o XFF não pode render cota nova"
+
+
+def test_atras_de_proxy_o_limite_e_por_cliente_real(app_atras_de_proxy):
+    """TRUSTED_PROXIES=1: o IP do cliente vale, não o do proxy.
+
+    Sem isso, todos os visitantes contariam como o mesmo IP (o do proxy) e o
+    primeiro cliente a errar a senha 5 vezes trancaria o login de todo mundo.
+    """
+    client = app_atras_de_proxy.test_client()
+
+    # O atacante em 203.0.113.7 gasta a própria cota.
+    for _ in range(LIMITE):
+        assert _post_com_xff(client, "203.0.113.7").status_code == 200
+    assert _post_com_xff(client, "203.0.113.7").status_code == 429
+
+    # Outro cliente, atrás do MESMO proxy, continua conseguindo logar.
+    assert _post_com_xff(client, "198.51.100.20", senha="senha-a-123").status_code == 302

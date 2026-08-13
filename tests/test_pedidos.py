@@ -720,3 +720,53 @@ def test_telas_de_operacao_renderizam(client, cardapio, tenant_a_obj):
     comanda = client.get("/mesas/2", base_url=BASE_A).get_data(as_text=True)
     assert "Comanda aberta" in comanda
     assert "Bacon" in comanda
+
+
+# --------------------------------------------------------------------------- #
+# Numeração: o caminho de colisão
+# --------------------------------------------------------------------------- #
+
+
+def test_retry_recupera_de_colisao_de_numero(client, cardapio, tenant_a_obj, monkeypatch):
+    """Força a colisão que a unique constraint (tenant_id, numero) barra.
+
+    O número é calculado com MAX+1, então dois pedidos simultâneos podem tentar
+    o mesmo. O retry existe para isso, mas nenhum teste exercitava esse caminho:
+    era uma afirmação sem prova, e o rollback poderia ter perdido os itens do
+    pedido no caminho.
+    """
+    from app.services import pedidos as servico
+
+    criar_pedido(tenant_a_obj, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))
+
+    original = servico._proximo_numero
+    chamadas = []
+
+    def numero_colidindo(tenant_id):
+        chamadas.append(tenant_id)
+        # Na primeira tentativa devolve 1, que já existe -> IntegrityError.
+        return 1 if len(chamadas) == 1 else original(tenant_id)
+
+    monkeypatch.setattr(servico, "_proximo_numero", numero_colidindo)
+
+    pedido = criar_pedido(
+        tenant_a_obj, _payload([{"produto_id": cardapio["xtudo"], "quantidade": 2}])
+    )
+
+    assert len(chamadas) >= 2, "o retry não aconteceu"
+    assert pedido.numero == 2
+    # O rollback do meio não pode ter comido os itens nem o total.
+    assert [(item.nome, item.quantidade) for item in pedido.itens] == [("X-Tudo", 2)]
+    assert pedido.total == 60.0
+    assert Pedido.query.filter_by(tenant_id=cardapio["tenant_a"]).count() == 2
+
+
+def test_colisao_persistente_falha_com_mensagem_clara(client, cardapio, tenant_a_obj, monkeypatch):
+    """Se o número colidir sempre, o cliente recebe erro tratado, não exceção crua."""
+    from app.services import pedidos as servico
+
+    criar_pedido(tenant_a_obj, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))
+    monkeypatch.setattr(servico, "_proximo_numero", lambda tenant_id: 1)
+
+    with pytest.raises(ValueError, match="Não foi possível registrar o pedido"):
+        criar_pedido(tenant_a_obj, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))

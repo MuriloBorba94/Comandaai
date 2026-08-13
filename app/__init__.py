@@ -26,6 +26,30 @@ def _validate_secret_key(app: Flask) -> None:
         raise ConfiguracaoInvalida(SECRET_KEY_ERROR)
 
 
+def _aplicar_proxy_fix(app: Flask) -> None:
+    """Faz o Flask ler o IP e o esquema reais quando há proxy na frente.
+
+    Só é aplicado quando TRUSTED_PROXIES > 0. Sem proxy, X-Forwarded-For
+    continua ignorado de propósito: confiar nele nesse caso permitiria a
+    qualquer cliente forjar o header e escapar do rate limit de login trocando
+    o valor a cada tentativa.
+    """
+    quantidade = int(app.config.get("TRUSTED_PROXIES") or 0)
+    if quantidade <= 0:
+        return
+
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=quantidade,
+        x_proto=quantidade,
+        x_host=quantidade,
+        x_port=quantidade,
+    )
+    app.logger.info("ProxyFix ativo para %s proxy(s) confiável(is).", quantidade)
+
+
 def create_app(config_object=Config) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_object)
@@ -41,6 +65,7 @@ def create_app(config_object=Config) -> Flask:
     limiter.init_app(app)
 
     _configure_logging(app)
+    _aplicar_proxy_fix(app)
 
     from . import models  # noqa: F401
     from .cli import register_cli
