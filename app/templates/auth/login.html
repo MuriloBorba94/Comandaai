@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Login — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block content %}
+  <div class="card" style="max-width:360px;margin:40px auto;">
+    <h1>Login</h1>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="username">Usuário</label>
+      <input id="username" name="username" required autofocus>
+      <label for="password">Senha</label>
+      <input id="password" name="password" type="password" required>
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+{% endblock %}

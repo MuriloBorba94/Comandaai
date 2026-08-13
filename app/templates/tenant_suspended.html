@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Acesso suspenso{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Acesso temporariamente indisponível</h1>
+    {% if tenant %}
+      <p>A loja <strong>{{ tenant.nome_fantasia }}</strong> está com o acesso suspenso
+      (status: {{ tenant.status }}). Fale com o suporte para regularizar.</p>
+    {% else %}
+      <p>Esta loja está com o acesso suspenso. Fale com o suporte para regularizar.</p>
+    {% endif %}
+  </div>
+{% endblock %}

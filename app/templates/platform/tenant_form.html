@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Novo tenant{% endblock %}
+{% block header_title %}Comanda ai — Plataforma{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('platform.tenants_list') }}">Voltar</a>
+{% endblock %}
+{% block content %}
+  <div class="card" style="max-width:480px;">
+    <h1>Novo tenant</h1>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="slug">Slug (subdomínio)</label>
+      <input id="slug" name="slug" value="{{ form.slug or '' }}" placeholder="ex.: pizzariadojoao" required>
+
+      <label for="nome_fantasia">Nome do restaurante</label>
+      <input id="nome_fantasia" name="nome_fantasia" value="{{ form.nome_fantasia or '' }}" required>
+
+      <label for="email_contato">E-mail de contato</label>
+      <input id="email_contato" name="email_contato" type="email" value="{{ form.email_contato or '' }}" required>
+
+      <label for="plano">Plano</label>
+      <select id="plano" name="plano">
+        <option value="trial" {% if form.plano == 'trial' %}selected{% endif %}>Trial</option>
+        <option value="starter" {% if form.plano == 'starter' %}selected{% endif %}>Starter</option>
+        <option value="pro" {% if form.plano == 'pro' %}selected{% endif %}>Pro</option>
+      </select>
+
+      <hr>
+      <p>Primeiro usuário admin deste tenant:</p>
+
+      <label for="admin_username">Usuário admin</label>
+      <input id="admin_username" name="admin_username" value="{{ form.admin_username or '' }}" required>
+
+      <label for="admin_password">Senha admin</label>
+      <input id="admin_password" name="admin_password" type="password" required>
+
+      <button type="submit">Criar tenant</button>
+    </form>
+  </div>
+{% endblock %}

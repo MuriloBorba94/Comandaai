@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Tenants{% endblock %}
+{% block header_title %}Comanda ai — Plataforma{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('platform.tenant_new') }}">+ Novo tenant</a>
+  <a href="{{ url_for('platform.logout') }}">Sair</a>
+{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Tenants</h1>
+    <table>
+      <thead>
+        <tr><th>Slug</th><th>Nome</th><th>Plano</th><th>Status</th><th>Acesso</th></tr>
+      </thead>
+      <tbody>
+        {% for tenant in tenants %}
+        <tr>
+          <td>{{ tenant.slug }}</td>
+          <td>{{ tenant.nome_fantasia }}</td>
+          <td>{{ tenant.plano }}</td>
+          <td>{{ tenant.status }}</td>
+          <td><a href="http://{{ tenant.slug }}.localhost:5000/" target="_blank">abrir</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">Nenhum tenant cadastrado ainda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

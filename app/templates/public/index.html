@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Cardápio</h1>
+    <ul>
+      {% for produto in produtos %}
+        <li>{{ produto.nome }} — R$ {{ "%.2f"|format(produto.preco) }}</li>
+      {% else %}
+        <li>Nenhum produto disponível ainda.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

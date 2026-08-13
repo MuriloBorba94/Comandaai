@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Painel — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}
+  <a href="{{ url_for('admin.produtos') }}">Produtos</a>
+  <a href="{{ url_for('auth.logout') }}">Sair</a>
+{% endblock %}
+{% block content %}
+  <div class="card">
+    <p>Produtos cadastrados</p>
+    <div class="stat">{{ total_produtos }}</div>
+  </div>
+{% endblock %}
