@@ -39,7 +39,11 @@
 
     <p class="total-linha">Subtotal: R$ {{ pedido.subtotal|brl }}</p>
     {% if pedido.taxa_entrega %}<p class="total-linha">Entrega: R$ {{ pedido.taxa_entrega|brl }}</p>{% endif %}
-    {% if pedido.desconto %}<p class="total-linha">Desconto: −R$ {{ pedido.desconto|brl }}</p>{% endif %}
+    {% if pedido.desconto %}
+      <p class="total-linha">
+        Desconto{% if pedido.cupom_codigo %} ({{ pedido.cupom_codigo }}){% endif %}: −R$ {{ pedido.desconto|brl }}
+      </p>
+    {% endif %}
     <p class="total-linha"><strong>Total: R$ {{ pedido.total|brl }}</strong></p>
 
     {% if pedido.observacao %}<p class="muted">Observação: {{ pedido.observacao }}</p>{% endif %}

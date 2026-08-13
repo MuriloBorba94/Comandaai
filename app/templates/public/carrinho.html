@@ -31,10 +31,37 @@
         </div>
       {% endfor %}
 
-      <p class="total-linha">Total: <strong>R$ {{ subtotal|brl }}</strong></p>
-      <p class="muted">A taxa de entrega ainda não é cobrada nesta versão.</p>
+      <p class="total-linha">Subtotal: R$ {{ subtotal|brl }}</p>
+      {% if desconto %}
+        <p class="total-linha">Desconto ({{ codigo_cupom }}): −R$ {{ desconto|brl }}</p>
+      {% endif %}
+      <p class="total-linha"><strong>Total: R$ {{ total_sem_entrega|brl }}</strong></p>
+      {% if bairros %}
+        <p class="muted">A taxa de entrega do bairro escolhido é somada no fechamento.</p>
+      {% endif %}
     {% endif %}
   </div>
+
+  {% if itens %}
+  <div class="card">
+    <h1>Cupom de desconto</h1>
+    {% if aviso_cupom %}<div class="flash flash-erro">{{ aviso_cupom }}</div>{% endif %}
+    {% if codigo_cupom and desconto %}
+      <p>Cupom <strong>{{ codigo_cupom }}</strong> aplicado.</p>
+      <form method="post" action="{{ url_for('public.carrinho_cupom_remover') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-secundario">Remover cupom</button>
+      </form>
+    {% else %}
+      <form method="post" action="{{ url_for('public.carrinho_cupom') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="cupom">Tem um cupom?</label>
+        <input id="cupom" name="cupom" maxlength="40" placeholder="Digite o código">
+        <button type="submit">Aplicar</button>
+      </form>
+    {% endif %}
+  </div>
+  {% endif %}
 
   {% if itens %}
   <div class="card">
@@ -58,7 +85,19 @@
       </select>
 
       <label for="endereco">Endereço (somente para entrega)</label>
-      <input id="endereco" name="endereco" maxlength="350" placeholder="Rua, número, bairro e referência">
+      <input id="endereco" name="endereco" maxlength="350" placeholder="Rua, número e referência">
+
+      {% if bairros %}
+        <label for="bairro_id">Bairro da entrega</label>
+        <select id="bairro_id" name="bairro_id">
+          {% if bairros|length > 1 %}<option value="">— Escolha o bairro —</option>{% endif %}
+          {% for bairro in bairros %}
+            <option value="{{ bairro.id }}">
+              {{ bairro.nome }} — entrega R$ {{ bairro.taxa|brl }}{% if bairro.prazo_adicional_min %} (+{{ bairro.prazo_adicional_min }} min){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      {% endif %}
 
       <label for="pagamento">Forma de pagamento</label>
       <select id="pagamento" name="pagamento">

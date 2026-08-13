@@ -17,7 +17,13 @@ from flask import (
 from ..models.categoria import Categoria
 from ..models.pedido import Pedido, TIPO_ENTREGA, TIPO_RETIRADA
 from ..models.produto import Produto
-from ..services.pedidos import FORMAS_PAGAMENTO, calcular_carrinho, criar_pedido
+from ..services.cupons import validar_cupom
+from ..services.pedidos import (
+    FORMAS_PAGAMENTO,
+    bairros_ativos,
+    calcular_carrinho,
+    criar_pedido,
+)
 
 public_bp = Blueprint("public", __name__)
 
@@ -27,6 +33,9 @@ GRUPO_SEM_CATEGORIA = "Outros"
 
 CHAVE_CARRINHO = "carrinho"
 CHAVE_CARRINHO_TENANT = "carrinho_tenant"
+# Na sessão fica só o CÓDIGO do cupom. O desconto é recalculado a cada tela e
+# no fechamento — guardar o valor na sessão seria confiar num dado do cliente.
+CHAVE_CUPOM = "cupom"
 MAX_LINHAS_CARRINHO = 50
 
 
@@ -53,6 +62,7 @@ def _salvar_carrinho(carrinho: list[dict]) -> None:
 def _limpar_carrinho() -> None:
     session.pop(CHAVE_CARRINHO, None)
     session.pop(CHAVE_CARRINHO_TENANT, None)
+    session.pop(CHAVE_CUPOM, None)
 
 
 def _itens_calculados(carrinho: list[dict]):
@@ -116,17 +126,65 @@ def carrinho():
     if erro:
         flash(erro, "erro")
 
+    # O cupom é revalidado contra o carrinho ATUAL: remover itens pode derrubar
+    # o pedido mínimo, e nesse caso o desconto tem que desaparecer da tela.
+    codigo_cupom = session.get(CHAVE_CUPOM)
+    desconto = 0.0
+    aviso_cupom = None
+    if codigo_cupom and itens:
+        resultado = validar_cupom(g.tenant.id, codigo_cupom, itens, subtotal)
+        if resultado.ok:
+            desconto = float(resultado.desconto)
+        else:
+            aviso_cupom = resultado.mensagem
+
     return render_template(
         "public/carrinho.html",
         tenant=g.tenant,
         itens=itens,
         subtotal=subtotal,
+        desconto=desconto,
+        total_sem_entrega=max(0.0, round(subtotal - desconto, 2)),
+        codigo_cupom=codigo_cupom,
+        aviso_cupom=aviso_cupom,
+        bairros=bairros_ativos(g.tenant.id),
         formas_pagamento=FORMAS_PAGAMENTO,
         tipos=(TIPO_ENTREGA, TIPO_RETIRADA),
         # Identificador do envio: se o cliente clicar duas vezes em "Finalizar",
         # o segundo POST reencontra o mesmo pedido em vez de criar outro.
         client_request_id=secrets.token_urlsafe(18),
     )
+
+
+@public_bp.route("/carrinho/cupom", methods=["POST"])
+def carrinho_cupom():
+    if g.tenant is None:
+        abort(404)
+
+    linhas = _carrinho_da_sessao()
+    itens, subtotal, erro = _itens_calculados(linhas)
+    if erro or not itens:
+        flash("Adicione itens ao carrinho antes de aplicar um cupom.", "erro")
+        return redirect(url_for("public.carrinho"))
+
+    resultado = validar_cupom(g.tenant.id, request.form.get("cupom"), itens, subtotal)
+    if resultado.ok:
+        # Guarda só o código; o desconto é sempre recalculado.
+        session[CHAVE_CUPOM] = resultado.codigo
+        flash(f"Cupom {resultado.codigo} aplicado.", "sucesso")
+    else:
+        session.pop(CHAVE_CUPOM, None)
+        flash(resultado.mensagem, "erro")
+    return redirect(url_for("public.carrinho"))
+
+
+@public_bp.route("/carrinho/cupom/remover", methods=["POST"])
+def carrinho_cupom_remover():
+    if g.tenant is None:
+        abort(404)
+    session.pop(CHAVE_CUPOM, None)
+    flash("Cupom removido.", "sucesso")
+    return redirect(url_for("public.carrinho"))
 
 
 @public_bp.route("/carrinho/adicionar", methods=["POST"])
@@ -199,9 +257,13 @@ def pedido_criar():
         "telefone": request.form.get("telefone"),
         "tipo": request.form.get("tipo"),
         "endereco": request.form.get("endereco"),
+        "bairro_id": request.form.get("bairro_id"),
         "pagamento": request.form.get("pagamento"),
         "observacao": request.form.get("observacao"),
         "client_request_id": request.form.get("client_request_id"),
+        # O cupom vem da sessão, não do formulário: o cliente não pode injetar
+        # um código diferente do que foi validado, nem um desconto.
+        "cupom": session.get(CHAVE_CUPOM),
         "carrinho": linhas,
         "origem": "site",
     }

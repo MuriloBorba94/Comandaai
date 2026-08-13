@@ -22,6 +22,10 @@ class Produto(TimestampMixin, db.Model):
     # mudar depois.
     imagem = db.Column(db.String(200))
     disponivel = db.Column(db.Boolean, default=True, nullable=False)
+    # Item que já está com preço promocional. Cupom não incide sobre ele, a
+    # menos que o cupom marque permite_combo_promocional — é o que evita
+    # empilhar desconto sobre desconto.
+    combo_promocional = db.Column(db.Boolean, default=False, nullable=False)
 
     tenant = db.relationship("Tenant", back_populates="produtos")
     categoria = db.relationship("Categoria", back_populates="produtos")

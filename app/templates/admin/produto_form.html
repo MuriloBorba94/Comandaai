@@ -63,6 +63,10 @@
         <input type="checkbox" name="disponivel" {% if produto.disponivel %}checked{% endif %}>
         Disponível no cardápio
       </label>
+      <label class="check-inline">
+        <input type="checkbox" name="combo_promocional" {% if produto.combo_promocional %}checked{% endif %}>
+        É combo/promoção (cupom não desconta este item)
+      </label>
 
       <button type="submit">Salvar</button>
       <a class="btn btn-secundario" href="{{ url_for('admin.produtos') }}">Cancelar</a>

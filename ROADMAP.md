@@ -24,8 +24,14 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    `/admin/configuracoes` (no original, a faixa de mesas era constante no
    código). Ainda sem taxa por bairro e sem cupom — Fase 3.
 
-3. **Cupons + bairros de entrega.** Portar `Cupom`/`CupomUso` (padrão de
-   reserva de uso) e `BairroEntrega`.
+3. ~~**Cupons + bairros de entrega.**~~ **CONCLUÍDA.** `Cupom`/`CupomUso` com o
+   padrão reservar → usar/liberar, e `BairroEntrega` alimentando taxa e prazo
+   por região. Código do cupom e nome do bairro passaram a ser únicos por
+   tenant (eram globais). O desconto nunca incide sobre a taxa de entrega nem
+   sobre item marcado como combo promocional, e o cupom é reservado na criação
+   do pedido, consumido em qualquer avanço de status e liberado no
+   cancelamento. A reserva nasce sem prazo: expirar enquanto a cozinha demora
+   liberaria o cupom com o desconto já concedido — a expiração volta na Fase 6.
 
 4. **Cobrança recorrente da própria SaaS.** Integrar um gateway brasileiro
    com suporte a PIX recorrente (Asaas recomendado; Iugu/Vindi como

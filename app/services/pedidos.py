@@ -43,7 +43,11 @@ from ..models.pedido import (
     PedidoItem,
     PedidoItemAdicional,
 )
+from ..models.cupom import BairroEntrega
 from ..models.produto import Produto
+from .cupons import consumir as consumir_cupom
+from .cupons import liberar as liberar_cupom
+from .cupons import reservar_para_pedido
 
 MAX_ITENS_CARRINHO = 50
 MAX_QUANTIDADE_ITEM = 30
@@ -147,7 +151,7 @@ def calcular_carrinho(tenant_id: int, carrinho) -> tuple[list[PedidoItem], Decim
     return itens, subtotal
 
 
-def calcular_estimativa(tenant, tipo: str) -> tuple[int, int]:
+def calcular_estimativa(tenant, tipo: str, prazo_adicional: int = 0) -> tuple[int, int]:
     """Janela de tempo informada ao cliente, esticada conforme a fila atual."""
     base_min = int(tenant.tempo_estimado_min or 40)
     base_max = int(tenant.tempo_estimado_max or 60)
@@ -163,7 +167,39 @@ def calcular_estimativa(tenant, tipo: str) -> tuple[int, int]:
         base_min = max(20, base_min - 10)
         base_max = max(base_min + 10, base_max - 10)
 
-    return base_min + extra_fila, base_max + extra_fila
+    extra = extra_fila + max(0, int(prazo_adicional or 0))
+    return base_min + extra, base_max + extra
+
+
+def bairros_ativos(tenant_id: int) -> list[BairroEntrega]:
+    return (
+        BairroEntrega.query.filter_by(tenant_id=tenant_id, ativo=True)
+        .order_by(BairroEntrega.ordem, BairroEntrega.nome)
+        .all()
+    )
+
+
+def _resolver_bairro(tenant_id: int, bairro_id) -> BairroEntrega | None:
+    """Resolve o bairro escolhido, exigindo escolha só se o tenant configurou algum.
+
+    Se o restaurante ainda não cadastrou bairros, a entrega continua possível com
+    taxa zero — do contrário, um tenant novo ficaria sem poder vender entrega até
+    configurar o salão inteiro.
+    """
+    disponiveis = bairros_ativos(tenant_id)
+    if not disponiveis:
+        return None
+
+    if str(bairro_id or "").strip().isdigit():
+        escolhido = BairroEntrega.query.filter_by(
+            id=int(bairro_id), tenant_id=tenant_id, ativo=True
+        ).first()
+        if escolhido is not None:
+            return escolhido
+    # Com um único bairro ativo, não faz sentido exigir a escolha.
+    if len(disponiveis) == 1:
+        return disponiveis[0]
+    raise ValueError("Selecione o bairro da entrega.")
 
 
 def _proximo_numero(tenant_id: int) -> int:
@@ -200,7 +236,9 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
 
     mesa = None
     endereco = None
+    bairro = None
     pagamento = _texto(payload.get("pagamento"), 80)
+    codigo_cupom = _texto(payload.get("cupom"), 40)
 
     if tipo == TIPO_MESA:
         mesa = normalizar_mesa(payload.get("mesa"), tenant.qtd_mesas or 0)
@@ -208,6 +246,10 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
             raise ValueError(f"A mesa {mesa} já tem uma comanda aberta.")
         # Mesa não escolhe pagamento na abertura: paga no fechamento da comanda.
         pagamento = PAGAMENTO_COMANDA
+        if codigo_cupom:
+            # A comanda acumula itens, então um desconto percentual precisaria
+            # ser recalculado a cada lançamento. Fica para uma fase futura.
+            raise ValueError("Cupom não pode ser usado em comanda de mesa.")
     else:
         if len(telefone) < 10:
             raise ValueError("Informe um WhatsApp válido com DDD.")
@@ -217,14 +259,14 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
             endereco = _texto(payload.get("endereco"), 350)
             if len(endereco) < 8:
                 raise ValueError("Informe o endereço completo para entrega.")
+            bairro = _resolver_bairro(tenant.id, payload.get("bairro_id"))
 
     itens, subtotal = calcular_carrinho(tenant.id, payload.get("carrinho"))
-    estimado_min, estimado_max = calcular_estimativa(tenant, tipo)
 
-    # A taxa de entrega é 0 até a Fase 3 (taxa por bairro). Fica explícita aqui
-    # para o cálculo do total já estar no lugar quando ela existir.
-    taxa_entrega = Decimal("0.00")
-    desconto = Decimal("0.00")  # cupom é a Fase 3
+    # Taxa e prazo vêm do bairro cadastrado, nunca do formulário.
+    taxa_entrega = _dinheiro(bairro.taxa) if bairro else Decimal("0.00")
+    prazo_adicional = int(bairro.prazo_adicional_min or 0) if bairro else 0
+    estimado_min, estimado_max = calcular_estimativa(tenant, tipo, prazo_adicional)
 
     pedido = Pedido(
         tenant_id=tenant.id,
@@ -235,10 +277,12 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
         mesa=mesa,
         comanda_aberta=(tipo == TIPO_MESA),
         endereco=endereco,
+        bairro_id=bairro.id if bairro else None,
+        bairro_nome=bairro.nome if bairro else None,
         pagamento=pagamento,
         observacao=observacao,
         taxa_entrega=float(taxa_entrega),
-        desconto=float(desconto),
+        desconto=0.0,  # só o cupom altera, e sempre calculado no servidor
         status=STATUS_NOVO,
         origem=_texto(payload.get("origem"), 20) or "site",
         tempo_estimado_min=estimado_min,
@@ -255,8 +299,7 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
         pedido.numero = _proximo_numero(tenant.id)
         db.session.add(pedido)
         try:
-            db.session.commit()
-            return pedido
+            db.session.flush()
         except IntegrityError:
             db.session.rollback()
             if client_request_id:
@@ -266,6 +309,21 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
                     return duplicado
             if tentativa == 4:
                 raise ValueError("Não foi possível registrar o pedido. Tente novamente.") from None
+            continue
+
+        if codigo_cupom:
+            # A reserva precisa do id do pedido, por isso vem depois do flush.
+            # Cupom inválido derruba o pedido inteiro: o cliente escolheu usá-lo,
+            # e aplicar silenciosamente sem desconto seria pior.
+            resultado = reservar_para_pedido(pedido, codigo_cupom, itens)
+            if not resultado.ok:
+                db.session.rollback()
+                raise ValueError(resultado.mensagem)
+            pedido.recalcular_total()
+
+        db.session.commit()
+        return pedido
+
     raise ValueError("Não foi possível registrar o pedido. Tente novamente.")
 
 
@@ -291,6 +349,18 @@ def transicionar(pedido: Pedido, novo_status: str, actor: str | None = None) -> 
 
     if novo_status in (STATUS_ENTREGUE, STATUS_CANCELADO):
         pedido.comanda_aberta = False
+
+    # Cancelar devolve a vaga; qualquer outro avanço consome a reserva.
+    #
+    # O original só consumia em "Confirmado", mas o fluxo permite Novo -> Em
+    # preparo direto: nesse caminho a reserva ficava presa para sempre,
+    # bloqueando a vaga sem nunca contar como uso. consumir() é idempotente,
+    # então chamar em qualquer avanço é seguro.
+    if pedido.cupom_id:
+        if novo_status == STATUS_CANCELADO:
+            liberar_cupom(pedido)
+        else:
+            consumir_cupom(pedido)
 
     db.session.commit()
     return pedido

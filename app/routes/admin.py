@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, url_for
 
+from datetime import datetime
+
 from ..decorators import admin_required
 from ..extensions import db
 from ..models.adicional import Adicional
 from ..models.categoria import Categoria
+from ..models.cupom import TIPOS_CUPOM, BairroEntrega, Cupom
 from ..models.produto import Produto
+from ..services.cupons import normalizar_codigo
 from ..services.imagens import remover_imagem, salvar_imagem_produto
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -36,6 +40,17 @@ def _to_int(valor: str | None) -> int:
         return int((valor or "0").strip())
     except ValueError:
         return 0
+
+
+def _to_datetime(valor: str | None) -> datetime | None:
+    """Aceita "2026-08-20" e "2026-08-20T18:30" dos inputs de data do navegador."""
+    texto = (valor or "").strip()
+    if not texto:
+        return None
+    try:
+        return datetime.fromisoformat(texto)
+    except ValueError:
+        return None
 
 
 def _categoria_do_tenant(categoria_id: str | None) -> Categoria | None:
@@ -238,6 +253,174 @@ def adicional_excluir(adicional_id: int):
 
 
 # --------------------------------------------------------------------------- #
+# Bairros de entrega
+# --------------------------------------------------------------------------- #
+
+
+def _bairros_do_tenant() -> list[BairroEntrega]:
+    return (
+        BairroEntrega.query.filter_by(tenant_id=g.tenant.id)
+        .order_by(BairroEntrega.ordem, BairroEntrega.nome)
+        .all()
+    )
+
+
+@admin_bp.route("/bairros", methods=["GET", "POST"])
+@admin_required
+def bairros():
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        if not nome:
+            flash("Informe o nome do bairro.", "erro")
+        elif BairroEntrega.query.filter_by(tenant_id=g.tenant.id, nome=nome).first():
+            flash(f"Você já atende o bairro '{nome}'.", "erro")
+        else:
+            db.session.add(
+                BairroEntrega(
+                    tenant_id=g.tenant.id,
+                    nome=nome,
+                    taxa=_to_float(request.form.get("taxa")),
+                    prazo_adicional_min=max(0, _to_int(request.form.get("prazo_adicional_min"))),
+                    ordem=_to_int(request.form.get("ordem")),
+                )
+            )
+            db.session.commit()
+            flash("Bairro adicionado.", "sucesso")
+        return redirect(url_for("admin.bairros"))
+
+    return render_template("admin/bairros.html", tenant=g.tenant, bairros=_bairros_do_tenant())
+
+
+@admin_bp.route("/bairros/<int:bairro_id>/salvar", methods=["POST"])
+@admin_required
+def bairro_salvar(bairro_id: int):
+    bairro = BairroEntrega.query.filter_by(id=bairro_id, tenant_id=g.tenant.id).first()
+    if bairro is None:
+        flash("Bairro não encontrado.", "erro")
+        return redirect(url_for("admin.bairros"))
+
+    nome = request.form.get("nome", "").strip()
+    duplicado = (
+        BairroEntrega.query.filter(
+            BairroEntrega.tenant_id == g.tenant.id,
+            BairroEntrega.nome == nome,
+            BairroEntrega.id != bairro.id,
+        ).first()
+        if nome
+        else None
+    )
+    if not nome:
+        flash("Informe o nome do bairro.", "erro")
+    elif duplicado:
+        flash(f"Você já atende o bairro '{nome}'.", "erro")
+    else:
+        bairro.nome = nome
+        bairro.taxa = _to_float(request.form.get("taxa"))
+        bairro.prazo_adicional_min = max(0, _to_int(request.form.get("prazo_adicional_min")))
+        bairro.ordem = _to_int(request.form.get("ordem"))
+        bairro.ativo = request.form.get("ativo") == "on"
+        db.session.commit()
+        flash("Bairro atualizado.", "sucesso")
+    return redirect(url_for("admin.bairros"))
+
+
+@admin_bp.route("/bairros/<int:bairro_id>/excluir", methods=["POST"])
+@admin_required
+def bairro_excluir(bairro_id: int):
+    bairro = BairroEntrega.query.filter_by(id=bairro_id, tenant_id=g.tenant.id).first()
+    if bairro is not None:
+        # Pedidos antigos guardam bairro_nome e taxa congelados, então o
+        # histórico não se perde ao excluir o bairro.
+        db.session.delete(bairro)
+        db.session.commit()
+        flash("Bairro removido.", "sucesso")
+    return redirect(url_for("admin.bairros"))
+
+
+# --------------------------------------------------------------------------- #
+# Cupons
+# --------------------------------------------------------------------------- #
+
+
+@admin_bp.route("/cupons", methods=["GET", "POST"])
+@admin_required
+def cupons():
+    if request.method == "POST":
+        codigo = normalizar_codigo(request.form.get("codigo"))
+        tipo = request.form.get("tipo", "percentual")
+        if not codigo:
+            flash("Informe o código do cupom (letras, números, - e _).", "erro")
+        elif tipo not in TIPOS_CUPOM:
+            flash("Tipo de cupom inválido.", "erro")
+        elif Cupom.query.filter_by(tenant_id=g.tenant.id, codigo=codigo).first():
+            flash(f"Você já tem um cupom '{codigo}'.", "erro")
+        else:
+            db.session.add(
+                Cupom(
+                    tenant_id=g.tenant.id,
+                    codigo=codigo,
+                    descricao=request.form.get("descricao", "").strip() or None,
+                    tipo=tipo,
+                    valor=_to_float(request.form.get("valor")),
+                    pedido_minimo=_to_float(request.form.get("pedido_minimo")),
+                    limite_usos=max(1, _to_int(request.form.get("limite_usos")) or 1),
+                    permite_combo_promocional=request.form.get("permite_combo_promocional") == "on",
+                    inicio_em=_to_datetime(request.form.get("inicio_em")),
+                    fim_em=_to_datetime(request.form.get("fim_em")),
+                )
+            )
+            db.session.commit()
+            flash(f"Cupom {codigo} criado.", "sucesso")
+        return redirect(url_for("admin.cupons"))
+
+    lista = Cupom.query.filter_by(tenant_id=g.tenant.id).order_by(Cupom.codigo).all()
+    return render_template("admin/cupons.html", tenant=g.tenant, cupons=lista, tipos=TIPOS_CUPOM)
+
+
+@admin_bp.route("/cupons/<int:cupom_id>/salvar", methods=["POST"])
+@admin_required
+def cupom_salvar(cupom_id: int):
+    cupom = Cupom.query.filter_by(id=cupom_id, tenant_id=g.tenant.id).first()
+    if cupom is None:
+        flash("Cupom não encontrado.", "erro")
+        return redirect(url_for("admin.cupons"))
+
+    limite = max(1, _to_int(request.form.get("limite_usos")) or 1)
+    if limite < (cupom.usos_confirmados or 0):
+        flash(
+            f"Este cupom já foi usado {cupom.usos_confirmados} vez(es); "
+            "o limite não pode ficar abaixo disso.",
+            "erro",
+        )
+        return redirect(url_for("admin.cupons"))
+
+    cupom.descricao = request.form.get("descricao", "").strip() or None
+    cupom.valor = _to_float(request.form.get("valor"))
+    cupom.pedido_minimo = _to_float(request.form.get("pedido_minimo"))
+    cupom.limite_usos = limite
+    cupom.ativo = request.form.get("ativo") == "on"
+    cupom.permite_combo_promocional = request.form.get("permite_combo_promocional") == "on"
+    cupom.inicio_em = _to_datetime(request.form.get("inicio_em"))
+    cupom.fim_em = _to_datetime(request.form.get("fim_em"))
+    db.session.commit()
+    flash("Cupom atualizado.", "sucesso")
+    return redirect(url_for("admin.cupons"))
+
+
+@admin_bp.route("/cupons/<int:cupom_id>/excluir", methods=["POST"])
+@admin_required
+def cupom_excluir(cupom_id: int):
+    cupom = Cupom.query.filter_by(id=cupom_id, tenant_id=g.tenant.id).first()
+    if cupom is not None:
+        # O código fica gravado em cupom_codigo de cada pedido, então excluir
+        # não apaga o histórico de quem usou.
+        db.session.delete(cupom)
+        db.session.commit()
+        flash("Cupom removido.", "sucesso")
+    return redirect(url_for("admin.cupons"))
+
+
+# --------------------------------------------------------------------------- #
 # Produtos
 # --------------------------------------------------------------------------- #
 
@@ -259,6 +442,7 @@ def produtos():
             preco=_to_float(request.form.get("preco")),
             categoria_id=categoria.id if categoria else None,
             disponivel=request.form.get("disponivel") == "on",
+            combo_promocional=request.form.get("combo_promocional") == "on",
         )
         db.session.add(produto)
         db.session.flush()  # precisa do id para nomear o arquivo da imagem
@@ -315,6 +499,7 @@ def produto_editar(produto_id: int):
         produto.preco = _to_float(request.form.get("preco"))
         produto.categoria_id = categoria.id if categoria else None
         produto.disponivel = request.form.get("disponivel") == "on"
+        produto.combo_promocional = request.form.get("combo_promocional") == "on"
         produto.definir_adicionais(request.form.getlist("adicionais"))
 
         try:

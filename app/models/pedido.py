@@ -87,6 +87,16 @@ class Pedido(TimestampMixin, db.Model):
     comanda_aberta = db.Column(db.Boolean, default=False, nullable=False, index=True)
     endereco = db.Column(db.String(350))
 
+    # Bairro da entrega. Guarda o id (para relatório) e também nome e taxa
+    # congelados: se o dono renomear o bairro ou mudar a taxa depois, o pedido
+    # histórico continua mostrando o que o cliente contratou.
+    bairro_id = db.Column(db.Integer, db.ForeignKey("bairro_entrega.id", ondelete="SET NULL"), index=True)
+    bairro_nome = db.Column(db.String(100))
+
+    # Cupom aplicado, também com o código congelado.
+    cupom_id = db.Column(db.Integer, db.ForeignKey("cupom.id", ondelete="SET NULL"), index=True)
+    cupom_codigo = db.Column(db.String(40), index=True)
+
     pagamento = db.Column(db.String(80), nullable=False)
     observacao = db.Column(db.String(500))
 
@@ -123,7 +133,10 @@ class Pedido(TimestampMixin, db.Model):
             return f"Mesa {self.mesa:02d}" if self.mesa else "Mesa"
         if self.tipo == TIPO_RETIRADA:
             return "Retirada no local"
-        return self.endereco or "Entrega"
+        partes = [self.endereco or "Entrega"]
+        if self.bairro_nome:
+            partes.append(self.bairro_nome)
+        return " — ".join(partes)
 
     def recalcular_total(self) -> None:
         """Soma os itens e aplica taxa e desconto.
