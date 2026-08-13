@@ -7,7 +7,17 @@ admin.
 
 from __future__ import annotations
 
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    flash,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from ..decorators import login_required
 from ..models.categoria import Categoria
@@ -25,7 +35,9 @@ from ..services.pedidos import (
     mesas_ativas,
     pedidos_ativos,
     proximos_status,
+    total_aguardando,
     transicionar,
+    versao_da_fila,
 )
 
 operacao_bp = Blueprint("operacao", __name__)
@@ -82,6 +94,23 @@ def cozinha():
         colunas=colunas,
         total_ativos=len(ativos),
         proximos_status=proximos_status,
+        versao=versao_da_fila(g.tenant.id),
+        aguardando=total_aguardando(g.tenant.id),
+    )
+
+
+@operacao_bp.route("/cozinha/eventos")
+@login_required
+def cozinha_eventos():
+    """Resposta minúscula que diz se a fila mudou desde a última consulta.
+
+    O painel consulta esta rota de poucos em poucos segundos e só recarrega a
+    tela quando a versão muda — assim a cozinha vê pedido novo sozinha, sem o
+    custo de reenviar o painel inteiro a cada consulta.
+    """
+    return jsonify(
+        versao=versao_da_fila(g.tenant.id),
+        aguardando=total_aguardando(g.tenant.id),
     )
 
 

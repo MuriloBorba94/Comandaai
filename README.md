@@ -17,7 +17,9 @@ O que já existe aqui:
   ordem que cada tenant define.
 - **Pedidos, cozinha e mesa** (Fase 2): carrinho e checkout na vitrine, página
   pública de acompanhamento por token, painel `/cozinha` com máquina de estados,
-  e comanda de mesa com mapa do salão.
+  e comanda de mesa com mapa do salão. O painel se atualiza sozinho: consulta
+  `/cozinha/eventos` a cada 8 s e só recarrega a tela quando a fila muda, com
+  aviso sonoro opcional para pedido novo.
 - **Cupons e taxa por bairro** (Fase 3): cupom com reserva de uso (não vende
   além do limite em checkouts simultâneos), e taxa/prazo de entrega por bairro.
 - Migrations versionadas com Flask-Migrate/Alembic desde o início.

@@ -172,6 +172,43 @@ input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
 .pedido-card form { display: inline; }
 .pedido-card button { padding: 6px 10px; font-size: 13px; margin: 2px 2px 0 0; }
 
+/* Barra "ao vivo" do painel da cozinha */
+.barra-ao-vivo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+}
+.barra-ao-vivo button { padding: 7px 12px; font-size: 13px; }
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-right: 10px;
+}
+.live-ponto {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.live-ok { color: #1c7d4d; }
+.live-erro { color: var(--brand); }
+
+/* Pisca discretamente só enquanto a conexão está boa. */
+@media (prefers-reduced-motion: no-preference) {
+  .live-ok .live-ponto { animation: pulso 2s ease-in-out infinite; }
+}
+@keyframes pulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 /* Mapa de mesas */
 .mesas { display: flex; flex-wrap: wrap; gap: 10px; }
 .mesa {

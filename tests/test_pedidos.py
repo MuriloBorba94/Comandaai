@@ -770,3 +770,88 @@ def test_colisao_persistente_falha_com_mensagem_clara(client, cardapio, tenant_a
 
     with pytest.raises(ValueError, match="Não foi possível registrar o pedido"):
         criar_pedido(tenant_a_obj, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))
+
+
+# --------------------------------------------------------------------------- #
+# Recarga automática da cozinha
+# --------------------------------------------------------------------------- #
+
+
+def test_eventos_da_cozinha_exigem_login(client, cardapio):
+    resposta = client.get("/cozinha/eventos", base_url=BASE_A)
+    assert resposta.status_code == 302
+    assert "/login" in resposta.headers["Location"]
+
+
+def test_versao_muda_quando_entra_pedido_novo(client, cardapio, tenant_a_obj):
+    from app.services.pedidos import versao_da_fila
+
+    antes = versao_da_fila(cardapio["tenant_a"])
+    criar_pedido(tenant_a_obj, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))
+    assert versao_da_fila(cardapio["tenant_a"]) != antes
+
+
+def test_versao_muda_quando_o_status_avanca(client, cardapio, tenant_a_obj):
+    from app.services.pedidos import versao_da_fila
+
+    pedido = criar_pedido(tenant_a_obj, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))
+    antes = versao_da_fila(cardapio["tenant_a"])
+    transicionar(pedido, STATUS_CONFIRMADO)
+    assert versao_da_fila(cardapio["tenant_a"]) != antes
+
+
+def test_versao_nao_muda_por_pedido_de_outro_tenant(client, cardapio, two_tenants):
+    """Sem isto, o painel de um restaurante recarregaria a cada pedido do outro."""
+    from app.models.tenant import Tenant
+    from app.services.pedidos import versao_da_fila
+
+    tenant_b = db.session.get(Tenant, two_tenants["tenant_b"])
+    antes = versao_da_fila(cardapio["tenant_a"])
+    criar_pedido(tenant_b, _payload([{"produto_id": cardapio["pizza_b"], "quantidade": 1}]))
+    assert versao_da_fila(cardapio["tenant_a"]) == antes
+
+
+def test_eventos_contam_so_os_pedidos_aguardando_do_proprio_tenant(client, cardapio, two_tenants):
+    from app.models.tenant import Tenant
+
+    tenant_a = db.session.get(Tenant, two_tenants["tenant_a"])
+    tenant_b = db.session.get(Tenant, two_tenants["tenant_b"])
+    criar_pedido(tenant_a, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))
+    criar_pedido(tenant_a, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))
+    criar_pedido(tenant_b, _payload([{"produto_id": cardapio["pizza_b"], "quantidade": 1}]))
+
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    dados = client.get("/cozinha/eventos", base_url=BASE_A).get_json()
+    assert dados["aguardando"] == 2, "o pedido do outro tenant não pode contar"
+    assert dados["versao"]
+
+
+def test_aguardando_cai_quando_a_cozinha_assume_o_pedido(client, cardapio, tenant_a_obj):
+    """É a diferença desse número que dispara o aviso sonoro de pedido novo."""
+    pedido = criar_pedido(tenant_a_obj, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))
+
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    assert client.get("/cozinha/eventos", base_url=BASE_A).get_json()["aguardando"] == 1
+
+    transicionar(pedido, STATUS_CONFIRMADO)
+    assert client.get("/cozinha/eventos", base_url=BASE_A).get_json()["aguardando"] == 0
+
+
+def test_eventos_de_um_tenant_nao_respondem_no_outro(client, cardapio, two_tenants):
+    """Sessão do tenant A não pode consultar a fila do tenant B."""
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    resposta = client.get("/cozinha/eventos", base_url=BASE_B)
+    assert resposta.status_code == 302, "sem sessão válida no B, precisa mandar para o login"
+
+
+def test_painel_traz_a_versao_e_o_script_de_recarga(client, cardapio, tenant_a_obj):
+    """O JS depende de #painel com data-versao; se o template perder isso, a
+    recarga automática morre silenciosamente."""
+    criar_pedido(tenant_a_obj, _payload([{"produto_id": cardapio["refri"], "quantidade": 1}]))
+
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/cozinha", base_url=BASE_A).get_data(as_text=True)
+    assert 'id="painel"' in corpo
+    assert "data-versao=" in corpo
+    assert "/cozinha/eventos" in corpo
+    assert 'id="estado-live"' in corpo

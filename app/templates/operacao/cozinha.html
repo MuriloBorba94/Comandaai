@@ -3,53 +3,221 @@
 {% block header_title %}Cozinha · {{ tenant.nome_fantasia }}{% endblock %}
 {% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
 {% block content %}
-  <div class="card">
-    <h1>Pedidos em andamento ({{ total_ativos }})</h1>
-    {% if not total_ativos %}
-      <p>Nenhum pedido em andamento agora.</p>
+
+  {# Fica FORA de #painel para não ser substituído a cada atualização. #}
+  <div class="card barra-ao-vivo">
+    <div>
+      <span id="estado-live" class="live live-ok" title="A tela se atualiza sozinha">
+        <span class="live-ponto"></span> ao vivo
+      </span>
+      <span id="live-quando" class="muted"></span>
+    </div>
+    <div class="row-actions">
+      <button type="button" id="btn-som" class="btn-secundario" aria-pressed="false">
+        Ativar som de pedido novo
+      </button>
+      <button type="button" id="btn-agora" class="btn-secundario">Atualizar agora</button>
+    </div>
+  </div>
+
+  <div id="painel" data-versao="{{ versao }}" data-aguardando="{{ aguardando }}">
+    <div class="card">
+      <h1>Pedidos em andamento ({{ total_ativos }})</h1>
+      {% if not total_ativos %}
+        <p>Nenhum pedido em andamento agora.</p>
+      {% endif %}
+    </div>
+
+    {% if total_ativos %}
+    <div class="colunas">
+      {% for status, pedidos in colunas %}
+        <div class="coluna">
+          <h2>{{ status }} ({{ pedidos|length }})</h2>
+          {% for pedido in pedidos %}
+            <div class="pedido-card">
+              <h3>#{{ pedido.numero }} · {{ pedido.cliente }}</h3>
+              <p class="muted">{{ pedido.descricao_local }}</p>
+              <ul>
+                {% for item in pedido.itens %}
+                  <li>
+                    {{ item.quantidade }}x {{ item.nome }}
+                    {% if item.adicionais %}
+                      <br><span class="muted">+ {% for e in item.adicionais %}{{ e.nome }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                    {% endif %}
+                    {% if item.observacao %}
+                      <br><span class="muted">Obs.: {{ item.observacao }}</span>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+              {% if pedido.observacao %}<p class="muted">Pedido: {{ pedido.observacao }}</p>{% endif %}
+              <p class="muted">R$ {{ pedido.total|brl }} · {{ pedido.pagamento }}</p>
+
+              {# Só as transições válidas para este pedido aparecem, então a tela
+                 nunca oferece um botão que o serviço vai recusar. #}
+              {% for proximo in proximos_status(pedido) %}
+                <form method="post" action="{{ url_for('operacao.pedido_status', pedido_id=pedido.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="status" value="{{ proximo }}">
+                  <button type="submit" {% if proximo == "Cancelado" %}class="btn-secundario"{% endif %}>{{ proximo }}</button>
+                </form>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="muted">—</p>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
     {% endif %}
   </div>
 
-  {% if total_ativos %}
-  <div class="colunas">
-    {% for status, pedidos in colunas %}
-      <div class="coluna">
-        <h2>{{ status }} ({{ pedidos|length }})</h2>
-        {% for pedido in pedidos %}
-          <div class="pedido-card">
-            <h3>#{{ pedido.numero }} · {{ pedido.cliente }}</h3>
-            <p class="muted">{{ pedido.descricao_local }}</p>
-            <ul>
-              {% for item in pedido.itens %}
-                <li>
-                  {{ item.quantidade }}x {{ item.nome }}
-                  {% if item.adicionais %}
-                    <br><span class="muted">+ {% for e in item.adicionais %}{{ e.nome }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
-                  {% endif %}
-                  {% if item.observacao %}
-                    <br><span class="muted">Obs.: {{ item.observacao }}</span>
-                  {% endif %}
-                </li>
-              {% endfor %}
-            </ul>
-            {% if pedido.observacao %}<p class="muted">Pedido: {{ pedido.observacao }}</p>{% endif %}
-            <p class="muted">R$ {{ pedido.total|brl }} · {{ pedido.pagamento }}</p>
+  <script>
+  (function () {
+    "use strict";
 
-            {# Só as transições válidas para este pedido aparecem, então a tela
-               nunca oferece um botão que o serviço vai recusar. #}
-            {% for proximo in proximos_status(pedido) %}
-              <form method="post" action="{{ url_for('operacao.pedido_status', pedido_id=pedido.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="status" value="{{ proximo }}">
-                <button type="submit" {% if proximo == "Cancelado" %}class="btn-secundario"{% endif %}>{{ proximo }}</button>
-              </form>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="muted">—</p>
-        {% endfor %}
-      </div>
-    {% endfor %}
-  </div>
-  {% endif %}
+    var URL_EVENTOS = {{ url_for('operacao.cozinha_eventos')|tojson }};
+    var URL_PAINEL  = {{ url_for('operacao.cozinha')|tojson }};
+    var INTERVALO = 8000;
+
+    var painel     = document.getElementById("painel");
+    var estado     = document.getElementById("estado-live");
+    var quando     = document.getElementById("live-quando");
+    var btnSom     = document.getElementById("btn-som");
+    var btnAgora   = document.getElementById("btn-agora");
+
+    var versao     = painel.dataset.versao;
+    var aguardando = parseInt(painel.dataset.aguardando, 10) || 0;
+    var enviando   = false;   // alguém clicou num botão de status
+    var ocupado    = false;   // já existe uma consulta em andamento
+    var timer      = null;
+    var audio      = null;
+
+    // ---- som -------------------------------------------------------------
+    // Gerado no próprio navegador: não depende de arquivo nem de rede. O
+    // AudioContext só pode ser criado a partir de um clique, por isso o botão.
+    function somLigado() {
+      return localStorage.getItem("cozinha-som") === "1";
+    }
+
+    function pintarBotaoSom() {
+      var ligado = somLigado();
+      btnSom.textContent = ligado ? "Som ligado" : "Ativar som de pedido novo";
+      btnSom.setAttribute("aria-pressed", ligado ? "true" : "false");
+    }
+
+    function apitar() {
+      if (!somLigado() || !audio) { return; }
+      [0, 0.18].forEach(function (atraso) {
+        var osc = audio.createOscillator();
+        var vol = audio.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 880;
+        vol.gain.value = 0.0001;
+        osc.connect(vol).connect(audio.destination);
+        var t = audio.currentTime + atraso;
+        // Sobe e desce rápido para não estalar.
+        vol.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+        vol.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+        osc.start(t);
+        osc.stop(t + 0.16);
+      });
+    }
+
+    btnSom.addEventListener("click", function () {
+      var ligar = !somLigado();
+      localStorage.setItem("cozinha-som", ligar ? "1" : "0");
+      if (ligar) {
+        if (!audio) {
+          var Ctx = window.AudioContext || window.webkitAudioContext;
+          if (Ctx) { audio = new Ctx(); }
+        }
+        if (audio && audio.state === "suspended") { audio.resume(); }
+        apitar();  // confirma para quem ligou que o som funciona
+      }
+      pintarBotaoSom();
+    });
+
+    // ---- indicador -------------------------------------------------------
+    function marcarEstado(ok) {
+      estado.className = ok ? "live live-ok" : "live live-erro";
+      estado.innerHTML = ok
+        ? '<span class="live-ponto"></span> ao vivo'
+        : '<span class="live-ponto"></span> sem conexão';
+      estado.title = ok
+        ? "A tela se atualiza sozinha"
+        : "Não foi possível falar com o servidor. Tentando de novo.";
+    }
+
+    function marcarHorario() {
+      var agora = new Date();
+      quando.textContent = "atualizado às " +
+        String(agora.getHours()).padStart(2, "0") + ":" +
+        String(agora.getMinutes()).padStart(2, "0") + ":" +
+        String(agora.getSeconds()).padStart(2, "0");
+    }
+
+    // ---- troca do painel -------------------------------------------------
+    function recarregarPainel() {
+      return fetch(URL_PAINEL, { credentials: "same-origin" })
+        .then(function (r) {
+          if (!r.ok) { throw new Error("painel " + r.status); }
+          return r.text();
+        })
+        .then(function (html) {
+          var novo = new DOMParser()
+            .parseFromString(html, "text/html")
+            .getElementById("painel");
+          if (!novo) { throw new Error("painel ausente na resposta"); }
+          // Se alguém clicou em um botão nesse meio tempo, não troca a tela
+          // debaixo da mão dele — a navegação do formulário já vai atualizar.
+          if (enviando) { return; }
+          painel.innerHTML = novo.innerHTML;
+          versao = novo.dataset.versao;
+          painel.dataset.versao = versao;
+          marcarHorario();
+        });
+    }
+
+    function consultar() {
+      if (ocupado || enviando || document.hidden) { return Promise.resolve(); }
+      ocupado = true;
+      return fetch(URL_EVENTOS, { credentials: "same-origin" })
+        .then(function (r) {
+          if (!r.ok) { throw new Error("eventos " + r.status); }
+          return r.json();
+        })
+        .then(function (dados) {
+          marcarEstado(true);
+          if (dados.aguardando > aguardando) { apitar(); }
+          aguardando = dados.aguardando;
+          if (dados.versao !== versao) { return recarregarPainel(); }
+        })
+        .catch(function () {
+          marcarEstado(false);
+        })
+        .then(function () {
+          ocupado = false;
+        });
+    }
+
+    // Um clique de status leva a uma navegação normal; a trava evita que o
+    // painel seja substituído justamente nesse intervalo.
+    painel.addEventListener("submit", function () { enviando = true; });
+
+    btnAgora.addEventListener("click", function () {
+      recarregarPainel().then(function () { marcarEstado(true); }, function () { marcarEstado(false); });
+    });
+
+    // Aba escondida não consulta; ao voltar, atualiza na hora.
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) { consultar(); }
+    });
+
+    pintarBotaoSom();
+    marcarHorario();
+    timer = setInterval(consultar, INTERVALO);
+    window.addEventListener("pagehide", function () { clearInterval(timer); });
+  })();
+  </script>
 {% endblock %}

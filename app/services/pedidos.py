@@ -426,6 +426,31 @@ def mesas_ativas(tenant_id: int) -> dict[int, Pedido]:
     return {pedido.mesa: pedido for pedido in abertas if pedido.mesa}
 
 
+def versao_da_fila(tenant_id: int) -> str:
+    """Impressão digital da fila de um tenant, para o painel saber se mudou.
+
+    Combina quantos pedidos estão ativos com o horário da última alteração.
+    Pedido novo muda a contagem; mudança de status ou item lançado numa comanda
+    mexem no `updated_at` (o total do pedido é recalculado). Comparar essa string
+    é muito mais barato que reenviar o painel inteiro a cada poucos segundos.
+    """
+    ativos = Pedido.query.filter(
+        Pedido.tenant_id == tenant_id, Pedido.status.in_(STATUS_ATIVOS)
+    )
+    quantidade = ativos.count()
+    ultima = (
+        db.session.query(func.max(Pedido.updated_at))
+        .filter(Pedido.tenant_id == tenant_id, Pedido.status.in_(STATUS_ATIVOS))
+        .scalar()
+    )
+    return f"{quantidade}:{ultima.isoformat() if ultima else '-'}"
+
+
+def total_aguardando(tenant_id: int) -> int:
+    """Pedidos ainda em "Novo" — os que ninguém olhou ainda."""
+    return Pedido.query.filter_by(tenant_id=tenant_id, status=STATUS_NOVO).count()
+
+
 def pedidos_ativos(tenant_id: int) -> list[Pedido]:
     return (
         Pedido.query.filter(Pedido.tenant_id == tenant_id, Pedido.status.in_(STATUS_ATIVOS))
