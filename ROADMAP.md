@@ -33,12 +33,17 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    cancelamento. A reserva nasce sem prazo: expirar enquanto a cozinha demora
    liberaria o cupom com o desconto já concedido — a expiração volta na Fase 6.
 
-4. **Cobrança recorrente da própria SaaS.** Integrar um gateway brasileiro
-   com suporte a PIX recorrente (Asaas recomendado; Iugu/Vindi como
-   alternativa — Stripe não é uma boa opção aqui por não cobrir bem PIX
-   recorrente no Brasil). Webhooks atualizam `Tenant.status` e
-   `Tenant.proxima_cobranca_em`; tenant inadimplente/cancelado é bloqueado
-   pelo `before_request` já existente em `app/tenancy.py`.
+4. **Cobrança recorrente da própria SaaS.** *Núcleo concluído com provedor
+   manual.* `Plano` (catálogo com preço) e `Cobranca` (mensalidade por tenant,
+   única por competência), com ciclo diário que emite, avalia atraso e suspende
+   além da carência — o bloqueio usa o `before_request` já existente em
+   `app/tenancy.py`. Telas de planos, cobranças e resumo por tenant, mais
+   `flask ciclo-cobranca` para agendar.
+
+   **Falta:** o provedor `asaas`, que exige conta e chave de API. O ponto de
+   encaixe é `criar_no_provedor()` em `app/services/faturamento_saas.py`, e o
+   webhook que confirma pagamento automaticamente. Enquanto isso, o provedor
+   `manual` opera: você recebe o PIX e marca a cobrança como paga.
 
 5. **Infra de produção (1ª passada).** Trocar SQLite por Postgres via
    `DATABASE_URL`, DNS de subdomínio real + HTTPS, ambientes separados de

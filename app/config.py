@@ -74,6 +74,17 @@ class Config:
     # então o cookie de um tenant nunca é enviado para outro subdomínio.
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 12
 
+    # ----------------------- cobrança da própria SaaS ----------------------- #
+    # Dias de teste grátis de um tenant novo. O prazo só passa a valer quando
+    # trial_termina_em é preenchido; tenant com esse campo vazio é tratado como
+    # teste sem prazo e nunca é suspenso automaticamente.
+    TRIAL_DIAS = _to_int(os.getenv("TRIAL_DIAS"), 14)
+    # Dias entre o vencimento e o bloqueio. Nesse intervalo o tenant fica
+    # "past_due": continua funcionando, mas já aparece como atrasado.
+    CARENCIA_DIAS = _to_int(os.getenv("CARENCIA_DIAS"), 5)
+    # Dia do mês em que a mensalidade vence.
+    DIA_VENCIMENTO = _to_int(os.getenv("DIA_VENCIMENTO"), 10)
+
     LOG_FOLDER = str(BASE_DIR / "logs")
 
     # Imagens de produto. Cada tenant grava em uploads/<slug>/, e o arquivo é

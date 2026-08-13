@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Cobranças — Plataforma{% endblock %}
+{% block header_title %}Comanda ai — Plataforma{% endblock %}
+{% block header_actions %}{% include "platform/_nav.html" %}{% endblock %}
+{% block content %}
+
+  <div class="card stats">
+    <div>
+      <p>Em aberto</p>
+      <div class="stat">R$ {{ total_em_aberto|brl }}</div>
+    </div>
+    <div>
+      <p>Vencidas</p>
+      <div class="stat">{{ qtd_vencidas }}</div>
+    </div>
+    <div>
+      <p>Recebido no mês</p>
+      <div class="stat">R$ {{ recebido_no_mes|brl }}</div>
+    </div>
+  </div>
+
+  <div class="card barra-ao-vivo">
+    <div>
+      {% for opcao, rotulo in [("pendente", "Pendentes"), ("paga", "Pagas"), ("cancelada", "Canceladas"), ("todas", "Todas")] %}
+        {% if filtro == opcao %}
+          <strong>{{ rotulo }}</strong>
+        {% else %}
+          <a href="{{ url_for('platform.cobrancas', status=opcao) }}">{{ rotulo }}</a>
+        {% endif %}
+        {% if not loop.last %} · {% endif %}
+      {% endfor %}
+    </div>
+    <form method="post" action="{{ url_for('platform.cobrancas_ciclo') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-secundario">Rodar ciclo de hoje</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h1>Cobranças</h1>
+    {% if not cobrancas %}
+      <p>Nenhuma cobrança com esse filtro.</p>
+    {% else %}
+      {% for cobranca in cobrancas %}
+        {% set atraso = cobranca.dias_de_atraso(hoje) %}
+        <div class="cobranca">
+          <div class="cobranca-info">
+            <strong>{{ cobranca.tenant.nome_fantasia }}</strong>
+            <span class="muted">
+              {{ cobranca.rotulo_competencia }} ·
+              plano {{ cobranca.plano_slug }} ·
+              vence {{ cobranca.vencimento.strftime('%d/%m/%Y') }}
+            </span>
+            {% if cobranca.status == "pendente" %}
+              {% if atraso > 0 %}
+                <span class="pill pill-erro">{{ atraso }} dia(s) em atraso</span>
+              {% else %}
+                <span class="pill pill-neutro">em aberto</span>
+              {% endif %}
+            {% elif cobranca.status == "paga" %}
+              <span class="pill pill-ok">
+                paga em {{ cobranca.pago_em.strftime('%d/%m/%Y') }}
+                {% if cobranca.metodo_pagamento %}· {{ cobranca.metodo_pagamento }}{% endif %}
+              </span>
+            {% else %}
+              <span class="pill pill-neutro">cancelada</span>
+            {% endif %}
+            {% if cobranca.observacao %}<span class="muted">{{ cobranca.observacao }}</span>{% endif %}
+          </div>
+
+          <div class="cobranca-valor">R$ {{ cobranca.valor|brl }}</div>
+
+          {% if cobranca.status == "pendente" %}
+            <div class="cobranca-acoes">
+              <form method="post" action="{{ url_for('platform.cobranca_pagar', cobranca_id=cobranca.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="voltar_para" value="{{ url_for('platform.cobrancas', status=filtro) }}">
+                <input name="metodo" value="PIX" maxlength="40" aria-label="Forma de pagamento" class="campo-ordem">
+                <button type="submit">Marcar paga</button>
+              </form>
+              <form method="post" action="{{ url_for('platform.cobranca_cancelar', cobranca_id=cobranca.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="voltar_para" value="{{ url_for('platform.cobrancas', status=filtro) }}">
+                <button type="submit" class="btn-secundario">Cancelar</button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+{% endblock %}

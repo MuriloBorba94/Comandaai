@@ -22,7 +22,30 @@ O que já existe aqui:
   aviso sonoro opcional para pedido novo.
 - **Cupons e taxa por bairro** (Fase 3): cupom com reserva de uso (não vende
   além do limite em checkouts simultâneos), e taxa/prazo de entrega por bairro.
+- **Cobrança da assinatura** (Fase 4, núcleo): catálogo de planos com preço,
+  mensalidade por tenant, ciclo que suspende quem passa da carência e libera ao
+  registrar o pagamento. Provedor `manual` (você recebe o PIX e marca como pago);
+  a integração com gateway fica para quando houver chave de API.
 - Migrations versionadas com Flask-Migrate/Alembic desde o início.
+
+## Cobrança da assinatura
+
+O ciclo precisa rodar uma vez por dia — no Windows, pelo Agendador de Tarefas:
+
+```bash
+.venv\Scripts\flask ciclo-cobranca
+```
+
+Para ver o que aconteceria sem gravar nada:
+
+```bash
+.venv\Scripts\flask ciclo-cobranca --simular
+```
+
+Um tenant só passa a ser cobrado quando **`trial_termina_em` está preenchido** e
+a data já passou, e quando o **plano dele tem preço maior que zero**. Tenant com
+o fim do teste em branco nunca é cobrado nem suspenso — é o que protege os
+tenants criados antes desta fase.
 
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):
 pedidos, cozinha, cupons, PIX, WhatsApp, impressão, estoque/financeiro,

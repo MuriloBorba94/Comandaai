@@ -1,4 +1,5 @@
 from .adicional import Adicional, produto_adicional
+from .assinatura import Cobranca, Plano
 from .categoria import Categoria
 from .cupom import BairroEntrega, Cupom, CupomUso
 from .pedido import Pedido, PedidoItem, PedidoItemAdicional
@@ -11,11 +12,13 @@ __all__ = [
     "Adicional",
     "BairroEntrega",
     "Categoria",
+    "Cobranca",
     "Cupom",
     "CupomUso",
     "Pedido",
     "PedidoItem",
     "PedidoItemAdicional",
+    "Plano",
     "PlatformAdmin",
     "Produto",
     "Tenant",

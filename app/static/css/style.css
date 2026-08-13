@@ -172,6 +172,37 @@ input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
 .pedido-card form { display: inline; }
 .pedido-card button { padding: 6px 10px; font-size: 13px; margin: 2px 2px 0 0; }
 
+/* Cobranças da plataforma */
+.titulo-secao { font-size: 16px; margin: 22px 0 10px; }
+
+.cobranca {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.cobranca:last-child { border-bottom: none; }
+.cobranca-info { flex: 1 1 260px; display: flex; flex-direction: column; gap: 3px; }
+.cobranca-valor { font-weight: 700; font-size: 17px; white-space: nowrap; }
+.cobranca-acoes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cobranca-acoes form { display: flex; gap: 6px; align-items: center; }
+.cobranca-acoes input { margin-bottom: 0; }
+.cobranca-acoes button { padding: 7px 12px; font-size: 13px; }
+
+.pill {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+.pill-ok { background: #eafaf1; color: #1c7d4d; }
+.pill-erro { background: #fdecea; color: #9d1c1c; }
+.pill-neutro { background: var(--bg); color: #666; border: 1px solid var(--border); }
+
 /* Reset de senha na tela de edição de tenant */
 .usuario-bloco {
   padding: 14px 0;

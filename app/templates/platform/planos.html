@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Planos — Plataforma{% endblock %}
+{% block header_title %}Comanda ai — Plataforma{% endblock %}
+{% block header_actions %}{% include "platform/_nav.html" %}{% endblock %}
+{% block content %}
+  <div class="card">
+    <h1>Novo plano</h1>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label for="slug">Slug</label>
+      <input id="slug" name="slug" required maxlength="30" placeholder="ex.: starter">
+      <p class="muted">
+        É o valor guardado em cada tenant. Minúsculas, números e hífen.
+      </p>
+
+      <label for="nome">Nome</label>
+      <input id="nome" name="nome" required maxlength="60" placeholder="ex.: Starter">
+
+      <label for="preco_mensal">Preço mensal</label>
+      <input id="preco_mensal" name="preco_mensal" value="0,00">
+      <p class="muted">
+        Preço <strong>zero</strong> significa que o tenant nunca é cobrado — use
+        para o plano de teste ou para cortesia.
+      </p>
+
+      <label for="descricao">Descrição</label>
+      <input id="descricao" name="descricao" maxlength="200" placeholder="Opcional">
+
+      <label for="ordem">Ordem</label>
+      <input id="ordem" name="ordem" type="number" value="0">
+
+      <button type="submit">Criar plano</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h1>Planos</h1>
+    {% if not planos %}
+      <p>
+        Nenhum plano no catálogo. Sem plano com preço, nenhuma cobrança é gerada.
+        Crie os seus acima, ou rode <code>flask seed-planos</code> para partir de
+        três planos sugeridos.
+      </p>
+    {% else %}
+      <p class="muted">
+        Mudar o preço vale para cobranças <strong>futuras</strong>. As já emitidas
+        guardam o valor congelado, então o histórico não se reescreve.
+      </p>
+      {% for plano in planos %}
+        <div class="linha-edicao">
+          <form class="linha-form" method="post" action="{{ url_for('platform.plano_salvar', plano_id=plano.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <span class="campo-ordem"><code>{{ plano.slug }}</code></span>
+            <input class="campo-nome" name="nome" value="{{ plano.nome }}" required aria-label="Nome do plano">
+            <input class="campo-ordem" name="preco_mensal" value="{{ "%.2f"|format(plano.preco_mensal)|replace(".", ",") }}" aria-label="Preço mensal">
+            <input class="campo-ordem" name="ordem" type="number" value="{{ plano.ordem }}" aria-label="Ordem">
+            <input name="descricao" value="{{ plano.descricao or '' }}" maxlength="200" placeholder="Descrição" aria-label="Descrição">
+            <label class="check-inline">
+              <input type="checkbox" name="ativo" {% if plano.ativo %}checked{% endif %}> Ativo
+            </label>
+            <span class="muted">{{ uso.get(plano.slug, 0) }} tenant(s)</span>
+            <button type="submit">Salvar</button>
+          </form>
+          <form method="post" action="{{ url_for('platform.plano_excluir', plano_id=plano.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-secundario">Excluir</button>
+          </form>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+{% endblock %}

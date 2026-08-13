@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import click
 from flask import Flask, current_app
 
@@ -50,6 +52,74 @@ def register_cli(app: Flask) -> None:
         db.session.commit()
         _avisar_se_senha_fraca(password)
         click.echo("Concluído.")
+
+    @app.cli.command("seed-planos")
+    def seed_planos() -> None:
+        """Cria três planos sugeridos, se o catálogo estiver vazio.
+
+        Os preços são um ponto de partida para você ajustar na tela de Planos —
+        nenhum tenant é cobrado enquanto o plano dele custar zero.
+        """
+        from .models.assinatura import Plano
+
+        if Plano.query.count():
+            click.echo("O catálogo já tem planos; nada foi alterado.")
+            return
+
+        sugestoes = [
+            ("trial", "Teste", 0.0, "Período de avaliação, sem cobrança.", 0),
+            ("starter", "Starter", 99.90, "Cardápio, pedidos e cozinha.", 1),
+            ("pro", "Pro", 199.90, "Tudo do Starter, com salão e relatórios.", 2),
+        ]
+        for slug, nome, preco, descricao, ordem in sugestoes:
+            db.session.add(
+                Plano(slug=slug, nome=nome, preco_mensal=preco, descricao=descricao, ordem=ordem)
+            )
+        db.session.commit()
+        click.echo("Planos criados: " + ", ".join(s[0] for s in sugestoes))
+        # Só caracteres que sobrevivem a console Windows legado (cp1252): uma
+        # seta "→" faz o comando quebrar com UnicodeEncodeError depois de já ter
+        # gravado no banco.
+        click.echo("Ajuste os precos em Plataforma > Planos.")
+
+    @app.cli.command("ciclo-cobranca")
+    @click.option(
+        "--simular",
+        is_flag=True,
+        help="Mostra o que aconteceria sem gravar nada.",
+    )
+    def ciclo_cobranca(simular: bool) -> None:
+        """Emite as mensalidades do mês e reavalia o acesso de cada tenant.
+
+        Feito para rodar uma vez por dia (Agendador de Tarefas no Windows, cron no
+        Linux). É idempotente: rodar de novo no mesmo dia não duplica cobrança.
+        """
+        from .models.assinatura import Cobranca
+        from .models.tenant import Tenant
+        from .services.faturamento_saas import deve_cobrar, executar_ciclo
+
+        if simular:
+            hoje = date.today()
+            click.echo(f"Simulação para {hoje.strftime('%d/%m/%Y')} — nada será gravado.\n")
+            for tenant in Tenant.query.order_by(Tenant.slug).all():
+                em_aberto = [c for c in tenant.cobrancas if c.status == "pendente"]
+                atraso = max((c.dias_de_atraso(hoje) for c in em_aberto), default=0)
+                acao = "emitiria cobrança" if deve_cobrar(tenant, hoje) and not any(
+                    c.competencia.replace(day=1) == hoje.replace(day=1) for c in tenant.cobrancas
+                ) else "nada a emitir"
+                click.echo(
+                    f"  {tenant.slug:20s} status={tenant.status:10s} "
+                    f"em aberto={len(em_aberto)} atraso={atraso}d  -> {acao}"
+                )
+            return
+
+        resumo = executar_ciclo()
+        click.echo(
+            f"Emitidas: {resumo['emitidas']} · avaliados: {resumo['avaliados']} · "
+            f"suspensos: {resumo['suspensos']} · em atraso: {resumo['atrasados']}"
+        )
+        pendentes = Cobranca.query.filter_by(status="pendente").count()
+        click.echo(f"Cobranças pendentes no total: {pendentes}")
 
     @app.cli.command("listar-tenants")
     def listar_tenants() -> None:

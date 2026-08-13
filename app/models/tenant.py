@@ -46,6 +46,12 @@ class Tenant(TimestampMixin, db.Model):
     pedidos = db.relationship("Pedido", back_populates="tenant", cascade="all, delete-orphan")
     cupons = db.relationship("Cupom", back_populates="tenant", cascade="all, delete-orphan")
     bairros = db.relationship("BairroEntrega", back_populates="tenant", cascade="all, delete-orphan")
+    cobrancas = db.relationship(
+        "Cobranca",
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        order_by="desc(Cobranca.competencia)",
+    )
 
     @property
     def atende_mesa(self) -> bool:

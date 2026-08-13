@@ -2,9 +2,8 @@
 {% block title %}{{ tenant.nome_fantasia }} — Plataforma{% endblock %}
 {% block header_title %}Comanda ai — Plataforma{% endblock %}
 {% block header_actions %}
-  <a href="{{ url_for('platform.tenants_list') }}">Voltar</a>
   <a href="{{ url_do_tenant(tenant.slug) }}" target="_blank" rel="noopener">Abrir loja</a>
-  <a href="{{ url_for('platform.logout') }}">Sair</a>
+  {% include "platform/_nav.html" %}
 {% endblock %}
 {% block content %}
 
@@ -59,6 +58,15 @@
         restaurante na hora, inclusive a vitrine pública.
       </p>
 
+      <label for="trial_termina_em">Teste grátis termina em</label>
+      <input id="trial_termina_em" name="trial_termina_em" type="date"
+             value="{{ tenant.trial_termina_em.strftime('%Y-%m-%d') if tenant.trial_termina_em else '' }}">
+      <p class="muted">
+        É o gatilho da primeira cobrança: a mensalidade só passa a ser emitida
+        depois desta data. <strong>Vazio significa teste sem prazo</strong> — o
+        tenant nunca é cobrado nem suspenso automaticamente.
+      </p>
+
       <label class="check-inline">
         <input type="checkbox" name="ativo" {% if tenant.ativo %}checked{% endif %}>
         Tenant ativo
@@ -70,6 +78,89 @@
 
       <button type="submit">Salvar</button>
     </form>
+  </div>
+
+  <div class="card">
+    <h1>Assinatura</h1>
+    <div class="stats">
+      <div>
+        <p>Mensalidade</p>
+        <div class="stat">R$ {{ assinatura.valor_mensal|brl }}</div>
+        <p class="muted">
+          {% if assinatura.plano %}
+            plano {{ assinatura.plano.nome }}
+          {% else %}
+            plano <code>{{ tenant.plano }}</code> não está no catálogo
+          {% endif %}
+        </p>
+      </div>
+      <div>
+        <p>Em aberto</p>
+        <div class="stat">R$ {{ assinatura.total_em_aberto|brl }}</div>
+        <p class="muted">
+          {{ assinatura.em_aberto|length }} cobrança(s)
+          {% if assinatura.maior_atraso %} · até {{ assinatura.maior_atraso }} dia(s) de atraso{% endif %}
+        </p>
+      </div>
+      <div>
+        <p>Já recebido</p>
+        <div class="stat">R$ {{ assinatura.total_pago|brl }}</div>
+        <p class="muted">{{ assinatura.qtd_pagas }} mensalidade(s) paga(s)</p>
+      </div>
+    </div>
+
+    {% if assinatura.valor_mensal <= 0 %}
+      <p class="muted">
+        Este plano custa R$ 0,00, então nenhuma cobrança é gerada. Defina um preço
+        em <a href="{{ url_for('platform.planos') }}">Planos</a> ou mude o plano
+        deste tenant.
+      </p>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('platform.tenant_cobranca_gerar', tenant_id=tenant.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-secundario">Emitir cobrança do mês</button>
+    </form>
+
+    {% if tenant.cobrancas %}
+      <h2 class="titulo-secao">Histórico</h2>
+      {% for cobranca in tenant.cobrancas %}
+        {% set atraso = cobranca.dias_de_atraso(hoje) %}
+        <div class="cobranca">
+          <div class="cobranca-info">
+            <strong>{{ cobranca.rotulo_competencia }}</strong>
+            <span class="muted">vence {{ cobranca.vencimento.strftime('%d/%m/%Y') }}</span>
+            {% if cobranca.status == "pendente" %}
+              {% if atraso > 0 %}
+                <span class="pill pill-erro">{{ atraso }} dia(s) em atraso</span>
+              {% else %}
+                <span class="pill pill-neutro">em aberto</span>
+              {% endif %}
+            {% elif cobranca.status == "paga" %}
+              <span class="pill pill-ok">paga em {{ cobranca.pago_em.strftime('%d/%m/%Y') }}</span>
+            {% else %}
+              <span class="pill pill-neutro">cancelada</span>
+            {% endif %}
+          </div>
+          <div class="cobranca-valor">R$ {{ cobranca.valor|brl }}</div>
+          {% if cobranca.status == "pendente" %}
+            <div class="cobranca-acoes">
+              <form method="post" action="{{ url_for('platform.cobranca_pagar', cobranca_id=cobranca.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="voltar_para" value="{{ url_for('platform.tenant_editar', tenant_id=tenant.id) }}">
+                <input name="metodo" value="PIX" maxlength="40" class="campo-ordem" aria-label="Forma de pagamento">
+                <button type="submit">Marcar paga</button>
+              </form>
+              <form method="post" action="{{ url_for('platform.cobranca_cancelar', cobranca_id=cobranca.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="voltar_para" value="{{ url_for('platform.tenant_editar', tenant_id=tenant.id) }}">
+                <button type="submit" class="btn-secundario">Cancelar</button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% endif %}
   </div>
 
   <div class="card">

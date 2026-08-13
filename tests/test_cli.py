@@ -130,3 +130,42 @@ def test_senha_continua_como_hash_no_banco(app, two_tenants):
     guardado = _usuario(two_tenants["tenant_a"], "admin").senha
     assert "senha-nova-123" not in guardado
     assert guardado.startswith("scrypt:")
+
+
+def test_saida_dos_comandos_sobrevive_a_console_windows(app):
+    """Nenhum texto impresso pelos comandos pode quebrar em console cp1252.
+
+    O `flask seed-planos` já quebrou depois de gravar no banco por causa de uma
+    seta "→": o trabalho foi feito, mas o comando terminou em erro.
+    """
+    runner = app.test_cli_runner()
+    for args in (["listar-tenants"], ["seed-planos"], ["ciclo-cobranca", "--simular"]):
+        resultado = runner.invoke(args=args)
+        assert resultado.exit_code == 0, f"{args} falhou: {resultado.output}"
+        # encode() levanta UnicodeEncodeError se houver caractere fora do cp1252.
+        resultado.output.encode("cp1252")
+
+
+def test_seed_planos_nao_duplica(app):
+    runner = app.test_cli_runner()
+    primeiro = runner.invoke(args=["seed-planos"])
+    assert "Planos criados" in primeiro.output
+
+    segundo = runner.invoke(args=["seed-planos"])
+    assert "já tem planos" in segundo.output
+
+    from app.models.assinatura import Plano
+
+    assert Plano.query.count() == 3
+
+
+def test_ciclo_simulado_nao_grava(app, two_tenants):
+    from app.models.assinatura import Cobranca
+
+    runner = app.test_cli_runner()
+    runner.invoke(args=["seed-planos"])
+    resultado = runner.invoke(args=["ciclo-cobranca", "--simular"])
+
+    assert resultado.exit_code == 0
+    assert "nada será gravado" in resultado.output
+    assert Cobranca.query.count() == 0

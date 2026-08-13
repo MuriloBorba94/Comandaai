@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date, datetime, timedelta
 
 from flask import (
     Blueprint,
@@ -15,9 +16,22 @@ from flask import (
 
 from ..decorators import platform_admin_required
 from ..extensions import db, limiter
+from ..models.assinatura import (
+    COBRANCA_PAGA,
+    COBRANCA_PENDENTE,
+    Cobranca,
+    Plano,
+)
 from ..models.platform_admin import PlatformAdmin
 from ..models.tenant import STATUSES, Tenant
 from ..models.usuario import Usuario
+from ..services.faturamento_saas import (
+    cancelar_cobranca,
+    executar_ciclo,
+    gerar_cobranca,
+    registrar_pagamento,
+    resumo_do_tenant,
+)
 from .auth import login_falhou
 
 platform_bp = Blueprint("platform", __name__, url_prefix="/plataforma")
@@ -34,6 +48,47 @@ SLUGS_RESERVADOS = {"www", "api", "admin", "app", "static", "mail", "ftp"}
 PADRAO_SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$")
 
 SENHA_MINIMA = 6
+
+
+def _para_float(valor: str | None) -> float:
+    """Aceita "99,90" e "99.90"; trata o ponto como milhar quando há vírgula."""
+    texto = (valor or "").strip()
+    if not texto:
+        return 0.0
+    if "," in texto and "." in texto:
+        texto = texto.replace(".", "")
+    texto = texto.replace(",", ".")
+    try:
+        return float(texto)
+    except ValueError:
+        return 0.0
+
+
+def _para_int(valor: str | None) -> int:
+    try:
+        return int((valor or "0").strip())
+    except ValueError:
+        return 0
+
+
+def _planos_validos() -> list[str]:
+    """Slugs de plano aceitos: o catálogo, se existir; senão os embutidos.
+
+    Sem isso, criar um plano novo no catálogo faria a validação recusá-lo, porque
+    a lista de planos estaria fixa no código.
+    """
+    do_catalogo = [p.slug for p in Plano.query.order_by(Plano.ordem, Plano.slug).all()]
+    return do_catalogo or list(PLANOS)
+
+
+def _para_data(valor: str | None) -> date | None:
+    texto = (valor or "").strip()
+    if not texto:
+        return None
+    try:
+        return date.fromisoformat(texto)
+    except ValueError:
+        return None
 
 
 def _validar_slug(slug: str, tenant_id: int | None = None) -> str | None:
@@ -120,19 +175,27 @@ def tenant_new():
                 erro = "Preencha todos os campos obrigatórios."
             elif len(admin_password) < SENHA_MINIMA:
                 erro = f"A senha do admin precisa ter ao menos {SENHA_MINIMA} caracteres."
-            elif plano not in PLANOS:
+            elif plano not in _planos_validos():
                 erro = "Plano inválido."
 
         if erro:
             flash(erro, "erro")
-            return render_template("platform/tenant_form.html", form=request.form, planos=PLANOS)
+            return render_template(
+                "platform/tenant_form.html", form=request.form, planos=_planos_validos()
+            )
 
+        # O relógio do teste grátis começa aqui. É o que faz a primeira cobrança
+        # sair sozinha quando o período termina.
+        dias_trial = int(current_app.config.get("TRIAL_DIAS", 14))
         tenant = Tenant(
             slug=slug,
             nome_fantasia=nome_fantasia,
             email_contato=email_contato,
             plano=plano,
             status="trial",
+            trial_termina_em=datetime.combine(
+                date.today() + timedelta(days=dias_trial), datetime.min.time()
+            ),
         )
         db.session.add(tenant)
         db.session.flush()
@@ -153,7 +216,7 @@ def tenant_new():
         flash(f"Tenant '{nome_fantasia}' criado.", "sucesso")
         return redirect(url_for("platform.tenants_list"))
 
-    return render_template("platform/tenant_form.html", form={}, planos=PLANOS)
+    return render_template("platform/tenant_form.html", form={}, planos=_planos_validos())
 
 
 @platform_bp.route("/tenants/<int:tenant_id>/editar", methods=["GET", "POST"])
@@ -175,7 +238,7 @@ def tenant_editar(tenant_id: int):
         if erro is None:
             if not nome_fantasia or not email_contato:
                 erro = "Nome fantasia e e-mail de contato são obrigatórios."
-            elif plano not in PLANOS:
+            elif plano not in _planos_validos():
                 erro = "Plano inválido."
             elif status not in STATUSES:
                 erro = "Status inválido."
@@ -194,6 +257,13 @@ def tenant_editar(tenant_id: int):
         tenant.plano = plano
         tenant.status = status
         tenant.ativo = request.form.get("ativo") == "on"
+
+        # Fim do teste grátis: é o gatilho da primeira cobrança. Vazio significa
+        # teste sem prazo, e o tenant nunca é cobrado nem suspenso pelo ciclo.
+        fim_trial = _para_data(request.form.get("trial_termina_em"))
+        tenant.trial_termina_em = (
+            datetime.combine(fim_trial, datetime.min.time()) if fim_trial else None
+        )
         db.session.commit()
 
         if slug_antigo != slug:
@@ -210,8 +280,10 @@ def tenant_editar(tenant_id: int):
         "platform/tenant_editar.html",
         tenant=tenant,
         usuarios=sorted(tenant.usuarios, key=lambda u: u.username),
-        planos=PLANOS,
+        planos=_planos_validos(),
         statuses=STATUSES,
+        assinatura=resumo_do_tenant(tenant),
+        hoje=date.today(),
     )
 
 
@@ -261,3 +333,201 @@ def tenant_usuario_senha(tenant_id: int, usuario_id: int):
         flash(f"Senha de '{usuario.username}' redefinida.", "sucesso")
 
     return redirect(url_for("platform.tenant_editar", tenant_id=tenant.id))
+
+
+# --------------------------------------------------------------------------- #
+# Planos (catálogo de venda da plataforma)
+# --------------------------------------------------------------------------- #
+
+
+@platform_bp.route("/planos", methods=["GET", "POST"])
+@platform_admin_required
+def planos():
+    if request.method == "POST":
+        slug = (request.form.get("slug") or "").strip().lower()
+        nome = (request.form.get("nome") or "").strip()
+        if not PADRAO_SLUG.match(slug or ""):
+            flash("Slug do plano inválido. Use minúsculas, números e hífen.", "erro")
+        elif not nome:
+            flash("Informe o nome do plano.", "erro")
+        elif Plano.query.filter_by(slug=slug).first():
+            flash(f"Já existe um plano '{slug}'.", "erro")
+        else:
+            db.session.add(
+                Plano(
+                    slug=slug,
+                    nome=nome,
+                    preco_mensal=_para_float(request.form.get("preco_mensal")),
+                    descricao=(request.form.get("descricao") or "").strip() or None,
+                    ordem=_para_int(request.form.get("ordem")),
+                )
+            )
+            db.session.commit()
+            flash(f"Plano '{nome}' criado.", "sucesso")
+        return redirect(url_for("platform.planos"))
+
+    lista = Plano.query.order_by(Plano.ordem, Plano.slug).all()
+    # Quantos tenants usam cada plano: evita mexer no preço sem saber o impacto.
+    uso = {
+        plano.slug: Tenant.query.filter_by(plano=plano.slug).count() for plano in lista
+    }
+    return render_template("platform/planos.html", planos=lista, uso=uso)
+
+
+@platform_bp.route("/planos/<int:plano_id>/salvar", methods=["POST"])
+@platform_admin_required
+def plano_salvar(plano_id: int):
+    plano = db.session.get(Plano, plano_id)
+    if plano is None:
+        flash("Plano não encontrado.", "erro")
+        return redirect(url_for("platform.planos"))
+
+    nome = (request.form.get("nome") or "").strip()
+    if not nome:
+        flash("Informe o nome do plano.", "erro")
+    else:
+        plano.nome = nome
+        plano.preco_mensal = _para_float(request.form.get("preco_mensal"))
+        plano.descricao = (request.form.get("descricao") or "").strip() or None
+        plano.ordem = _para_int(request.form.get("ordem"))
+        plano.ativo = request.form.get("ativo") == "on"
+        db.session.commit()
+        # O preço novo vale para cobranças futuras: as já emitidas guardam o
+        # valor congelado.
+        flash("Plano atualizado. Cobranças já emitidas mantêm o valor antigo.", "sucesso")
+    return redirect(url_for("platform.planos"))
+
+
+@platform_bp.route("/planos/<int:plano_id>/excluir", methods=["POST"])
+@platform_admin_required
+def plano_excluir(plano_id: int):
+    plano = db.session.get(Plano, plano_id)
+    if plano is None:
+        flash("Plano não encontrado.", "erro")
+        return redirect(url_for("platform.planos"))
+
+    em_uso = Tenant.query.filter_by(plano=plano.slug).count()
+    if em_uso:
+        flash(
+            f"{em_uso} tenant(s) estão neste plano. Mude o plano deles antes de excluir.",
+            "erro",
+        )
+    else:
+        db.session.delete(plano)
+        db.session.commit()
+        flash("Plano removido.", "sucesso")
+    return redirect(url_for("platform.planos"))
+
+
+# --------------------------------------------------------------------------- #
+# Cobranças
+# --------------------------------------------------------------------------- #
+
+
+@platform_bp.route("/cobrancas")
+@platform_admin_required
+def cobrancas():
+    filtro = (request.args.get("status") or COBRANCA_PENDENTE).strip()
+    consulta = Cobranca.query
+    if filtro != "todas":
+        consulta = consulta.filter_by(status=filtro)
+    lista = consulta.order_by(Cobranca.vencimento.desc(), Cobranca.id.desc()).limit(200).all()
+
+    hoje = date.today()
+    abertas = Cobranca.query.filter_by(status=COBRANCA_PENDENTE).all()
+    return render_template(
+        "platform/cobrancas.html",
+        cobrancas=lista,
+        filtro=filtro,
+        hoje=hoje,
+        total_em_aberto=sum(c.valor for c in abertas),
+        qtd_vencidas=sum(1 for c in abertas if c.dias_de_atraso(hoje) > 0),
+        recebido_no_mes=sum(
+            c.valor_pago or c.valor
+            for c in Cobranca.query.filter_by(status=COBRANCA_PAGA).all()
+            if c.pago_em and c.pago_em.date() >= hoje.replace(day=1)
+        ),
+    )
+
+
+@platform_bp.route("/cobrancas/<int:cobranca_id>/pagar", methods=["POST"])
+@platform_admin_required
+def cobranca_pagar(cobranca_id: int):
+    cobranca = db.session.get(Cobranca, cobranca_id)
+    if cobranca is None:
+        flash("Cobrança não encontrada.", "erro")
+        return redirect(url_for("platform.cobrancas"))
+
+    valor_informado = request.form.get("valor_pago")
+    try:
+        registrar_pagamento(
+            cobranca,
+            valor=_para_float(valor_informado) if valor_informado else None,
+            metodo=request.form.get("metodo") or "PIX",
+            observacao=request.form.get("observacao"),
+        )
+        flash(
+            f"Pagamento de {cobranca.tenant.nome_fantasia} "
+            f"({cobranca.rotulo_competencia}) registrado. "
+            f"Status do tenant: {cobranca.tenant.status}.",
+            "sucesso",
+        )
+    except ValueError as exc:
+        flash(str(exc), "erro")
+
+    return redirect(request.form.get("voltar_para") or url_for("platform.cobrancas"))
+
+
+@platform_bp.route("/cobrancas/<int:cobranca_id>/cancelar", methods=["POST"])
+@platform_admin_required
+def cobranca_cancelar(cobranca_id: int):
+    cobranca = db.session.get(Cobranca, cobranca_id)
+    if cobranca is None:
+        flash("Cobrança não encontrada.", "erro")
+        return redirect(url_for("platform.cobrancas"))
+
+    try:
+        cancelar_cobranca(cobranca, observacao=request.form.get("observacao"))
+        flash("Cobrança cancelada.", "sucesso")
+    except ValueError as exc:
+        flash(str(exc), "erro")
+    return redirect(request.form.get("voltar_para") or url_for("platform.cobrancas"))
+
+
+@platform_bp.route("/tenants/<int:tenant_id>/cobrancas/gerar", methods=["POST"])
+@platform_admin_required
+def tenant_cobranca_gerar(tenant_id: int):
+    tenant = db.session.get(Tenant, tenant_id)
+    if tenant is None:
+        flash("Tenant não encontrado.", "erro")
+        return redirect(url_for("platform.tenants_list"))
+
+    cobranca = gerar_cobranca(tenant)
+    if cobranca is None:
+        flash(
+            "Nada a cobrar: verifique se o plano tem preço, se o teste grátis já "
+            "terminou e se o tenant está ativo.",
+            "erro",
+        )
+    else:
+        flash(
+            f"Cobrança de {cobranca.rotulo_competencia} no valor de "
+            f"R$ {cobranca.valor:.2f} com vencimento em "
+            f"{cobranca.vencimento.strftime('%d/%m/%Y')}.".replace(".", ",", 1),
+            "sucesso",
+        )
+    return redirect(url_for("platform.tenant_editar", tenant_id=tenant.id))
+
+
+@platform_bp.route("/cobrancas/ciclo", methods=["POST"])
+@platform_admin_required
+def cobrancas_ciclo():
+    """Roda o ciclo do dia na mão, para quem não tem agendador configurado."""
+    resumo = executar_ciclo()
+    flash(
+        f"Ciclo executado: {resumo['emitidas']} cobrança(s) emitida(s), "
+        f"{resumo['avaliados']} tenant(s) avaliado(s), "
+        f"{resumo['suspensos']} suspenso(s), {resumo['atrasados']} em atraso.",
+        "sucesso",
+    )
+    return redirect(url_for("platform.cobrancas"))
