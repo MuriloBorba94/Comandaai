@@ -172,6 +172,23 @@ input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
 .pedido-card form { display: inline; }
 .pedido-card button { padding: 6px 10px; font-size: 13px; margin: 2px 2px 0 0; }
 
+/* Estoque */
+.insumo-bloco {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.insumo-bloco:last-child { border-bottom: none; }
+.insumo-numeros {
+  display: flex;
+  gap: 8px 16px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
 /* Relatórios de venda */
 .alta { color: #1c7d4d; font-weight: 600; }
 .baixa { color: var(--brand); font-weight: 600; }

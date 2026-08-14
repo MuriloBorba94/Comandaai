@@ -34,6 +34,7 @@ RECURSOS = (
     ("bairros", "Taxa de entrega por bairro", "Taxa e prazo próprios por região."),
     ("fotos", "Fotos nos produtos", "Imagem no cardápio, otimizada automaticamente."),
     ("relatorios", "Relatórios de venda", "Faturamento, ticket médio e mais vendidos."),
+    ("estoque", "Estoque e ficha técnica", "Insumos, receita por produto, custo e lucro por venda."),
 )
 
 RECURSOS_SLUGS = tuple(slug for slug, _, _ in RECURSOS)

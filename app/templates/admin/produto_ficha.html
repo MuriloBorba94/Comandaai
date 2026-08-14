@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Ficha de {{ produto.nome }} — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+
+  <div class="card">
+    <h1>Ficha técnica de {{ produto.nome }}</h1>
+    <p class="muted">
+      Quanto de cada insumo <strong>uma unidade</strong> deste produto consome. É
+      daqui que sai o custo e a baixa de estoque quando o pedido é confirmado.
+    </p>
+
+    <div class="stats">
+      <div>
+        <p>Preço de venda</p>
+        <div class="stat">R$ {{ produto.preco|brl }}</div>
+      </div>
+      <div>
+        <p>Custo pela ficha</p>
+        <div class="stat">R$ {{ produto.custo_por_ficha|brl }}</div>
+      </div>
+      <div>
+        <p>Lucro por unidade</p>
+        {% if produto.margem is none %}
+          <div class="stat">—</div>
+          <p class="muted">sem ficha cadastrada</p>
+        {% else %}
+          <div class="stat {% if produto.margem < 0 %}alerta{% endif %}">R$ {{ produto.margem|brl }}</div>
+          {% if produto.preco %}
+            <p class="muted">{{ ((produto.margem / produto.preco) * 100)|round(1) }}% do preço</p>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {% if produto.margem is not none and produto.margem < 0 %}
+      <p class="muted">
+        <strong>Este produto dá prejuízo:</strong> o custo dos insumos passa do
+        preço de venda. Reveja o preço ou as quantidades da ficha.
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h1>Insumos</h1>
+    {% if not insumos %}
+      <p>
+        Nenhum insumo cadastrado ainda.
+        <a href="{{ url_for('admin.insumos') }}">Cadastre os insumos</a> antes de
+        montar a ficha.
+      </p>
+    {% else %}
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr><th>Insumo</th><th>Quantidade usada</th><th>Custo/unidade</th><th>Custo na receita</th></tr>
+            </thead>
+            <tbody>
+              {% for insumo in insumos %}
+                {% set usada = quantidades.get(insumo.id) %}
+                <tr>
+                  <td>
+                    <input type="hidden" name="insumo_id" value="{{ insumo.id }}">
+                    {{ insumo.nome }}
+                    {% if not insumo.controle_estoque %}
+                      <div class="muted">sem controle de saldo</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <input class="campo-ordem" name="quantidade_{{ insumo.id }}"
+                           value="{{ usada|round(4) if usada else '' }}"
+                           placeholder="0" aria-label="Quantidade de {{ insumo.nome }}">
+                    <span class="muted">{{ insumo.unidade }}</span>
+                  </td>
+                  <td class="muted">R$ {{ "%.4f"|format(insumo.custo_unitario)|replace(".", ",") }}</td>
+                  <td>
+                    {% if usada %}
+                      R$ {{ (insumo.custo_unitario * usada)|round(4)|brl }}
+                    {% else %}
+                      <span class="muted">—</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Deixe em branco (ou zero) para tirar o insumo da ficha.</p>
+        <button type="submit">Salvar ficha</button>
+        <a class="btn btn-secundario" href="{{ url_for('admin.produtos') }}">Voltar aos produtos</a>
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}

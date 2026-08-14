@@ -2,6 +2,7 @@ from .adicional import Adicional, produto_adicional
 from .assinatura import Cobranca, Plano
 from .categoria import Categoria
 from .cupom import BairroEntrega, Cupom, CupomUso
+from .estoque import FichaTecnica, Insumo, MovimentacaoEstoque
 from .pedido import Pedido, PedidoItem, PedidoItemAdicional
 from .platform_admin import PlatformAdmin
 from .produto import Produto
@@ -15,6 +16,9 @@ __all__ = [
     "Cobranca",
     "Cupom",
     "CupomUso",
+    "FichaTecnica",
+    "Insumo",
+    "MovimentacaoEstoque",
     "Pedido",
     "PedidoItem",
     "PedidoItemAdicional",

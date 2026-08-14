@@ -105,6 +105,13 @@ class Pedido(TimestampMixin, db.Model):
     desconto = db.Column(db.Float, default=0.0, nullable=False)
     total = db.Column(db.Float, default=0.0, nullable=False)
 
+    # Custo dos insumos e lucro bruto, gravados na baixa de estoque. Ficam no
+    # pedido (e não recalculados depois) porque o preço de compra do insumo muda
+    # com o tempo, e o lucro daquele dia foi o daquele dia.
+    custo_produtos = db.Column(db.Float, default=0.0, nullable=False)
+    lucro_bruto = db.Column(db.Float, default=0.0, nullable=False)
+    estoque_baixado = db.Column(db.Boolean, default=False, nullable=False, index=True)
+
     status = db.Column(db.String(30), default=STATUS_NOVO, nullable=False, index=True)
     origem = db.Column(db.String(20), default="site", nullable=False)
     tempo_estimado_min = db.Column(db.Integer)

@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, flash, g, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    g,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from datetime import datetime
 
@@ -13,34 +23,15 @@ from ..models.produto import Produto
 from ..services.cupons import normalizar_codigo
 from ..services.imagens import remover_imagem, salvar_imagem_produto
 from ..services.recursos import requer_recurso, tenant_libera
+from ..utils import para_float, para_int
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
-def _to_float(valor: str | None) -> float:
-    """Interpreta preço digitado no padrão brasileiro.
-
-    Aceita "45,90", "45.90" e também "1.234,56" — neste último o ponto é
-    separador de milhar, e trocá-lo por vírgula às cegas produziria "1.234.56",
-    que não converte e viraria 0.0 silenciosamente.
-    """
-    texto = (valor or "").strip()
-    if not texto:
-        return 0.0
-    if "," in texto and "." in texto:
-        texto = texto.replace(".", "")  # ponto é milhar; a vírgula é o decimal
-    texto = texto.replace(",", ".")
-    try:
-        return float(texto)
-    except ValueError:
-        return 0.0
-
-
-def _to_int(valor: str | None) -> int:
-    try:
-        return int((valor or "0").strip())
-    except ValueError:
-        return 0
+# Conversão de número digitado vive em app/utils.py: era duplicada aqui e na
+# área da plataforma, com regras que já divergiram uma vez.
+_to_float = para_float
+_to_int = para_int
 
 
 def _to_datetime(valor: str | None) -> datetime | None:
@@ -595,3 +586,195 @@ def produto_excluir(produto_id: int):
         current_app.logger.info("Produto %s removido do tenant %s", produto_id, g.tenant.slug)
         flash("Produto removido.", "sucesso")
     return redirect(url_for("admin.produtos"))
+
+
+# --------------------------------------------------------------------------- #
+# Estoque: insumos, ficha técnica e movimentações
+# --------------------------------------------------------------------------- #
+
+
+def _insumos_do_tenant():
+    from ..models.estoque import Insumo
+
+    return Insumo.query.filter_by(tenant_id=g.tenant.id).order_by(Insumo.nome).all()
+
+
+@admin_bp.route("/insumos", methods=["GET", "POST"])
+@admin_required
+@requer_recurso("estoque")
+def insumos():
+    from ..models.estoque import UNIDADES, Insumo
+    from ..services.estoque import historico, insumos_em_alerta
+
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        unidade = (request.form.get("unidade") or "g").strip()
+        quantidade_compra = _to_float(request.form.get("quantidade_compra"))
+
+        if not nome:
+            flash("Informe o nome do insumo.", "erro")
+        elif unidade not in UNIDADES:
+            flash("Unidade inválida.", "erro")
+        elif quantidade_compra <= 0:
+            # Sem isso o custo por unidade seria divisão por zero, e o custo de
+            # todo prato que usa o insumo sairia zerado sem aviso.
+            flash("A quantidade comprada precisa ser maior que zero.", "erro")
+        elif Insumo.query.filter_by(tenant_id=g.tenant.id, nome=nome).first():
+            flash(f"Você já tem um insumo chamado '{nome}'.", "erro")
+        else:
+            db.session.add(
+                Insumo(
+                    tenant_id=g.tenant.id,
+                    nome=nome,
+                    unidade=unidade,
+                    preco_compra=_to_float(request.form.get("preco_compra")),
+                    quantidade_compra=quantidade_compra,
+                    estoque_minimo=_to_float(request.form.get("estoque_minimo")),
+                    controle_estoque=request.form.get("controle_estoque") == "on",
+                )
+            )
+            db.session.commit()
+            flash("Insumo cadastrado.", "sucesso")
+        return redirect(url_for("admin.insumos"))
+
+    return render_template(
+        "admin/insumos.html",
+        tenant=g.tenant,
+        insumos=_insumos_do_tenant(),
+        unidades=UNIDADES,
+        alertas=insumos_em_alerta(g.tenant.id),
+        movimentacoes=historico(g.tenant.id, limite=30),
+    )
+
+
+@admin_bp.route("/insumos/<int:insumo_id>/salvar", methods=["POST"])
+@admin_required
+@requer_recurso("estoque")
+def insumo_salvar(insumo_id: int):
+    from ..models.estoque import UNIDADES, Insumo
+
+    insumo = Insumo.query.filter_by(id=insumo_id, tenant_id=g.tenant.id).first()
+    if insumo is None:
+        flash("Insumo não encontrado.", "erro")
+        return redirect(url_for("admin.insumos"))
+
+    nome = request.form.get("nome", "").strip()
+    quantidade_compra = _to_float(request.form.get("quantidade_compra"))
+    duplicado = (
+        Insumo.query.filter(
+            Insumo.tenant_id == g.tenant.id, Insumo.nome == nome, Insumo.id != insumo.id
+        ).first()
+        if nome
+        else None
+    )
+
+    if not nome:
+        flash("Informe o nome do insumo.", "erro")
+    elif duplicado:
+        flash(f"Você já tem um insumo chamado '{nome}'.", "erro")
+    elif quantidade_compra <= 0:
+        flash("A quantidade comprada precisa ser maior que zero.", "erro")
+    else:
+        insumo.nome = nome
+        if (request.form.get("unidade") or "") in UNIDADES:
+            insumo.unidade = request.form.get("unidade")
+        insumo.preco_compra = _to_float(request.form.get("preco_compra"))
+        insumo.quantidade_compra = quantidade_compra
+        insumo.estoque_minimo = _to_float(request.form.get("estoque_minimo"))
+        insumo.controle_estoque = request.form.get("controle_estoque") == "on"
+        db.session.commit()
+        flash("Insumo atualizado. O novo custo vale para as próximas vendas.", "sucesso")
+    return redirect(url_for("admin.insumos"))
+
+
+@admin_bp.route("/insumos/<int:insumo_id>/excluir", methods=["POST"])
+@admin_required
+@requer_recurso("estoque")
+def insumo_excluir(insumo_id: int):
+    from ..models.estoque import Insumo, MovimentacaoEstoque
+
+    insumo = Insumo.query.filter_by(id=insumo_id, tenant_id=g.tenant.id).first()
+    if insumo is None:
+        flash("Insumo não encontrado.", "erro")
+        return redirect(url_for("admin.insumos"))
+
+    movimentos = MovimentacaoEstoque.query.filter_by(insumo_id=insumo.id).count()
+    if movimentos:
+        # Apagar deixaria furo no razão do estoque. Quem não quer mais controlar
+        # o insumo pode desmarcar "controlar estoque".
+        flash(
+            f"'{insumo.nome}' tem {movimentos} movimentação(ões) no histórico e não pode "
+            "ser excluído. Desmarque 'controlar estoque' se não quer mais acompanhá-lo.",
+            "erro",
+        )
+    else:
+        db.session.delete(insumo)
+        db.session.commit()
+        flash("Insumo removido.", "sucesso")
+    return redirect(url_for("admin.insumos"))
+
+
+@admin_bp.route("/insumos/<int:insumo_id>/movimentar", methods=["POST"])
+@admin_required
+@requer_recurso("estoque")
+def insumo_movimentar(insumo_id: int):
+    from ..models.estoque import Insumo
+    from ..services.estoque import movimentar
+
+    insumo = Insumo.query.filter_by(id=insumo_id, tenant_id=g.tenant.id).first()
+    if insumo is None:
+        flash("Insumo não encontrado.", "erro")
+        return redirect(url_for("admin.insumos"))
+
+    tipo = request.form.get("tipo", "")
+    # Só lançamento manual aqui: saída e estorno pertencem ao pedido, e lançá-los
+    # na mão faria o razão divergir do que foi realmente vendido.
+    if tipo not in ("entrada", "perda", "ajuste_entrada", "ajuste_saida"):
+        flash("Tipo de movimentação inválido para lançamento manual.", "erro")
+        return redirect(url_for("admin.insumos"))
+
+    try:
+        movimentar(
+            insumo,
+            _to_float(request.form.get("quantidade")),
+            tipo,
+            usuario=session.get("username"),
+            observacao=request.form.get("observacao"),
+        )
+        db.session.commit()
+        flash(f"{insumo.nome}: saldo agora é {insumo.estoque_atual:g} {insumo.unidade}.", "sucesso")
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "erro")
+    return redirect(url_for("admin.insumos"))
+
+
+@admin_bp.route("/produtos/<int:produto_id>/ficha", methods=["GET", "POST"])
+@admin_required
+@requer_recurso("estoque")
+def produto_ficha(produto_id: int):
+    """Ficha técnica: quanto de cada insumo uma unidade do produto consome."""
+    from ..services.estoque import definir_ficha
+
+    produto = Produto.query.filter_by(id=produto_id, tenant_id=g.tenant.id).first()
+    if produto is None:
+        flash("Produto não encontrado.", "erro")
+        return redirect(url_for("admin.produtos"))
+
+    if request.method == "POST":
+        linhas = [
+            (insumo_id, request.form.get(f"quantidade_{insumo_id}"))
+            for insumo_id in request.form.getlist("insumo_id")
+        ]
+        definir_ficha(produto, linhas)
+        db.session.commit()
+        flash("Ficha técnica salva.", "sucesso")
+        return redirect(url_for("admin.produto_ficha", produto_id=produto.id))
+
+    return render_template(
+        "admin/produto_ficha.html",
+        tenant=g.tenant,
+        produto=produto,
+        insumos=_insumos_do_tenant(),
+        quantidades={linha.insumo_id: linha.quantidade_usada for linha in produto.ficha},
+    )

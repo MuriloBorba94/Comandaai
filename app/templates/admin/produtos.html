@@ -90,6 +90,9 @@
           <td>
             <div class="row-actions">
               <a class="btn btn-secundario" href="{{ url_for('admin.produto_editar', produto_id=produto.id) }}">Editar</a>
+              {% if libera('estoque') %}
+                <a class="btn btn-secundario" href="{{ url_for('admin.produto_ficha', produto_id=produto.id) }}">Ficha</a>
+              {% endif %}
               <form class="inline" method="post" action="{{ url_for('admin.produto_excluir', produto_id=produto.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit">Excluir</button>

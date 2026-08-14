@@ -48,6 +48,7 @@ from ..models.produto import Produto
 from .cupons import consumir as consumir_cupom
 from .cupons import liberar as liberar_cupom
 from .cupons import reservar_para_pedido
+from .estoque import aplicar_baixa, estornar_baixa, sincronizar_baixa
 from .recursos import tenant_libera
 
 MAX_ITENS_CARRINHO = 50
@@ -372,6 +373,14 @@ def transicionar(pedido: Pedido, novo_status: str, actor: str | None = None) -> 
         else:
             consumir_cupom(pedido)
 
+    # Estoque segue a mesma regra, e pelo mesmo motivo: o original baixava apenas
+    # em "Confirmado", então um pedido que pulasse direto para "Em preparo" saía
+    # sem consumir insumo e com custo zerado. aplicar_baixa() é idempotente.
+    if novo_status == STATUS_CANCELADO:
+        estornar_baixa(pedido, usuario=actor)
+    else:
+        aplicar_baixa(pedido, usuario=actor)
+
     db.session.commit()
     return pedido
 
@@ -397,6 +406,9 @@ def adicionar_itens_comanda(pedido: Pedido, carrinho, actor: str | None = None) 
         pedido.status = STATUS_CONFIRMADO
 
     pedido.recalcular_total()
+    # A saída de estoque do pedido é o consumo TOTAL dele: aqui a linha existente
+    # cresce e só a diferença sai do saldo.
+    sincronizar_baixa(pedido, usuario=actor)
     db.session.commit()
     return pedido
 

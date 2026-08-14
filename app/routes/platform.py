@@ -29,6 +29,7 @@ from ..models.pedido import Pedido
 from ..models.platform_admin import PlatformAdmin
 from ..models.tenant import STATUSES, Tenant
 from ..models.usuario import Usuario
+from ..utils import para_float, para_int
 from ..services.faturamento_saas import (
     cancelar_cobranca,
     executar_ciclo,
@@ -54,25 +55,9 @@ PADRAO_SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$")
 SENHA_MINIMA = 6
 
 
-def _para_float(valor: str | None) -> float:
-    """Aceita "99,90" e "99.90"; trata o ponto como milhar quando há vírgula."""
-    texto = (valor or "").strip()
-    if not texto:
-        return 0.0
-    if "," in texto and "." in texto:
-        texto = texto.replace(".", "")
-    texto = texto.replace(",", ".")
-    try:
-        return float(texto)
-    except ValueError:
-        return 0.0
-
-
-def _para_int(valor: str | None) -> int:
-    try:
-        return int((valor or "0").strip())
-    except ValueError:
-        return 0
+# Mesma conversão usada no admin do tenant, em app/utils.py.
+_para_float = para_float
+_para_int = para_int
 
 
 def _planos_validos() -> list[str]:

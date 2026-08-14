@@ -30,6 +30,21 @@ class Produto(TimestampMixin, db.Model):
     tenant = db.relationship("Tenant", back_populates="produtos")
     categoria = db.relationship("Categoria", back_populates="produtos")
     adicionais = db.relationship("Adicional", secondary=produto_adicional, back_populates="produtos")
+    ficha = db.relationship(
+        "FichaTecnica", back_populates="produto", cascade="all, delete-orphan"
+    )
+
+    @property
+    def custo_por_ficha(self) -> float:
+        """Custo de produzir uma unidade, somando a ficha técnica."""
+        return round(sum(linha.custo for linha in self.ficha), 2)
+
+    @property
+    def margem(self) -> float | None:
+        """Lucro por unidade. None quando não há ficha para comparar."""
+        if not self.ficha:
+            return None
+        return round(float(self.preco or 0) - self.custo_por_ficha, 2)
 
     def definir_adicionais(self, ids) -> None:
         """Substitui os adicionais deste produto, ignorando ids de outro tenant.
