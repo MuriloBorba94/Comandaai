@@ -84,6 +84,10 @@ def create_app(config_object=Config) -> Flask:
     register_tenancy(app)
     register_cli(app)
 
+    from .layout import registrar as registrar_layout
+
+    registrar_layout(app)
+
     @app.template_global()
     def aviso_assinatura():
         """Aviso de mensalidade para quem administra o restaurante.
@@ -102,6 +106,24 @@ def create_app(config_object=Config) -> Flask:
         if session.get("tenant_id") != tenant.id:
             return None
         return aviso_de_assinatura(tenant)
+
+    @app.template_global()
+    def insumos_para_repor() -> int:
+        """Quantos insumos do tenant estão no mínimo, para o contador da sidebar.
+
+        Devolve 0 quando o plano não inclui estoque: sem isso a consulta rodaria
+        em toda página de quem nem tem o recurso.
+        """
+        from flask import g
+
+        from .services.recursos import tenant_libera
+
+        tenant = g.get("tenant")
+        if tenant is None or not tenant_libera(tenant, "estoque"):
+            return 0
+        from .services.estoque import insumos_em_alerta
+
+        return len(insumos_em_alerta(tenant.id))
 
     @app.template_global()
     def libera(slug: str) -> bool:

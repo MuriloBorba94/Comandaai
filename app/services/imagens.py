@@ -1,4 +1,4 @@
-"""Recebe, valida e otimiza imagens de produto, isoladas por tenant.
+"""Recebe, valida e otimiza as imagens do sistema (produto e logo), por tenant.
 
 Portado do image_service.py do sistema single-tenant, com duas mudanças que o
 multi-tenant exige:
@@ -28,8 +28,12 @@ from werkzeug.utils import secure_filename
 Image.MAX_IMAGE_PIXELS = 45_000_000
 
 MAX_SIZE = (1400, 1400)
+# Logo é exibida em 42x42 na sidebar e até 170px na vitrine; não precisa ser
+# grande, e limitar economiza banda de quem acessa pelo celular.
+MAX_SIZE_LOGO = (400, 400)
 QUALIDADE = 84
 MIN_LADO = 120
+MIN_LADO_LOGO = 48
 
 
 @dataclass(frozen=True)
@@ -51,6 +55,33 @@ def salvar_imagem_produto(file_storage, *, tenant_slug: str, produto_id: int | N
     levanta ValueError com mensagem pronta para o usuário quando o arquivo é
     inválido.
     """
+    return _salvar(
+        file_storage,
+        tenant_slug=tenant_slug,
+        prefixo="produto",
+        sufixo=produto_id,
+        maximo=MAX_SIZE,
+        lado_minimo=MIN_LADO,
+    )
+
+
+def salvar_logo_tenant(file_storage, *, tenant_slug: str) -> ImagemSalva | None:
+    """Grava a logo do restaurante na pasta dele, como qualquer outra imagem.
+
+    O nome do arquivo carrega um sufixo aleatório, então trocar a logo gera um
+    caminho novo e o navegador não serve a antiga de cache.
+    """
+    return _salvar(
+        file_storage,
+        tenant_slug=tenant_slug,
+        prefixo="logo",
+        sufixo=None,
+        maximo=MAX_SIZE_LOGO,
+        lado_minimo=MIN_LADO_LOGO,
+    )
+
+
+def _salvar(file_storage, *, tenant_slug, prefixo, sufixo, maximo, lado_minimo):
     if not file_storage or not getattr(file_storage, "filename", ""):
         return None
 
@@ -63,8 +94,10 @@ def salvar_imagem_produto(file_storage, *, tenant_slug: str, produto_id: int | N
         with Image.open(file_storage.stream) as origem:
             origem.load()
             imagem = ImageOps.exif_transpose(origem)
-            if imagem.width < MIN_LADO or imagem.height < MIN_LADO:
-                raise ValueError(f"A imagem é pequena demais. Use pelo menos {MIN_LADO} x {MIN_LADO} pixels.")
+            if imagem.width < lado_minimo or imagem.height < lado_minimo:
+                raise ValueError(
+                    f"A imagem é pequena demais. Use pelo menos {lado_minimo} x {lado_minimo} pixels."
+                )
             if imagem.width * imagem.height > Image.MAX_IMAGE_PIXELS:
                 raise ValueError("A imagem tem resolução muito alta.")
 
@@ -73,10 +106,10 @@ def salvar_imagem_produto(file_storage, *, tenant_slug: str, produto_id: int | N
                 imagem.mode == "P" and "transparency" in imagem.info
             )
             imagem = imagem.convert("RGBA" if tem_alpha else "RGB")
-            imagem.thumbnail(MAX_SIZE, Image.Resampling.LANCZOS)
+            imagem.thumbnail(maximo, Image.Resampling.LANCZOS)
 
-            sufixo = produto_id if produto_id is not None else "novo"
-            nome_arquivo = f"produto_{sufixo}_{uuid4().hex[:12]}.webp"
+            marca = sufixo if sufixo is not None else "x"
+            nome_arquivo = f"{prefixo}_{marca}_{uuid4().hex[:12]}.webp"
             destino = _pasta_uploads() / pasta_tenant / nome_arquivo
             destino.parent.mkdir(parents=True, exist_ok=True)
             imagem.save(destino, format="WEBP", quality=QUALIDADE, method=6, optimize=True)
@@ -99,7 +132,7 @@ def salvar_imagem_produto(file_storage, *, tenant_slug: str, produto_id: int | N
 
 
 def remover_imagem(caminho_relativo: str | None) -> bool:
-    """Apaga uma imagem de produto. Devolve True se o arquivo foi removido.
+    """Apaga uma imagem gravada aqui. Devolve True se o arquivo foi removido.
 
     Recusa qualquer caminho que, resolvido, caia fora da pasta de uploads —
     barreira contra ".." vindo de um valor corrompido ou manipulado no banco.

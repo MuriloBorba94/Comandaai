@@ -82,6 +82,24 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
     acesso de quem já usa), ferramenta de impersonation para suporte,
     monitoramento de erros (ex. Sentry).
 
+**Layout (fora da numeração, feito depois da Fase 9).** O design system do
+Borba's Burguer foi portado inteiro para `app/static/css/comanda.css`: painel
+claro com alternador para escuro (tokens de `css/gestao_v18.css`), sidebar de
+246px que vira gaveta no celular, commandbar, e a vitrine escura de `css/v2.css`
+para o cliente final. O `base.html` escolhe o shell pelo contexto da requisição
+(`app/layout.py::contexto_layout`), então nenhuma das ~30 telas declara em qual
+mundo vive.
+
+A diferença em relação ao original: lá era **uma página só** com abas. Aqui cada
+item do menu continua sendo uma rota, porque o bloqueio por plano é por rota — uma
+página única carregaria de uma vez os recursos que o plano do tenant não inclui.
+
+Identidade por tenant: `Tenant.logo` (upload, isolado na pasta do tenant como as
+fotos de produto) e `Tenant.cor_marca`, editáveis em `/admin/configuracoes`. A cor
+passa obrigatoriamente por `app/layout.py::cor_valida` antes de entrar no `<style>`
+do `base.html` — sem isso, texto livre ali seria injeção de CSS. Sem logo, a
+sidebar mostra a inicial do nome.
+
 11. **Migração do Borba's Burguer como "tenant zero".** Criar o `Tenant` do
     próprio Borba's Burguer, importar os dados reais (`Produto`, `Cupom`,
     `BairroEntrega`, `LojaConfig`) do banco atual, cortar DNS/agente de

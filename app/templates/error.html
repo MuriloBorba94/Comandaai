@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Erro {{ code }}{% endblock %}
 {% block content %}
-  <div class="card">
-    <h1>Erro {{ code }}</h1>
-    <p>{{ message }}</p>
+  <div class="pagina-centrada">
+    <div class="card" style="text-align:center;">
+      <div class="erro-codigo">{{ code }}</div>
+      <p>{{ message }}</p>
+      <a class="link-rapido" href="/">Voltar ao início</a>
+    </div>
   </div>
 {% endblock %}

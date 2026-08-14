@@ -25,6 +25,13 @@ class Tenant(TimestampMixin, db.Model):
     assinatura_id_externo = db.Column(db.String(120), index=True)
     proxima_cobranca_em = db.Column(db.DateTime)
 
+    # Identidade visual do restaurante. A logo é um caminho relativo dentro de
+    # static/uploads, como as fotos de produto — isolada na pasta do tenant. A
+    # cor entra no CSS, então é validada como hex antes de ser usada (ver
+    # app/layout.py); guardar aqui texto inválido não vira injeção.
+    logo = db.Column(db.String(200))
+    cor_marca = db.Column(db.String(7))
+
     # Quantas mesas o salão tem. 0 = não atende mesa, e o fluxo de comanda fica
     # indisponível para este tenant. No sistema original o limite de mesas era
     # uma constante no código (1..30), o que não serve quando cada restaurante

@@ -31,7 +31,28 @@ O que já existe aqui:
 - **Relatórios de venda** e **estoque com ficha técnica** (Fase 9): custo e lucro
   por pedido, baixa automática de insumo ao vender, despesas a pagar e resultado
   do período.
+- **Layout do Borba's Burguer portado**: painel claro/escuro com sidebar e
+  commandbar, vitrine escura para o cliente final, e identidade por tenant —
+  cada restaurante envia a sua logo e escolhe a cor da marca em
+  `/admin/configuracoes`, sem interferir no vizinho.
 - Migrations versionadas com Flask-Migrate/Alembic desde o início.
+
+## Identidade visual de cada tenant
+
+O design system inteiro vive em `app/static/css/comanda.css`, com dois ambientes:
+o **painel** (admin do restaurante e área da plataforma), claro por padrão e com
+alternador para escuro guardado no `localStorage` de quem opera; e a **vitrine**
+(o cardápio público), sempre escura. Qual dos dois usar não é declarado por tela:
+`app/layout.py::contexto_layout()` decide pelo contexto da requisição.
+
+A cor de destaque é a variável CSS `--brand`, sobrescrita por tenant num bloco
+`<style>` do `base.html`. Como ela vai para dentro do CSS, passa
+obrigatoriamente por `app/layout.py::cor_valida()`, que só aceita hex de 3 ou 6
+dígitos — qualquer outro texto volta a ser a cor padrão. Sem isso, o campo de cor
+seria uma porta de injeção de CSS.
+
+A logo é gravada em `static/uploads/<slug>/`, como as fotos de produto, e trocar
+a logo apaga o arquivo antigo. Sem logo, a sidebar mostra a inicial do nome.
 
 ## Cobrança da assinatura
 

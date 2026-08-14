@@ -1,7 +1,24 @@
-{# Navegação da área da plataforma, num só lugar. #}
-<a href="{{ url_for('platform.inicio') }}">Início</a>
-<a href="{{ url_for('platform.tenants_list') }}">Tenants</a>
-<a href="{{ url_for('platform.cobrancas') }}">Cobranças</a>
-<a href="{{ url_for('platform.planos') }}">Planos</a>
-<a href="{{ url_for('platform.tenant_new') }}">+ Novo tenant</a>
-<a href="{{ url_for('platform.logout') }}">Sair</a>
+{# Navegação da área da plataforma, dentro da sidebar. #}
+{% set atual = request.endpoint or "" %}
+<nav class="nav">
+  <span class="nav-titulo">Visão geral</span>
+  <a href="{{ url_for('platform.inicio') }}" class="{{ 'ativo' if atual == 'platform.inicio' }}">
+    <i>⌂</i> Início
+  </a>
+
+  <span class="nav-titulo">Clientes</span>
+  <a href="{{ url_for('platform.tenants_list') }}" class="{{ 'ativo' if atual in ('platform.tenants_list', 'platform.tenant_editar') }}">
+    <i>▦</i> Tenants
+  </a>
+  <a href="{{ url_for('platform.tenant_new') }}" class="{{ 'ativo' if atual == 'platform.tenant_new' }}">
+    <i>✦</i> Novo tenant
+  </a>
+
+  <span class="nav-titulo">Assinatura</span>
+  <a href="{{ url_for('platform.cobrancas') }}" class="{{ 'ativo' if atual == 'platform.cobrancas' }}">
+    <i>◒</i> Cobranças
+  </a>
+  <a href="{{ url_for('platform.planos') }}" class="{{ 'ativo' if atual == 'platform.planos' }}">
+    <i>◆</i> Planos
+  </a>
+</nav>

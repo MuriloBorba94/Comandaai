@@ -40,6 +40,38 @@
   </div>
 
   <div class="card">
+    <h1>Identidade visual</h1>
+    <p class="muted">
+      A logo aparece no topo do painel e no cabeçalho do cardápio. A cor pinta
+      botões, links e destaques — só deste restaurante.
+    </p>
+    <form method="post" action="{{ url_for('admin.identidade') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      {% if tenant.logo %}
+        <div class="logo-atual">
+          <img src="{{ url_for('static', filename='uploads/' + tenant.logo) }}" alt="Logo de {{ tenant.nome_fantasia }}">
+          <label class="check-inline">
+            <input type="checkbox" name="remover_logo"> Remover a logo atual
+          </label>
+        </div>
+      {% endif %}
+
+      <label for="logo">{{ "Trocar a logo" if tenant.logo else "Enviar a logo" }}</label>
+      <input id="logo" name="logo" type="file" accept="image/*">
+      <p class="muted">
+        Quadrada fica melhor, com pelo menos 48 x 48 pixels. Sem logo, o painel
+        mostra a inicial do nome.
+      </p>
+
+      <label for="cor_marca">Cor da marca</label>
+      <input id="cor_marca" name="cor_marca" type="color" value="{{ cor_atual }}">
+
+      <button type="submit">Salvar identidade</button>
+    </form>
+  </div>
+
+  <div class="card">
     <h1>Configurações da loja</h1>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

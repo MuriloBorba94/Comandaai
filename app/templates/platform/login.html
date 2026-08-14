@@ -2,15 +2,18 @@
 {% block title %}Login da plataforma{% endblock %}
 {% block header_title %}Comanda ai — Plataforma{% endblock %}
 {% block content %}
-  <div class="card" style="max-width:360px;margin:40px auto;">
-    <h1>Login do super-admin</h1>
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label for="username">Usuário</label>
-      <input id="username" name="username" required autofocus>
-      <label for="password">Senha</label>
-      <input id="password" name="password" type="password" required>
-      <button type="submit">Entrar</button>
-    </form>
+  <div class="pagina-centrada">
+    <div class="card">
+      <h1>Comanda ai</h1>
+      <p class="muted">Administração da plataforma.</p>
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="username">Usuário</label>
+        <input id="username" name="username" required autofocus autocomplete="username">
+        <label for="password">Senha</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password">
+        <button type="submit">Entrar</button>
+      </form>
+    </div>
   </div>
 {% endblock %}

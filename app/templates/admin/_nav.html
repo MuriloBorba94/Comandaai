@@ -1,17 +1,83 @@
-{# Links do admin do tenant, num só lugar.
+{# Navegação do painel do restaurante, dentro da sidebar.
 
-   Recurso que o plano não inclui não aparece aqui: a rota também barra, mas
-   oferecer para depois negar seria pior do que não oferecer. #}
-<a href="{{ url_for('admin.dashboard') }}">Painel</a>
-{% if libera('cozinha') %}<a href="{{ url_for('operacao.cozinha') }}">Cozinha</a>{% endif %}
-{% if libera('relatorios') %}<a href="{{ url_for('admin.relatorios') }}">Relatórios</a>{% endif %}
-{% if libera('mesas') and tenant.atende_mesa %}<a href="{{ url_for('operacao.mesas') }}">Mesas</a>{% endif %}
-<a href="{{ url_for('admin.produtos') }}">Produtos</a>
-<a href="{{ url_for('admin.categorias') }}">Categorias</a>
-<a href="{{ url_for('admin.adicionais') }}">Adicionais</a>
-{% if libera('financeiro') %}<a href="{{ url_for('admin.financeiro') }}">Financeiro</a>{% endif %}
-{% if libera('estoque') %}<a href="{{ url_for('admin.insumos') }}">Estoque</a>{% endif %}
-{% if libera('cupons') %}<a href="{{ url_for('admin.cupons') }}">Cupons</a>{% endif %}
-{% if libera('bairros') %}<a href="{{ url_for('admin.bairros') }}">Bairros</a>{% endif %}
-<a href="{{ url_for('admin.configuracoes') }}">Configurações</a>
-<a href="{{ url_for('auth.logout') }}">Sair</a>
+   Usa `g.tenant` (e não a variável `tenant` de cada tela) porque agora é o
+   base.html que inclui este arquivo, e não cada página.
+
+   Recurso que o plano não inclui não aparece: a rota também barra, mas oferecer
+   para depois negar seria pior do que não oferecer. O item ativo sai do endpoint
+   da requisição. #}
+{% set atual = request.endpoint or "" %}
+<nav class="nav">
+  <span class="nav-titulo">Operação</span>
+  <a href="{{ url_for('admin.dashboard') }}" class="{{ 'ativo' if atual == 'admin.dashboard' }}">
+    <i>⌂</i> Painel
+  </a>
+  {% if libera('cozinha') %}
+    <a href="{{ url_for('operacao.cozinha') }}" class="{{ 'ativo' if atual.startswith('operacao.cozinha') or atual == 'operacao.pedido_status' }}">
+      <i>⌁</i> Cozinha
+    </a>
+  {% endif %}
+  {% if libera('mesas') and g.tenant.atende_mesa %}
+    <a href="{{ url_for('operacao.mesas') }}" class="{{ 'ativo' if atual.startswith('operacao.mesa') }}">
+      <i>▦</i> Mesas
+    </a>
+  {% endif %}
+  {% if libera('relatorios') %}
+    <a href="{{ url_for('admin.relatorios') }}" class="{{ 'ativo' if atual == 'admin.relatorios' }}">
+      <i>▥</i> Relatórios
+    </a>
+  {% endif %}
+
+  <span class="nav-titulo">Cardápio</span>
+  <a href="{{ url_for('admin.produtos') }}" class="{{ 'ativo' if atual in ('admin.produtos', 'admin.produto_editar', 'admin.produto_ficha') }}">
+    <i>◫</i> Produtos
+  </a>
+  <a href="{{ url_for('admin.categorias') }}" class="{{ 'ativo' if atual == 'admin.categorias' }}">
+    <i>▤</i> Categorias
+  </a>
+  <a href="{{ url_for('admin.adicionais') }}" class="{{ 'ativo' if atual == 'admin.adicionais' }}">
+    <i>✦</i> Adicionais
+  </a>
+
+  {% if libera('cupons') or libera('bairros') %}
+    <span class="nav-titulo">Vendas</span>
+    {% if libera('cupons') %}
+      <a href="{{ url_for('admin.cupons') }}" class="{{ 'ativo' if atual == 'admin.cupons' }}">
+        <i>◆</i> Cupons
+      </a>
+    {% endif %}
+    {% if libera('bairros') %}
+      <a href="{{ url_for('admin.bairros') }}" class="{{ 'ativo' if atual == 'admin.bairros' }}">
+        <i>⌖</i> Bairros e taxas
+      </a>
+    {% endif %}
+  {% endif %}
+
+  {% if libera('estoque') or libera('financeiro') %}
+    <span class="nav-titulo">Gestão</span>
+    {% if libera('estoque') %}
+      <a href="{{ url_for('admin.insumos') }}" class="{{ 'ativo' if atual == 'admin.insumos' }}">
+        <i>▣</i> Estoque
+        {% set repor = insumos_para_repor() %}
+        {% if repor %}<b class="nav-contador" title="Insumos para repor">{{ repor }}</b>{% endif %}
+      </a>
+    {% endif %}
+    {% if libera('financeiro') %}
+      <a href="{{ url_for('admin.financeiro') }}" class="{{ 'ativo' if atual == 'admin.financeiro' }}">
+        <i>◒</i> Financeiro
+      </a>
+    {% endif %}
+  {% endif %}
+
+  <span class="nav-titulo">Loja</span>
+  <a href="{{ url_for('admin.configuracoes') }}" class="{{ 'ativo' if atual == 'admin.configuracoes' }}">
+    <i>◎</i> Configurações
+  </a>
+</nav>
+
+<div class="sidebar-rodape">
+  <a href="{{ url_for('public.index') }}" target="_blank" rel="noopener">
+    <span aria-hidden="true">↗</span>
+    <span><small>Ver como cliente</small><strong>Abrir cardápio</strong></span>
+  </a>
+</div>

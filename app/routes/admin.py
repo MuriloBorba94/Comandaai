@@ -21,7 +21,7 @@ from ..models.categoria import Categoria
 from ..models.cupom import TIPOS_CUPOM, BairroEntrega, Cupom
 from ..models.produto import Produto
 from ..services.cupons import normalizar_codigo
-from ..services.imagens import remover_imagem, salvar_imagem_produto
+from ..services.imagens import remover_imagem, salvar_imagem_produto, salvar_logo_tenant
 from ..services.recursos import requer_recurso, tenant_libera
 from ..utils import para_float, para_int
 
@@ -127,6 +127,7 @@ def configuracoes():
         flash("Configurações salvas.", "sucesso")
         return redirect(url_for("admin.configuracoes"))
 
+    from ..layout import COR_PADRAO, cor_valida
     from ..models.assinatura import RECURSOS, Plano
     from ..services.recursos import recursos_do_tenant
 
@@ -138,7 +139,51 @@ def configuracoes():
         # Mostra o catálogo inteiro marcando o que está incluído: o dono precisa
         # saber tanto o que tem quanto o que ganharia mudando de plano.
         recursos=[(rotulo, explicacao, slug in liberados) for slug, rotulo, explicacao in RECURSOS],
+        cor_atual=cor_valida(g.tenant.cor_marca) or COR_PADRAO,
     )
+
+
+@admin_bp.route("/configuracoes/identidade", methods=["POST"])
+@admin_required
+def identidade():
+    """Logo e cor de marca do restaurante.
+
+    Rota separada do resto das configurações de propósito: um arquivo recusado
+    aqui não pode desfazer nem atrapalhar o salvamento de mesas e tempos, que
+    são outro formulário.
+
+    A cor passa por `cor_valida` porque ela vai para dentro de um bloco
+    `<style>` no layout: texto arbitrário ali seria injeção de CSS. Valor
+    inválido volta a ser o padrão em vez de virar erro, já que a única origem
+    prática é um navegador sem `input type=color`.
+    """
+    from ..layout import cor_valida
+
+    arquivo = request.files.get("logo")
+    enviou_arquivo = bool(arquivo and getattr(arquivo, "filename", ""))
+
+    if enviou_arquivo:
+        try:
+            logo = salvar_logo_tenant(arquivo, tenant_slug=g.tenant.slug)
+        except ValueError as exc:
+            flash(str(exc), "erro")
+            return redirect(url_for("admin.configuracoes"))
+        antiga = g.tenant.logo
+        g.tenant.logo = logo.caminho_relativo
+        if antiga:
+            remover_imagem(antiga)
+    elif request.form.get("remover_logo") == "on":
+        remover_imagem(g.tenant.logo)
+        g.tenant.logo = None
+
+    # Só mexe na cor se o campo veio: um POST que traz apenas a logo não deve
+    # apagar a cor já escolhida.
+    if "cor_marca" in request.form:
+        g.tenant.cor_marca = cor_valida(request.form.get("cor_marca"))
+
+    db.session.commit()
+    flash("Identidade visual salva.", "sucesso")
+    return redirect(url_for("admin.configuracoes"))
 
 
 @admin_bp.route("/relatorios")

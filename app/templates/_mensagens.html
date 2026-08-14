@@ -1,0 +1,20 @@
+{# Mensagens da requisição e aviso de mensalidade, nos dois shells. #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for categoria, mensagem in messages %}
+      <div class="flash flash-{{ categoria }}">{{ mensagem }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{# Só rende algo para quem administra o restaurante; o cliente final nunca vê a
+   cobrança da assinatura da loja.
+
+   O nome é `aviso_topo` e o `with` limita `aviso` ao include de propósito: um
+   `{% set aviso %}` aqui sombrearia a variável `aviso` que uma página filha
+   recebe do servidor — foi o que apagou a explicação de inadimplência da tela
+   de bloqueio. #}
+{% set aviso_topo = aviso_assinatura() %}
+{% if aviso_topo %}
+  {% with aviso = aviso_topo %}{% include "_aviso_assinatura.html" %}{% endwith %}
+{% endif %}
