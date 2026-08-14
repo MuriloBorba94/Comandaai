@@ -49,6 +49,18 @@ a data já passou, e quando o **plano dele tem preço maior que zero**. Tenant c
 o fim do teste em branco nunca é cobrado nem suspenso — é o que protege os
 tenants criados antes desta fase.
 
+### Como o restaurante é avisado
+
+Não há envio de e-mail nem WhatsApp — o aviso é **dentro do próprio painel** do
+restaurante. Enquanto a mensalidade está em aberto, aparece uma faixa com valor e
+vencimento em todas as telas do admin; depois do vencimento ela fica vermelha e
+informa quantos dias faltam para o bloqueio. Quando bloqueia, a tela explica o
+motivo, o valor e há quantos dias venceu.
+
+Defina `PLATFORM_CONTATO` no `.env` (ex.: um WhatsApp seu). Sem isso o cliente é
+avisado de que deve, sem saber para quem pagar. O pagamento em si acontece por
+fora: não existe PIX nem checkout da assinatura no sistema.
+
 ### O que cada plano libera
 
 Em **Plataforma → Planos**, além do preço, cada plano marca quais recursos

@@ -85,6 +85,11 @@ class Config:
     # Dia do mês em que a mensalidade vence.
     DIA_VENCIMENTO = _to_int(os.getenv("DIA_VENCIMENTO"), 10)
 
+    # Como o restaurante fala com você para pagar ou tirar dúvida de cobrança.
+    # Aparece no aviso de mensalidade e na tela de acesso bloqueado — sem isso, o
+    # cliente é avisado de que deve sem saber para quem pagar.
+    PLATFORM_CONTATO = os.getenv("PLATFORM_CONTATO", "").strip()
+
     LOG_FOLDER = str(BASE_DIR / "logs")
 
     # Imagens de produto. Cada tenant grava em uploads/<slug>/, e o arquivo é

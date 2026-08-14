@@ -309,6 +309,46 @@ def executar_ciclo(hoje: date | None = None) -> dict:
     return resumo
 
 
+def aviso_de_assinatura(tenant: Tenant, hoje: date | None = None) -> dict | None:
+    """O que avisar ao dono do restaurante sobre a mensalidade dele.
+
+    Devolve None quando não há nada a dizer. Existe porque o cliente não é
+    notificado por e-mail nem WhatsApp: sem este aviso, ele descobre que devia
+    no dia em que a loja para de funcionar.
+    """
+    if tenant is None:
+        return None
+
+    hoje = hoje or date.today()
+    abertas = cobrancas_em_aberto(tenant.id)
+    if not abertas:
+        return None
+
+    carencia = int(current_app.config.get("CARENCIA_DIAS", 5))
+    atraso = max(cobranca.dias_de_atraso(hoje) for cobranca in abertas)
+    mais_antiga = abertas[0]
+    total = float(sum(_dinheiro(c.valor) for c in abertas))
+
+    if atraso > carencia:
+        nivel = "bloqueado"
+    elif atraso > 0:
+        nivel = "urgente"
+    else:
+        nivel = "informativo"
+
+    return {
+        "nivel": nivel,
+        "cobranca": mais_antiga,
+        "quantidade": len(abertas),
+        "total": total,
+        "dias_de_atraso": atraso,
+        # Quantos dias ainda faltam para o bloqueio. Dizer isso é o que dá ao
+        # cliente a chance de agir antes de perder a loja.
+        "dias_para_bloqueio": max(0, carencia - atraso + 1) if atraso else None,
+        "contato": current_app.config.get("PLATFORM_CONTATO") or "",
+    }
+
+
 def resumo_do_tenant(tenant: Tenant, hoje: date | None = None) -> dict:
     """Números da assinatura de um tenant, para a tela da plataforma."""
     hoje = hoje or date.today()

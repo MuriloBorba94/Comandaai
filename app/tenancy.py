@@ -56,7 +56,22 @@ def resolve_tenant():
         # 402 não existe como HTTPException no Werkzeug, então a resposta é
         # retornada direto aqui (um valor não-None de before_request encerra
         # a requisição sem chamar a view).
-        return render_template("tenant_suspended.html", tenant=tenant), 402
+        #
+        # O aviso de cobrança acompanha a resposta para a tela poder dizer o
+        # MOTIVO. Bloqueio sem explicação faz o dono da loja achar que o sistema
+        # quebrou. E quando não há cobrança em aberto (bloqueio manual), a tela
+        # não pode acusar inadimplência que não existe.
+        from .services.faturamento_saas import aviso_de_assinatura
+
+        return (
+            render_template(
+                "tenant_suspended.html",
+                tenant=tenant,
+                aviso=aviso_de_assinatura(tenant),
+                contato=current_app.config.get("PLATFORM_CONTATO") or "",
+            ),
+            402,
+        )
 
     g.tenant = tenant
 

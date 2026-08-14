@@ -1,0 +1,34 @@
+{# Aviso de mensalidade, mostrado só para quem administra o restaurante.
+
+   O tom sobe conforme a proximidade do bloqueio: enquanto está em dia é uma
+   informação, depois do vencimento é um alerta com prazo. Sem isto, o dono da
+   loja só descobre que devia no dia em que o sistema para. #}
+<div class="aviso-assinatura aviso-{{ aviso.nivel }}">
+  {% if aviso.nivel == "informativo" %}
+    <strong>Mensalidade de {{ aviso.cobranca.rotulo_competencia }}:
+      R$ {{ aviso.total|brl }}</strong>
+    <span>vence em {{ aviso.cobranca.vencimento.strftime('%d/%m/%Y') }}.</span>
+  {% else %}
+    <strong>
+      Mensalidade em atraso há {{ aviso.dias_de_atraso }} dia(s):
+      R$ {{ aviso.total|brl }}
+    </strong>
+    <span>
+      {% if aviso.dias_para_bloqueio %}
+        O acesso à loja será bloqueado em {{ aviso.dias_para_bloqueio }} dia(s).
+      {% else %}
+        O acesso à loja está bloqueado.
+      {% endif %}
+    </span>
+  {% endif %}
+
+  {% if aviso.quantidade > 1 %}
+    <span>{{ aviso.quantidade }} mensalidades em aberto.</span>
+  {% endif %}
+
+  {% if aviso.contato %}
+    <span>Para pagar, fale com {{ aviso.contato }}.</span>
+  {% else %}
+    <span>Fale com o suporte para regularizar.</span>
+  {% endif %}
+</div>

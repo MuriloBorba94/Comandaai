@@ -85,6 +85,25 @@ def create_app(config_object=Config) -> Flask:
     register_cli(app)
 
     @app.template_global()
+    def aviso_assinatura():
+        """Aviso de mensalidade para quem administra o restaurante.
+
+        Devolve None para o cliente final. A cobrança que o restaurante paga à
+        plataforma não é da conta de quem está pedindo um lanche, e mostrá-la na
+        vitrine seria vazamento de informação comercial.
+        """
+        from flask import g, session
+
+        from .services.faturamento_saas import aviso_de_assinatura
+
+        tenant = g.get("tenant")
+        if tenant is None or not session.get("logged_in"):
+            return None
+        if session.get("tenant_id") != tenant.id:
+            return None
+        return aviso_de_assinatura(tenant)
+
+    @app.template_global()
     def libera(slug: str) -> bool:
         """Diz se o plano do tenant atual inclui um recurso.
 

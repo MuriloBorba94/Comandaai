@@ -3,11 +3,51 @@
 {% block content %}
   <div class="card">
     <h1>Acesso temporariamente indisponível</h1>
-    {% if tenant %}
-      <p>A loja <strong>{{ tenant.nome_fantasia }}</strong> está com o acesso suspenso
-      (status: {{ tenant.status }}). Fale com o suporte para regularizar.</p>
+
+    {% if aviso %}
+      {# Há mensalidade em aberto: dizer isso é o que permite resolver. #}
+      <p>
+        A loja <strong>{{ tenant.nome_fantasia }}</strong> está com o acesso
+        bloqueado por mensalidade em atraso.
+      </p>
+      <p class="destaque-valor">
+        R$ {{ aviso.total|brl }}
+        <span class="muted">
+          {% if aviso.quantidade > 1 %}
+            em {{ aviso.quantidade }} mensalidades
+          {% else %}
+            referente a {{ aviso.cobranca.rotulo_competencia }}
+          {% endif %}
+          · vencida há {{ aviso.dias_de_atraso }} dia(s)
+        </span>
+      </p>
+      <p>
+        {% if aviso.contato %}
+          Para regularizar e liberar o acesso na hora, fale com
+          <strong>{{ aviso.contato }}</strong>.
+        {% else %}
+          Fale com o suporte para regularizar e liberar o acesso.
+        {% endif %}
+      </p>
     {% else %}
-      <p>Esta loja está com o acesso suspenso. Fale com o suporte para regularizar.</p>
+      {# Sem cobrança em aberto: pode ser bloqueio manual ou cancelamento. Não
+         acusar inadimplência que não existe. #}
+      <p>
+        {% if tenant %}
+          A loja <strong>{{ tenant.nome_fantasia }}</strong> está com o acesso
+          suspenso.
+        {% else %}
+          Esta loja está com o acesso suspenso.
+        {% endif %}
+      </p>
+      <p>
+        {% if contato %}
+          Fale com <strong>{{ contato }}</strong> para entender o motivo e
+          regularizar.
+        {% else %}
+          Fale com o suporte para entender o motivo e regularizar.
+        {% endif %}
+      </p>
     {% endif %}
   </div>
 {% endblock %}
