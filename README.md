@@ -10,7 +10,9 @@ O que já existe aqui:
 - Autenticação de `Usuario` escopada por tenant (dois tenants podem ter
   usuários com o mesmo `username`, sem conflito).
 - Um `PlatformAdmin` separado — o super-admin (você, o revendedor) que cria e
-  gerencia os tenants, sem se misturar com os admins de cada loja.
+  gerencia os tenants, sem se misturar com os admins de cada loja. A área da
+  plataforma abre numa página inicial com receita recorrente, o que está vencido,
+  trials terminando e quais restaurantes pararam de receber pedidos.
 - Rate limit por IP nas rotas de login, contando somente tentativas que falham.
 - **Cardápio completo por tenant** (Fase 1): `Categoria` ordenável, `Adicional`
   vinculado por produto, `Produto` com foto, e vitrine pública agrupada na

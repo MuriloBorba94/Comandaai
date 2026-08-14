@@ -172,6 +172,20 @@ input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
 .pedido-card form { display: inline; }
 .pedido-card button { padding: 6px 10px; font-size: 13px; margin: 2px 2px 0 0; }
 
+/* Página inicial da plataforma */
+.stat.alerta { color: var(--brand); }
+
+.lista-simples { list-style: none; padding: 0; margin: 6px 0 0; }
+.lista-simples li {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.lista-simples li:last-child { border-bottom: none; }
+
 /* Recursos liberados por plano */
 .recursos {
   display: grid;

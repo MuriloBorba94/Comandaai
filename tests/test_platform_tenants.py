@@ -8,6 +8,8 @@ estrago silencioso).
 
 from __future__ import annotations
 
+from datetime import date, datetime
+
 from app.extensions import db
 from app.models.tenant import Tenant
 from app.models.usuario import Usuario
@@ -408,3 +410,125 @@ def test_lista_de_tenants_leva_para_a_edicao(client, platform_admin):
 
     corpo = client.get("/plataforma/tenants", base_url=BASE_PLATAFORMA).get_data(as_text=True)
     assert f"/plataforma/tenants/{tenant.id}/editar" in corpo
+
+
+# --------------------------------------------------------------------------- #
+# Página inicial da plataforma
+# --------------------------------------------------------------------------- #
+
+
+def _plano_com_preco(slug="starter", preco=99.90):
+    from app.models.assinatura import Plano
+
+    plano = Plano(slug=slug, nome=slug.title(), preco_mensal=preco)
+    db.session.add(plano)
+    db.session.commit()
+    return plano
+
+
+def test_inicio_da_plataforma_exige_super_admin(client, platform_admin):
+    resposta = client.get("/plataforma/", base_url=BASE_PLATAFORMA, follow_redirects=False)
+    assert resposta.status_code in (302, 303)
+    assert "/plataforma/login" in resposta.headers["Location"]
+
+
+def test_login_cai_na_pagina_inicial(client, platform_admin):
+    """Antes o login ia direto para a lista de tenants, sem visão do negócio."""
+    resposta = _login_plataforma(client)
+    assert resposta.status_code in (302, 303)
+    assert resposta.headers["Location"].rstrip("/").endswith("/plataforma")
+
+
+def test_inicio_mostra_receita_recorrente_dos_pagantes(client, platform_admin):
+    """Trial não entra na conta: contar como receita daria expectativa falsa."""
+    _plano_com_preco(preco=100.0)
+    pagante, _ = _criar_tenant(slug="paga", nome="Paga", username="a")
+    pagante.status = "active"
+    em_teste, _ = _criar_tenant(slug="testa", nome="Testa", username="b")
+    em_teste.status = "trial"
+    for tenant in (pagante, em_teste):
+        tenant.plano = "starter"
+    db.session.commit()
+
+    _login_plataforma(client)
+    corpo = client.get("/plataforma/", base_url=BASE_PLATAFORMA).get_data(as_text=True)
+    assert "R$ 100,00" in corpo, "só o tenant fora do teste conta como receita"
+
+
+def test_inicio_destaca_cobranca_vencida(client, platform_admin):
+    from datetime import timedelta
+
+    from app.services.faturamento_saas import avaliar_status, gerar_cobranca
+
+    _plano_com_preco(preco=99.90)
+    tenant, _ = _criar_tenant(slug="devedora", nome="Devedora")
+    tenant.plano = "starter"
+    tenant.trial_termina_em = datetime(2026, 8, 1)
+    db.session.commit()
+
+    cobranca = gerar_cobranca(tenant, hoje=date(2026, 8, 20))
+    cobranca.vencimento = date.today() - timedelta(days=10)
+    db.session.commit()
+    avaliar_status(tenant)
+
+    _login_plataforma(client)
+    corpo = client.get("/plataforma/", base_url=BASE_PLATAFORMA).get_data(as_text=True)
+    assert "Precisa de atenção" in corpo
+    assert "Devedora" in corpo
+    assert "10 dia(s)" in corpo
+    assert "loja bloqueada" in corpo
+
+
+def test_inicio_avisa_de_tenant_sem_prazo_de_teste(client, platform_admin):
+    """Sem a data, o tenant nunca é cobrado — é fácil esquecer e não faturar."""
+    _plano_com_preco()
+    tenant, _ = _criar_tenant(slug="esquecida", nome="Esquecida")
+    tenant.trial_termina_em = None
+    db.session.commit()
+
+    _login_plataforma(client)
+    corpo = client.get("/plataforma/", base_url=BASE_PLATAFORMA).get_data(as_text=True)
+    assert "Sem prazo de teste definido" in corpo
+    assert "Esquecida" in corpo
+
+
+def test_inicio_aponta_tenant_sem_pedido_recente(client, platform_admin, two_tenants):
+    """Zero pedido em sete dias é sinal de abandono."""
+    _plano_com_preco()
+    _login_plataforma(client)
+
+    corpo = client.get("/plataforma/", base_url=BASE_PLATAFORMA).get_data(as_text=True)
+    assert "Uso nos últimos 7 dias" in corpo
+    assert "sem pedidos" in corpo
+
+
+def test_inicio_sem_planos_orienta_o_primeiro_passo(client, platform_admin):
+    _login_plataforma(client)
+    corpo = client.get("/plataforma/", base_url=BASE_PLATAFORMA).get_data(as_text=True)
+    assert "Comece definindo seus planos" in corpo
+
+
+def test_inicio_sem_pendencia_nao_mostra_o_bloco_de_atencao(client, platform_admin):
+    """Bloco de alerta permanente treinaria o olho a ignorá-lo."""
+    _plano_com_preco()
+    tenant, _ = _criar_tenant(slug="emdia", nome="Em Dia")
+    tenant.status = "active"
+    tenant.plano = "starter"
+    tenant.trial_termina_em = datetime(2026, 1, 1)
+    db.session.commit()
+
+    _login_plataforma(client)
+    corpo = client.get("/plataforma/", base_url=BASE_PLATAFORMA).get_data(as_text=True)
+    assert "Precisa de atenção" not in corpo
+
+
+def test_landing_da_plataforma_tem_porta_de_entrada(client, platform_admin):
+    """Sem isso, o host da plataforma era uma tela sem caminho para lugar algum."""
+    corpo = client.get("/", base_url=BASE_PLATAFORMA).get_data(as_text=True)
+    assert "Entrar na plataforma" in corpo
+
+
+def test_landing_de_tenant_nao_expoe_a_plataforma(client, two_tenants):
+    """No subdomínio do restaurante, o cliente final não vê caminho para o admin."""
+    corpo = client.get("/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+    assert "Entrar na plataforma" not in corpo

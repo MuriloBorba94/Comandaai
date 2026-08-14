@@ -14,6 +14,8 @@ from flask import (
     url_for,
 )
 
+from sqlalchemy import func
+
 from ..decorators import platform_admin_required
 from ..extensions import db, limiter
 from ..models.assinatura import (
@@ -23,6 +25,7 @@ from ..models.assinatura import (
     Cobranca,
     Plano,
 )
+from ..models.pedido import Pedido
 from ..models.platform_admin import PlatformAdmin
 from ..models.tenant import STATUSES, Tenant
 from ..models.usuario import Usuario
@@ -138,7 +141,7 @@ def login():
         if admin and admin.check_password(password):
             session.clear()
             session["platform_admin_id"] = admin.id
-            return redirect(url_for("platform.tenants_list"))
+            return redirect(url_for("platform.inicio"))
         current_app.logger.warning(
             "Login de super-admin falhou: username=%r ip=%s", username, request.remote_addr
         )
@@ -150,6 +153,94 @@ def login():
 def logout():
     session.pop("platform_admin_id", None)
     return redirect(url_for("platform.login"))
+
+
+@platform_bp.route("/")
+@platform_admin_required
+def inicio():
+    """Página inicial da plataforma: o estado do negócio numa tela.
+
+    Responde as três perguntas de quem abre isso todo dia: quanto entra por mês,
+    quem está devendo, e quem parou de usar o sistema.
+    """
+    hoje = date.today()
+    inicio_do_mes = hoje.replace(day=1)
+    tenants = Tenant.query.order_by(Tenant.nome_fantasia).all()
+    precos = {plano.slug: plano.preco_mensal or 0.0 for plano in Plano.query.all()}
+
+    # Receita recorrente: só quem já saiu do teste e tem plano com preço. Trial
+    # não é receita, e contar como se fosse daria uma expectativa falsa.
+    receita_recorrente = sum(
+        precos.get(tenant.plano, 0.0)
+        for tenant in tenants
+        if tenant.ativo and tenant.status in ("active", "past_due")
+    )
+
+    por_status: dict[str, int] = {}
+    for tenant in tenants:
+        chave = tenant.status if tenant.ativo else "desativado"
+        por_status[chave] = por_status.get(chave, 0) + 1
+
+    abertas = (
+        Cobranca.query.filter_by(status=COBRANCA_PENDENTE)
+        .order_by(Cobranca.vencimento)
+        .all()
+    )
+    vencidas = [c for c in abertas if c.dias_de_atraso(hoje) > 0]
+    pagas_no_mes = [
+        c
+        for c in Cobranca.query.filter_by(status=COBRANCA_PAGA).all()
+        if c.pago_em and c.pago_em.date() >= inicio_do_mes
+    ]
+
+    # Trials terminando: é a hora de cobrar ou de perder o cliente em silêncio.
+    limite_trial = hoje + timedelta(days=7)
+    trials_terminando = sorted(
+        (
+            tenant
+            for tenant in tenants
+            if tenant.trial_termina_em
+            and tenant.status == "trial"
+            and hoje <= tenant.trial_termina_em.date() <= limite_trial
+        ),
+        key=lambda t: t.trial_termina_em,
+    )
+    sem_prazo_de_trial = [
+        tenant for tenant in tenants if tenant.trial_termina_em is None and tenant.ativo
+    ]
+
+    # Uso recente por tenant: quem não recebe pedido há uma semana é candidato a
+    # cancelar, e é melhor descobrir antes de ele avisar.
+    desde = datetime.now() - timedelta(days=7)
+    pedidos_por_tenant = dict(
+        db.session.query(Pedido.tenant_id, func.count(Pedido.id))
+        .filter(Pedido.created_at >= desde)
+        .group_by(Pedido.tenant_id)
+        .all()
+    )
+    atividade = sorted(
+        ((tenant, pedidos_por_tenant.get(tenant.id, 0)) for tenant in tenants),
+        key=lambda par: (par[1], par[0].nome_fantasia.lower()),
+    )
+
+    return render_template(
+        "platform/inicio.html",
+        hoje=hoje,
+        total_tenants=len(tenants),
+        por_status=por_status,
+        receita_recorrente=receita_recorrente,
+        recebido_no_mes=sum((c.valor_pago or c.valor) for c in pagas_no_mes),
+        qtd_pagas_no_mes=len(pagas_no_mes),
+        total_em_aberto=sum(c.valor for c in abertas),
+        qtd_em_aberto=len(abertas),
+        vencidas=vencidas[:8],
+        total_vencido=sum(c.valor for c in vencidas),
+        trials_terminando=trials_terminando,
+        sem_prazo_de_trial=sem_prazo_de_trial,
+        atividade=atividade,
+        pedidos_na_semana=sum(pedidos_por_tenant.values()),
+        sem_planos=not precos,
+    )
 
 
 @platform_bp.route("/tenants")

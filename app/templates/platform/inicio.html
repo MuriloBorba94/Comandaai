@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Plataforma — Comanda ai{% endblock %}
+{% block header_title %}Comanda ai — Plataforma{% endblock %}
+{% block header_actions %}{% include "platform/_nav.html" %}{% endblock %}
+{% block content %}
+
+  <div class="card stats">
+    <div>
+      <p>Receita recorrente</p>
+      <div class="stat">R$ {{ receita_recorrente|brl }}</div>
+      <p class="muted">por mês, dos tenants pagantes</p>
+    </div>
+    <div>
+      <p>Recebido no mês</p>
+      <div class="stat">R$ {{ recebido_no_mes|brl }}</div>
+      <p class="muted">{{ qtd_pagas_no_mes }} mensalidade(s)</p>
+    </div>
+    <div>
+      <p>Em aberto</p>
+      <div class="stat">R$ {{ total_em_aberto|brl }}</div>
+      <p class="muted">{{ qtd_em_aberto }} cobrança(s)</p>
+    </div>
+    <div>
+      <p>Vencido</p>
+      <div class="stat {% if total_vencido %}alerta{% endif %}">R$ {{ total_vencido|brl }}</div>
+      <p class="muted">{{ vencidas|length }} em atraso</p>
+    </div>
+  </div>
+
+  {% if sem_planos %}
+    <div class="card">
+      <h1>Comece definindo seus planos</h1>
+      <p>
+        Nenhum plano no catálogo, então nenhuma cobrança é gerada. Crie os planos
+        e o preço de cada um em <a href="{{ url_for('platform.planos') }}">Planos</a>.
+      </p>
+    </div>
+  {% endif %}
+
+  {# Só aparece quando há de fato algo a resolver. Um bloco "nada a fazer"
+     permanente treinaria o olho a ignorar a região da tela. #}
+  {% if vencidas or trials_terminando or sem_prazo_de_trial %}
+    <div class="card">
+      <h1>Precisa de atenção</h1>
+
+      {% if vencidas %}
+        <h2 class="titulo-secao">Cobranças em atraso</h2>
+        {% for cobranca in vencidas %}
+          <div class="cobranca">
+            <div class="cobranca-info">
+              <strong>
+                <a href="{{ url_for('platform.tenant_editar', tenant_id=cobranca.tenant_id) }}">
+                  {{ cobranca.tenant.nome_fantasia }}
+                </a>
+              </strong>
+              <span class="muted">
+                {{ cobranca.rotulo_competencia }} · venceu {{ cobranca.vencimento.strftime('%d/%m/%Y') }}
+              </span>
+              <span class="pill pill-erro">
+                {{ cobranca.dias_de_atraso(hoje) }} dia(s)
+                {% if cobranca.tenant.status == "suspended" %} · loja bloqueada{% endif %}
+              </span>
+            </div>
+            <div class="cobranca-valor">R$ {{ cobranca.valor|brl }}</div>
+            <div class="cobranca-acoes">
+              <form method="post" action="{{ url_for('platform.cobranca_pagar', cobranca_id=cobranca.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="voltar_para" value="{{ url_for('platform.inicio') }}">
+                <input name="metodo" value="PIX" maxlength="40" class="campo-ordem" aria-label="Forma de pagamento">
+                <button type="submit">Marcar paga</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      {% if trials_terminando %}
+        <h2 class="titulo-secao">Teste grátis terminando</h2>
+        <ul class="lista-simples">
+          {% for tenant in trials_terminando %}
+            <li>
+              <a href="{{ url_for('platform.tenant_editar', tenant_id=tenant.id) }}">{{ tenant.nome_fantasia }}</a>
+              <span class="muted">
+                até {{ tenant.trial_termina_em.strftime('%d/%m/%Y') }} · plano {{ tenant.plano }}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if sem_prazo_de_trial %}
+        <h2 class="titulo-secao">Sem prazo de teste definido</h2>
+        <p class="muted">
+          Estes tenants nunca serão cobrados enquanto o fim do teste estiver em
+          branco. Defina a data na tela de cada um para a mensalidade começar.
+        </p>
+        <ul class="lista-simples">
+          {% for tenant in sem_prazo_de_trial %}
+            <li>
+              <a href="{{ url_for('platform.tenant_editar', tenant_id=tenant.id) }}">{{ tenant.nome_fantasia }}</a>
+              <span class="muted">plano {{ tenant.plano }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <h1>Tenants ({{ total_tenants }})</h1>
+    <p class="muted">
+      {% for status, quantidade in por_status|dictsort %}
+        {{ quantidade }} {{ status }}{% if not loop.last %} · {% endif %}
+      {% else %}
+        Nenhum tenant cadastrado.
+      {% endfor %}
+    </p>
+
+    {% if atividade %}
+      <h2 class="titulo-secao">Uso nos últimos 7 dias</h2>
+      <p class="muted">
+        {{ pedidos_na_semana }} pedido(s) na plataforma. Quem está com zero é
+        candidato a cancelar — melhor descobrir antes de ele avisar.
+      </p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Restaurante</th><th>Plano</th><th>Status</th><th>Pedidos (7d)</th><th></th></tr></thead>
+          <tbody>
+            {% for tenant, pedidos in atividade %}
+              <tr>
+                <td>{{ tenant.nome_fantasia }}</td>
+                <td>{{ tenant.plano }}</td>
+                <td>
+                  {{ tenant.status }}{% if not tenant.ativo %} <span class="muted">(desativado)</span>{% endif %}
+                </td>
+                <td>
+                  {% if pedidos %}
+                    <strong>{{ pedidos }}</strong>
+                  {% else %}
+                    <span class="pill pill-neutro">sem pedidos</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a class="btn btn-secundario" href="{{ url_for('platform.tenant_editar', tenant_id=tenant.id) }}">Abrir</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

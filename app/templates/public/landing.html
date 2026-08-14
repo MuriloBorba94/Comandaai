@@ -4,5 +4,13 @@
   <div class="card">
     <h1>Comanda ai</h1>
     <p>Sistema de pedidos para restaurantes, por assinatura.</p>
+
+    {# Só no host da plataforma. No subdomínio de um restaurante, o cliente
+       final nunca deve ver caminho para a área administrativa. #}
+    {% if g.is_platform_area %}
+      <p class="muted">
+        <a href="{{ url_for('platform.inicio') }}">Entrar na plataforma</a>
+      </p>
+    {% endif %}
   </div>
 {% endblock %}
