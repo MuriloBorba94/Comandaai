@@ -21,7 +21,16 @@ from PIL import Image
 
 from app import create_app
 from app.extensions import db
-from app.layout import COR_PADRAO, cor_valida
+from app.layout import (
+    CONTRASTE_MINIMO,
+    COR_PADRAO,
+    FUNDO_CLARO,
+    FUNDO_ESCURO,
+    _contraste,
+    contraste_da_marca,
+    cor_valida,
+    marca_para_texto,
+)
 from app.models.tenant import Tenant
 from tests.conftest import TestConfig, login_tenant
 
@@ -98,6 +107,76 @@ def test_cor_invalida_no_banco_nao_chega_ao_html(app, two_tenants):
 
     assert "display:none" not in html
     assert f"--brand: {COR_PADRAO}" in html, "deveria cair no padrão"
+
+
+# --------------------------------------------------------------------------- #
+# Legibilidade da cor escolhida
+#
+# O restaurante escolhe a cor; não escolhe se ela dá para ler. Uma marca amarela
+# com texto branco em cima deixa o botão ilegível, e foi exatamente o que
+# aconteceu quando a Borba's Pizzaria escolheu #c6ae10.
+# --------------------------------------------------------------------------- #
+
+# Uma volta inteira do seletor de cor, incluindo os extremos.
+CORES = [
+    "#c8102e", "#c6ae10", "#ffffff", "#000000", "#1e88e5",
+    "#f1c40f", "#0b1d3a", "#2ecc71", "#ff00ff", "#00ff00", "#7f7f7f",
+]
+
+
+@pytest.mark.parametrize("cor", CORES)
+def test_texto_sobre_a_marca_sempre_legivel(cor):
+    """O que fica POR CIMA de um preenchimento com a cor da marca."""
+    assert _contraste(contraste_da_marca(cor), cor) >= CONTRASTE_MINIMO
+
+
+@pytest.mark.parametrize("cor", CORES)
+def test_marca_como_texto_legivel_nos_dois_temas(cor):
+    """A marca usada COMO texto, sobre o painel claro e sobre o escuro."""
+    assert _contraste(marca_para_texto(cor, escuro=False), FUNDO_CLARO) >= CONTRASTE_MINIMO
+    assert _contraste(marca_para_texto(cor, escuro=True), FUNDO_ESCURO) >= CONTRASTE_MINIMO
+
+
+@pytest.mark.parametrize("cor", ["#c8102e", "#0b1d3a"])
+def test_cor_escura_que_ja_contrasta_fica_intacta(cor):
+    """Ajustar quem não precisa descaracterizaria a marca à toa."""
+    assert marca_para_texto(cor, escuro=False) == cor
+
+
+@pytest.mark.parametrize("cor", ["#c6ae10", "#f1c40f", "#2ecc71"])
+def test_cor_clara_que_ja_contrasta_no_escuro_fica_intacta(cor):
+    assert marca_para_texto(cor, escuro=True) == cor
+
+
+def test_ajuste_preserva_o_matiz():
+    """Escurecer um amarelo tem que continuar amarelo, não virar cinza."""
+    import colorsys
+
+    from app.layout import _hex_para_rgb
+
+    def matiz(cor):
+        return colorsys.rgb_to_hls(*[v / 255 for v in _hex_para_rgb(cor)])[0]
+
+    original = "#c6ae10"
+    assert matiz(marca_para_texto(original, escuro=False)) == pytest.approx(matiz(original), abs=0.01)
+
+
+def test_html_traz_as_variantes_de_contraste(app, two_tenants):
+    """Contraprova no HTML: uma marca clara não gera botão de texto branco."""
+    _tenant(two_tenants["tenant_a"]).cor_marca = "#c6ae10"
+    db.session.commit()
+
+    client = app.test_client()
+    _logar_a(client)
+    html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+
+    # Compara com o que as funções devolvem, e não com um hex fixo: o valor
+    # exato é resultado do ajuste e pode mudar sem que o comportamento mude.
+    assert "--brand: #c6ae10" in html
+    assert f"--brand-contraste: {contraste_da_marca('#c6ae10')}" in html
+    assert f"--brand-texto: {marca_para_texto('#c6ae10', escuro=False)}" in html
+    assert marca_para_texto("#c6ae10", escuro=False) != "#c6ae10", "amarelo devia escurecer"
+    assert contraste_da_marca("#c6ae10") != "#ffffff", "botão amarelo não leva texto branco"
 
 
 # --------------------------------------------------------------------------- #

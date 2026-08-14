@@ -36,13 +36,20 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/comanda.css') }}">
 
   {# A cor de destaque é por tenant. Vem de cor_da_marca(), que só devolve hex
-     validado — nunca texto direto do formulário, que aqui seria injeção de CSS. #}
+     validado — nunca texto direto do formulário, que aqui seria injeção de CSS.
+
+     --brand-contraste e --brand-texto são derivados: o restaurante escolhe a
+     cor, não escolhe se ela é legível. Sem eles, uma marca amarela produzia
+     botão com texto branco em cima. #}
   <style>
     :root {
       --brand: {{ cor_da_marca() }};
       --brand-bg: {{ tons.fundo }};
       --brand-border: {{ tons.borda }};
+      --brand-contraste: {{ tons.contraste }};
+      --brand-texto: {{ tons.texto_claro }};
     }
+    :root[data-theme="dark"], body.vitrine { --brand-texto: {{ tons.texto_escuro }}; }
   </style>
   {% block head %}{% endblock %}
 </head>

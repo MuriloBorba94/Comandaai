@@ -51,6 +51,19 @@ obrigatoriamente por `app/layout.py::cor_valida()`, que só aceita hex de 3 ou 6
 dígitos — qualquer outro texto volta a ser a cor padrão. Sem isso, o campo de cor
 seria uma porta de injeção de CSS.
 
+O restaurante escolhe a cor, mas não escolhe se ela dá para ler. Duas variantes
+saem derivadas dela, ambas garantindo 4,5:1 (WCAG AA):
+
+- `--brand-contraste` é o texto que vai **por cima** de um preenchimento da
+  marca (botão, avatar, selo de status). Uma marca amarela recebe texto quase
+  preto em vez de branco.
+- `--brand-texto` é a marca usada **como** texto (item ativo do menu, preço,
+  código do erro). Escurece no tema claro e clareia no escuro, mexendo só na
+  luminosidade — o matiz continua sendo o da marca.
+
+Quem cuida disso é `contraste_da_marca()` e `marca_para_texto()`, em
+`app/layout.py`.
+
 A logo é gravada em `static/uploads/<slug>/`, como as fotos de produto, e trocar
 a logo apaga o arquivo antigo. Sem logo, a sidebar mostra a inicial do nome.
 
