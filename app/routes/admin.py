@@ -45,6 +45,19 @@ def _to_datetime(valor: str | None) -> datetime | None:
         return None
 
 
+def _to_data(valor: str | None):
+    """Converte o valor de um input type=date. Devolve None quando vazio."""
+    from datetime import date as _date
+
+    texto = (valor or "").strip()
+    if not texto:
+        return None
+    try:
+        return _date.fromisoformat(texto)
+    except ValueError:
+        return None
+
+
 def _imagem_enviada(produto: Produto):
     """Processa a foto enviada, se o plano do tenant incluir fotos.
 
@@ -778,3 +791,132 @@ def produto_ficha(produto_id: int):
         insumos=_insumos_do_tenant(),
         quantidades={linha.insumo_id: linha.quantidade_usada for linha in produto.ficha},
     )
+
+
+# --------------------------------------------------------------------------- #
+# Financeiro: despesas, receitas avulsas e resultado
+# --------------------------------------------------------------------------- #
+
+
+@admin_bp.route("/financeiro")
+@admin_required
+@requer_recurso("financeiro")
+def financeiro():
+    from datetime import date
+
+    from ..models.financeiro import CATEGORIAS_DESPESA, CATEGORIAS_RECEITA
+    from ..services.financeiro import painel
+
+    hoje = date.today()
+    inicio = _to_data(request.args.get("de")) or hoje.replace(day=1)
+    fim = _to_data(request.args.get("ate")) or hoje
+    if fim < inicio:
+        inicio, fim = fim, inicio
+
+    return render_template(
+        "admin/financeiro.html",
+        tenant=g.tenant,
+        dados=painel(g.tenant.id, inicio, fim, hoje=hoje),
+        categorias_despesa=CATEGORIAS_DESPESA,
+        categorias_receita=CATEGORIAS_RECEITA,
+    )
+
+
+@admin_bp.route("/financeiro/despesas", methods=["POST"])
+@admin_required
+@requer_recurso("financeiro")
+def despesa_criar():
+    from ..models.financeiro import CATEGORIAS_DESPESA, Despesa
+
+    descricao = request.form.get("descricao", "").strip()
+    valor = _to_float(request.form.get("valor"))
+    vencimento = _to_data(request.form.get("data_vencimento"))
+    categoria = request.form.get("categoria", "Outros")
+
+    if not descricao:
+        flash("Informe a descrição da despesa.", "erro")
+    elif valor <= 0:
+        flash("O valor da despesa precisa ser maior que zero.", "erro")
+    elif vencimento is None:
+        flash("Informe a data de vencimento.", "erro")
+    else:
+        paga = request.form.get("paga") == "on"
+        db.session.add(
+            Despesa(
+                tenant_id=g.tenant.id,
+                descricao=descricao,
+                valor=valor,
+                categoria=categoria if categoria in CATEGORIAS_DESPESA else "Outros",
+                data_vencimento=vencimento,
+                paga=paga,
+                data_pagamento=vencimento if paga else None,
+                observacao=request.form.get("observacao", "").strip() or None,
+            )
+        )
+        db.session.commit()
+        flash("Despesa lançada.", "sucesso")
+    return redirect(url_for("admin.financeiro"))
+
+
+@admin_bp.route("/financeiro/despesas/<int:despesa_id>/pagar", methods=["POST"])
+@admin_required
+@requer_recurso("financeiro")
+def despesa_pagar(despesa_id: int):
+    from datetime import date
+
+    from ..models.financeiro import Despesa
+
+    despesa = Despesa.query.filter_by(id=despesa_id, tenant_id=g.tenant.id).first()
+    if despesa is None:
+        flash("Despesa não encontrada.", "erro")
+    elif despesa.paga:
+        flash("Esta despesa já está paga.", "erro")
+    else:
+        despesa.paga = True
+        despesa.data_pagamento = _to_data(request.form.get("data_pagamento")) or date.today()
+        db.session.commit()
+        flash(f"'{despesa.descricao}' marcada como paga.", "sucesso")
+    return redirect(request.form.get("voltar_para") or url_for("admin.financeiro"))
+
+
+@admin_bp.route("/financeiro/despesas/<int:despesa_id>/excluir", methods=["POST"])
+@admin_required
+@requer_recurso("financeiro")
+def despesa_excluir(despesa_id: int):
+    from ..models.financeiro import Despesa
+
+    despesa = Despesa.query.filter_by(id=despesa_id, tenant_id=g.tenant.id).first()
+    if despesa is not None:
+        db.session.delete(despesa)
+        db.session.commit()
+        flash("Despesa removida.", "sucesso")
+    return redirect(url_for("admin.financeiro"))
+
+
+@admin_bp.route("/financeiro/receitas", methods=["POST"])
+@admin_required
+@requer_recurso("financeiro")
+def receita_criar():
+    from datetime import date
+
+    from ..models.financeiro import CATEGORIAS_RECEITA, ReceitaAvulsa
+
+    valor = _to_float(request.form.get("valor"))
+    categoria = request.form.get("categoria", "Outras receitas")
+
+    if valor <= 0:
+        flash("O valor da receita precisa ser maior que zero.", "erro")
+    else:
+        db.session.add(
+            ReceitaAvulsa(
+                tenant_id=g.tenant.id,
+                descricao=request.form.get("descricao", "").strip() or None,
+                valor=valor,
+                categoria=categoria if categoria in CATEGORIAS_RECEITA else "Outras receitas",
+                data_registro=_to_data(request.form.get("data_registro")) or date.today(),
+                observacao=request.form.get("observacao", "").strip() or None,
+            )
+        )
+        db.session.commit()
+        flash("Receita lançada.", "sucesso")
+    return redirect(url_for("admin.financeiro"))

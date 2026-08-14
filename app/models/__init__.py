@@ -3,6 +3,7 @@ from .assinatura import Cobranca, Plano
 from .categoria import Categoria
 from .cupom import BairroEntrega, Cupom, CupomUso
 from .estoque import FichaTecnica, Insumo, MovimentacaoEstoque
+from .financeiro import Despesa, ReceitaAvulsa
 from .pedido import Pedido, PedidoItem, PedidoItemAdicional
 from .platform_admin import PlatformAdmin
 from .produto import Produto
@@ -16,6 +17,7 @@ __all__ = [
     "Cobranca",
     "Cupom",
     "CupomUso",
+    "Despesa",
     "FichaTecnica",
     "Insumo",
     "MovimentacaoEstoque",
@@ -25,6 +27,7 @@ __all__ = [
     "Plano",
     "PlatformAdmin",
     "Produto",
+    "ReceitaAvulsa",
     "Tenant",
     "Usuario",
     "produto_adicional",

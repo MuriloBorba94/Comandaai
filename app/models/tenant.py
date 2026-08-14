@@ -47,6 +47,10 @@ class Tenant(TimestampMixin, db.Model):
     cupons = db.relationship("Cupom", back_populates="tenant", cascade="all, delete-orphan")
     bairros = db.relationship("BairroEntrega", back_populates="tenant", cascade="all, delete-orphan")
     insumos = db.relationship("Insumo", back_populates="tenant", cascade="all, delete-orphan")
+    despesas = db.relationship("Despesa", back_populates="tenant", cascade="all, delete-orphan")
+    receitas_avulsas = db.relationship(
+        "ReceitaAvulsa", back_populates="tenant", cascade="all, delete-orphan"
+    )
     cobrancas = db.relationship(
         "Cobranca",
         back_populates="tenant",

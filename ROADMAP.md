@@ -64,10 +64,17 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    polling, sem precisar de acesso de entrada à rede do restaurante) —
    adicionar `tenant_id` ao token de pareamento, heartbeat e claim.
 
-9. **Estoque/ficha técnica/financeiro.** Portar `Insumo`/`FichaTecnica`/
-   `MovimentacaoEstoque`/`Faturamento`/`Despesa`. Prioridade mais baixa: o
-   valor de revenda do produto vem primeiro de pedidos + cozinha + WhatsApp +
-   cobrança.
+9. ~~**Estoque/ficha técnica/financeiro.**~~ **CONCLUÍDA.** `Insumo` com custo
+   derivado do pacote de compra, `FichaTecnica` por produto,
+   `MovimentacaoEstoque` como razão, baixa automática ao confirmar o pedido com
+   custo e lucro gravados, estorno no cancelamento e reajuste quando a comanda
+   cresce. `Despesa` e `ReceitaAvulsa` (o `Faturamento` do original, renomeado
+   porque confundia com o faturamento das vendas) alimentam a tela de resultado.
+
+   Correção sobre o original: lá a compra de insumo podia ser lançada como
+   despesa enquanto o custo do mesmo insumo já entrava pelo CMV — o mesmo
+   dinheiro contado duas vezes. Aqui não existe categoria de despesa para
+   insumo: a compra é entrada de estoque.
 
 10. **Hardening e operação.** Backup por tenant, audit log,
     ~~feature-gating por plano~~ (**feito junto com a Fase 4**: cada plano marca

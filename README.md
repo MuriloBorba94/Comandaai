@@ -28,6 +28,9 @@ O que já existe aqui:
   mensalidade por tenant, ciclo que suspende quem passa da carência e libera ao
   registrar o pagamento. Provedor `manual` (você recebe o PIX e marca como pago);
   a integração com gateway fica para quando houver chave de API.
+- **Relatórios de venda** e **estoque com ficha técnica** (Fase 9): custo e lucro
+  por pedido, baixa automática de insumo ao vender, despesas a pagar e resultado
+  do período.
 - Migrations versionadas com Flask-Migrate/Alembic desde o início.
 
 ## Cobrança da assinatura
@@ -49,6 +52,20 @@ a data já passou, e quando o **plano dele tem preço maior que zero**. Tenant c
 o fim do teste em branco nunca é cobrado nem suspenso — é o que protege os
 tenants criados antes desta fase.
 
+### Estoque, custo e lucro
+
+O custo do insumo vem do **pacote de compra** (`5 kg por R$ 120`), não digitado por
+unidade. A ficha técnica de cada produto diz quanto consome, e a baixa acontece
+quando o pedido avança de status — gravando custo e lucro no próprio pedido,
+porque o preço de compra muda com o tempo.
+
+Saldo pode ficar negativo: significa venda sem entrada registrada. Recusar a
+venda seria pior, porque o pedido já aconteceu.
+
+**Compra de insumo não é despesa.** O custo entra pelo CMV quando o insumo é
+consumido numa venda; lançar a compra também como despesa contaria o mesmo
+dinheiro duas vezes. Registre compra como **entrada de estoque**.
+
 ### Como o restaurante é avisado
 
 Não há envio de e-mail nem WhatsApp — o aviso é **dentro do próprio painel** do
@@ -64,9 +81,10 @@ fora: não existe PIX nem checkout da assinatura no sistema.
 ### O que cada plano libera
 
 Em **Plataforma → Planos**, além do preço, cada plano marca quais recursos
-inclui: painel da cozinha, salão e comanda, cupons, taxa por bairro e fotos nos
-produtos. O dono do restaurante vê a lista em **Configurações**, com o que tem e
-o que ganharia mudando de plano.
+inclui: painel da cozinha, salão e comanda, cupons, taxa por bairro, fotos nos
+produtos, relatórios de venda, estoque com ficha técnica e financeiro. O dono do
+restaurante vê a lista em **Configurações**, com o que tem e o que ganharia
+mudando de plano.
 
 Cardápio, carrinho, pedido e acompanhamento pelo cliente são a base do produto e
 estão em todos os planos — não há como desligá-los.
@@ -77,8 +95,8 @@ clientes. A restrição de um plano começa a valer no momento em que você salv
 configuração dele.
 
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):
-pedidos, cozinha, cupons, PIX, WhatsApp, impressão, estoque/financeiro,
-cobrança recorrente real, deploy de produção. A lógica de negócio é portada de
+PIX no pedido, WhatsApp, agente de impressão, integração com gateway de cobrança
+e deploy de produção. A lógica de negócio é portada de
 `C:\borbas_burguer_v17` fase por fase.
 
 ### Fotos de produto

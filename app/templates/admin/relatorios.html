@@ -27,9 +27,9 @@
         {% if dados.variacao_semana is none %}
           sem base na semana anterior
         {% elif dados.variacao_semana >= 0 %}
-          <span class="alta">▲ {{ dados.variacao_semana }}%</span> vs. semana anterior
+          <span class="alta">▲ {{ dados.variacao_semana|pct }}%</span> vs. semana anterior
         {% else %}
-          <span class="baixa">▼ {{ dados.variacao_semana|abs }}%</span> vs. semana anterior
+          <span class="baixa">▼ {{ dados.variacao_semana|abs|pct }}%</span> vs. semana anterior
         {% endif %}
       </p>
     </div>

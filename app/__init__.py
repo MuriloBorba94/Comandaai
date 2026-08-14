@@ -128,6 +128,19 @@ def create_app(config_object=Config) -> Flask:
         sufixo = "" if porta in ("80", "443") else f":{porta}"
         return f"{esquema}://{slug}.{base}{sufixo}{caminho}"
 
+    @app.template_filter("pct")
+    def pct(valor, casas: int = 1) -> str:
+        """Porcentagem no padrão brasileiro: 23.2 -> "23,2".
+
+        Sem isto o percentual saía com ponto ao lado de valores em real com
+        vírgula, na mesma linha.
+        """
+        try:
+            numero = float(valor or 0)
+        except (TypeError, ValueError):
+            numero = 0.0
+        return f"{numero:.{casas}f}".replace(".", ",")
+
     @app.template_filter("brl")
     def brl(valor) -> str:
         """Formata número no padrão brasileiro: 1234.5 -> "1.234,50"."""

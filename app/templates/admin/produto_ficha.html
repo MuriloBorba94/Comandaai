@@ -28,7 +28,7 @@
         {% else %}
           <div class="stat {% if produto.margem < 0 %}alerta{% endif %}">R$ {{ produto.margem|brl }}</div>
           {% if produto.preco %}
-            <p class="muted">{{ ((produto.margem / produto.preco) * 100)|round(1) }}% do preço</p>
+            <p class="muted">{{ ((produto.margem / produto.preco) * 100)|pct }}% do preço</p>
           {% endif %}
         {% endif %}
       </div>

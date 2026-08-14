@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Financeiro — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+{% set atual = dados.atual %}
+
+  <div class="card barra-ao-vivo">
+    <form method="get" class="linha-form">
+      <label for="de" class="muted">Período de</label>
+      <input id="de" name="de" type="date" value="{{ dados.inicio.strftime('%Y-%m-%d') }}">
+      <label for="ate" class="muted">até</label>
+      <input id="ate" name="ate" type="date" value="{{ dados.fim.strftime('%Y-%m-%d') }}">
+      <button type="submit">Ver</button>
+    </form>
+    <span class="muted">{{ dados.dias }} dia(s) · comparado com os {{ dados.dias }} anteriores</span>
+  </div>
+
+  <div class="card stats">
+    <div>
+      <p>Receita</p>
+      <div class="stat">R$ {{ atual.receita|brl }}</div>
+      <p class="muted">
+        {{ atual.pedidos }} pedido(s)
+        {% if atual.receita_avulsa %}<br>+ R$ {{ atual.receita_avulsa|brl }} avulsa{% endif %}
+        {% if dados.variacao_receita is not none %}
+          <br>
+          {% if dados.variacao_receita >= 0 %}<span class="alta">▲ {{ dados.variacao_receita|pct }}%</span>
+          {% else %}<span class="baixa">▼ {{ dados.variacao_receita|abs|pct }}%</span>{% endif %}
+          vs. período anterior
+        {% endif %}
+      </p>
+    </div>
+    <div>
+      <p>Custo dos produtos (CMV)</p>
+      <div class="stat">R$ {{ atual.cmv|brl }}</div>
+      <p class="muted">
+        {% if atual.receita_pedidos %}
+          {{ ((atual.cmv / atual.receita_pedidos) * 100)|pct }}% da venda de produtos
+        {% else %}
+          sem vendas no período
+        {% endif %}
+      </p>
+    </div>
+    <div>
+      <p>Despesas</p>
+      <div class="stat">R$ {{ atual.despesas|brl }}</div>
+      <p class="muted">
+        R$ {{ atual.despesas_pagas|brl }} pagas
+        {% if atual.despesas_pendentes %}<br>R$ {{ atual.despesas_pendentes|brl }} em aberto{% endif %}
+      </p>
+    </div>
+    <div>
+      <p>Lucro líquido</p>
+      <div class="stat {% if atual.lucro_liquido < 0 %}alerta{% endif %}">R$ {{ atual.lucro_liquido|brl }}</div>
+      <p class="muted">
+        {{ atual.margem_liquida|pct }}% da receita
+        {% if dados.variacao_lucro is not none %}
+          <br>
+          {% if dados.variacao_lucro >= 0 %}<span class="alta">▲ {{ dados.variacao_lucro|pct }}%</span>
+          {% else %}<span class="baixa">▼ {{ dados.variacao_lucro|abs|pct }}%</span>{% endif %}
+          vs. anterior
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h1>Como o lucro se forma</h1>
+    <table>
+      <tbody>
+        <tr><td>Venda de produtos</td><td class="valor">R$ {{ atual.receita_pedidos|brl }}</td></tr>
+        {% if atual.receita_avulsa %}
+          <tr><td>Receitas avulsas</td><td class="valor">R$ {{ atual.receita_avulsa|brl }}</td></tr>
+        {% endif %}
+        <tr><td>Custo dos insumos consumidos (CMV)</td><td class="valor baixa">− R$ {{ atual.cmv|brl }}</td></tr>
+        {% if atual.descontos %}
+          <tr><td>Descontos de cupom</td><td class="valor muted">já embutido acima: R$ {{ atual.descontos|brl }}</td></tr>
+        {% endif %}
+        <tr><td><strong>Lucro bruto</strong></td><td class="valor"><strong>R$ {{ atual.lucro_bruto|brl }}</strong></td></tr>
+        <tr><td>Despesas do período</td><td class="valor baixa">− R$ {{ atual.despesas|brl }}</td></tr>
+        <tr><td><strong>Lucro líquido</strong></td><td class="valor"><strong>R$ {{ atual.lucro_liquido|brl }}</strong></td></tr>
+      </tbody>
+    </table>
+
+    {% if atual.pedidos_sem_custo %}
+      <p class="muted">
+        <strong>{{ atual.pedidos_sem_custo }} pedido(s) entraram com custo zero</strong> porque
+        os produtos vendidos não têm ficha técnica. Nesses casos o lucro acima está
+        otimista — não é "custo zero", é "custo desconhecido".
+        <a href="{{ url_for('admin.produtos') }}">Monte a ficha dos produtos</a> para corrigir.
+      </p>
+    {% endif %}
+
+    <p class="muted">
+      A compra de insumos <strong>não</strong> se lança como despesa: o custo deles
+      já entra pelo CMV quando são consumidos numa venda. Registre a compra como
+      <a href="{{ url_for('admin.insumos') }}">entrada no estoque</a>, senão o mesmo
+      dinheiro conta duas vezes e o lucro aparece menor do que é.
+    </p>
+  </div>
+
+  {% if dados.a_pagar %}
+    <div class="card">
+      <h1>A pagar</h1>
+      {% for despesa in dados.a_pagar %}
+        {% set atraso = despesa.dias_de_atraso(dados.hoje) %}
+        <div class="cobranca">
+          <div class="cobranca-info">
+            <strong>{{ despesa.descricao }}</strong>
+            <span class="muted">
+              {{ despesa.categoria }} · vence {{ despesa.data_vencimento.strftime('%d/%m/%Y') }}
+            </span>
+            {% if atraso %}
+              <span class="pill pill-erro">{{ atraso }} dia(s) em atraso</span>
+            {% endif %}
+          </div>
+          <div class="cobranca-valor">R$ {{ despesa.valor|brl }}</div>
+          <div class="cobranca-acoes">
+            <form method="post" action="{{ url_for('admin.despesa_pagar', despesa_id=despesa.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit">Marcar paga</button>
+            </form>
+            <form method="post" action="{{ url_for('admin.despesa_excluir', despesa_id=despesa.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn-secundario">Excluir</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card colunas-relatorio">
+    <div>
+      <h1>Nova despesa</h1>
+      <form method="post" action="{{ url_for('admin.despesa_criar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="descricao">Descrição</label>
+        <input id="descricao" name="descricao" required maxlength="120" placeholder="Ex.: Aluguel de agosto">
+        <label for="valor">Valor</label>
+        <input id="valor" name="valor" required placeholder="0,00">
+        <label for="categoria">Categoria</label>
+        <select id="categoria" name="categoria">
+          {% for categoria in categorias_despesa %}<option value="{{ categoria }}">{{ categoria }}</option>{% endfor %}
+        </select>
+        <label for="data_vencimento">Vencimento</label>
+        <input id="data_vencimento" name="data_vencimento" type="date" value="{{ dados.hoje.strftime('%Y-%m-%d') }}" required>
+        <label class="check-inline">
+          <input type="checkbox" name="paga"> Já está paga
+        </label>
+        <button type="submit">Lançar despesa</button>
+      </form>
+    </div>
+
+    <div>
+      <h1>Receita avulsa</h1>
+      <p class="muted">
+        Dinheiro que entrou <strong>fora</strong> dos pedidos: evento fechado,
+        aluguel de espaço, venda sem registro no sistema.
+      </p>
+      <form method="post" action="{{ url_for('admin.receita_criar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="receita_descricao">Descrição</label>
+        <input id="receita_descricao" name="descricao" maxlength="120" placeholder="Opcional">
+        <label for="receita_valor">Valor</label>
+        <input id="receita_valor" name="valor" required placeholder="0,00">
+        <label for="receita_categoria">Categoria</label>
+        <select id="receita_categoria" name="categoria">
+          {% for categoria in categorias_receita %}<option value="{{ categoria }}">{{ categoria }}</option>{% endfor %}
+        </select>
+        <label for="data_registro">Data</label>
+        <input id="data_registro" name="data_registro" type="date" value="{{ dados.hoje.strftime('%Y-%m-%d') }}">
+        <button type="submit">Lançar receita</button>
+      </form>
+    </div>
+  </div>
+
+  {% if dados.por_categoria %}
+    <div class="card">
+      <h1>Despesas por categoria</h1>
+      <table>
+        <tbody>
+          {% for linha in dados.por_categoria %}
+            <tr>
+              <td>{{ linha.categoria }}</td>
+              <td class="muted">{{ linha.quantidade }} lançamento(s)</td>
+              <td class="valor"><strong>R$ {{ linha.valor|brl }}</strong></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endblock %}
