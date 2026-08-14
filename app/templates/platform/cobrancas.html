@@ -4,7 +4,7 @@
 {% block header_actions %}{% include "platform/_nav.html" %}{% endblock %}
 {% block content %}
 
-  <div class="card stats">
+  <div class="card-admin stats">
     <div>
       <p>Em aberto</p>
       <div class="stat">R$ {{ total_em_aberto|brl }}</div>
@@ -19,7 +19,7 @@
     </div>
   </div>
 
-  <div class="card barra-ao-vivo">
+  <div class="card-admin barra-ao-vivo">
     <div>
       {% for opcao, rotulo in [("pendente", "Pendentes"), ("paga", "Pagas"), ("cancelada", "Canceladas"), ("todas", "Todas")] %}
         {% if filtro == opcao %}
@@ -36,7 +36,7 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Cobranças</h1>
     {% if not cobrancas %}
       <p>Nenhuma cobrança com esse filtro.</p>

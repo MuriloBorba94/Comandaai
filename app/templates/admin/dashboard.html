@@ -1,32 +1,45 @@
 {% extends "base.html" %}
 {% block title %}Painel — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Monitor de pedidos{% endblock %}
+{% block intro_titulo %}Central de Gestão{% endblock %}
+{% block intro_texto %}Informações, configurações e decisões do negócio em um só lugar.{% endblock %}
 {% block content %}
-  <div class="card stats">
-    <div>
+  <div class="metric-grid">
+    <div class="metric">
       {# Só vira link se o plano incluir a cozinha: apontar para uma tela que a
          pessoa não pode abrir é pior do que só mostrar o número. #}
-      <p>
+      <span>
         {% if libera('cozinha') %}
           <a href="{{ url_for('operacao.cozinha') }}">Pedidos em andamento</a>
         {% else %}
           Pedidos em andamento
         {% endif %}
-      </p>
-      <div class="stat">{{ total_ativos }}</div>
+      </span>
+      <strong>{{ total_ativos }}</strong>
     </div>
-    <div>
-      <p>Produtos</p>
-      <div class="stat">{{ total_produtos }}</div>
+    <div class="metric"><span>Produtos</span><strong>{{ total_produtos }}</strong></div>
+    <div class="metric"><span>Categorias</span><strong>{{ total_categorias }}</strong></div>
+    <div class="metric"><span>Adicionais</span><strong>{{ total_adicionais }}</strong></div>
+    <div class="metric">
+      <span>Mesas do salão</span>
+      <strong>{{ tenant.qtd_mesas if tenant.atende_mesa else '—' }}</strong>
     </div>
-    <div>
-      <p>Categorias</p>
-      <div class="stat">{{ total_categorias }}</div>
+  </div>
+
+  <div class="card-admin">
+    <div class="item-header" style="flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0;border:0;padding:0">🔥 Atalhos do dia</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        {% if libera('cozinha') %}
+          <a class="btn-save" href="{{ url_for('operacao.cozinha') }}">Abrir a cozinha</a>
+        {% endif %}
+        <a class="btn-secondary" href="{{ url_for('admin.produtos') }}">Cardápio</a>
+        <a class="btn-secondary" href="{{ url_for('public.index') }}" target="_blank" rel="noopener">Ver como cliente</a>
+      </div>
     </div>
-    <div>
-      <p>Adicionais</p>
-      <div class="stat">{{ total_adicionais }}</div>
-    </div>
+    <p class="muted" style="margin:0">
+      A fila de pedidos fica na Cozinha, que se atualiza sozinha. Este painel é o
+      resumo de cadastro e operação da loja.
+    </p>
   </div>
 {% endblock %}

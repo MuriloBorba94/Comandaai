@@ -693,7 +693,10 @@ def insumos():
             )
             db.session.commit()
             flash("Insumo cadastrado.", "sucesso")
-        return redirect(url_for("admin.insumos"))
+        # O cadastro de insumo aparece na tela de Custos (como no original) e
+        # também no Estoque; volta para a que enviou.
+        destino = "admin.custos" if request.form.get("voltar") == "custos" else "admin.insumos"
+        return redirect(url_for(destino))
 
     return render_template(
         "admin/insumos.html",
@@ -807,6 +810,60 @@ def insumo_movimentar(insumo_id: int):
     return redirect(url_for("admin.insumos"))
 
 
+@admin_bp.route("/custos")
+@admin_required
+@requer_recurso("estoque")
+def custos():
+    """Custos e fichas técnicas — a aba "Custos" da Gestão original.
+
+    O preço sugerido usa a mesma fórmula de lá: `custo / (1 - margem/100)`, ou
+    seja, margem sobre o PREÇO, não sobre o custo. É o que permite ler a meta
+    como "quero que 60% do que entra seja lucro".
+    """
+    from ..models.estoque import UNIDADES
+
+    margem = float(g.tenant.margem_lucro or 0)
+    fator = max(0.01, 1 - margem / 100.0)
+
+    linhas = []
+    for produto in Produto.query.filter_by(tenant_id=g.tenant.id).order_by(Produto.nome).all():
+        custo = produto.custo_por_ficha
+        linhas.append(
+            {
+                "produto": produto,
+                "custo": custo,
+                "sugerido": custo / fator if custo else 0.0,
+                "ingredientes": len(produto.ficha),
+            }
+        )
+
+    return render_template(
+        "admin/custos.html",
+        tenant=g.tenant,
+        insumos=_insumos_do_tenant(),
+        unidades=UNIDADES,
+        produtos_custo=linhas,
+        margem=margem,
+    )
+
+
+@admin_bp.route("/custos/margem", methods=["POST"])
+@admin_required
+@requer_recurso("estoque")
+def custos_margem():
+    """Meta de margem do restaurante, usada para o preço sugerido."""
+    margem = _to_float(request.form.get("margem_lucro"))
+    if not 0 <= margem < 100:
+        # 100% ou mais faria `1 - margem/100` chegar a zero e o preço sugerido
+        # explodir para infinito.
+        flash("A meta de margem precisa ficar entre 0 e 99,9%.", "erro")
+    else:
+        g.tenant.margem_lucro = margem
+        db.session.commit()
+        flash("Meta de margem atualizada.", "sucesso")
+    return redirect(url_for("admin.custos"))
+
+
 @admin_bp.route("/produtos/<int:produto_id>/ficha", methods=["GET", "POST"])
 @admin_required
 @requer_recurso("estoque")
@@ -850,18 +907,21 @@ def financeiro():
     from datetime import date
 
     from ..models.financeiro import CATEGORIAS_DESPESA, CATEGORIAS_RECEITA
-    from ..services.financeiro import painel
+    from ..services.financeiro import painel, periodo_escolhido
 
     hoje = date.today()
-    inicio = _to_data(request.args.get("de")) or hoje.replace(day=1)
-    fim = _to_data(request.args.get("ate")) or hoje
-    if fim < inicio:
-        inicio, fim = fim, inicio
+    inicio, fim, chave, rotulo = periodo_escolhido(
+        request.args.get("finance_period"),
+        request.args.get("finance_start"),
+        request.args.get("finance_end"),
+        hoje,
+    )
 
     return render_template(
         "admin/financeiro.html",
         tenant=g.tenant,
         dados=painel(g.tenant.id, inicio, fim, hoje=hoje),
+        periodo={"chave": chave, "rotulo": rotulo, "inicio": inicio, "fim": fim},
         categorias_despesa=CATEGORIAS_DESPESA,
         categorias_receita=CATEGORIAS_RECEITA,
     )

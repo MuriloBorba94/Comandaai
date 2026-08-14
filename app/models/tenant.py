@@ -32,6 +32,11 @@ class Tenant(TimestampMixin, db.Model):
     logo = db.Column(db.String(200))
     cor_marca = db.Column(db.String(7))
 
+    # Meta de margem sobre o PREÇO DE VENDA, como no sistema original: o preço
+    # sugerido é custo / (1 - margem/100). Não é markup sobre o custo — 60 aqui
+    # significa "quero que 60% do preço seja lucro", não "somar 60% ao custo".
+    margem_lucro = db.Column(db.Float, default=60.0, nullable=False)
+
     # Quantas mesas o salão tem. 0 = não atende mesa, e o fluxo de comanda fica
     # indisponível para este tenant. No sistema original o limite de mesas era
     # uma constante no código (1..30), o que não serve quando cada restaurante

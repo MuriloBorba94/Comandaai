@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Categorias — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Categorias{% endblock %}
+{% block intro_titulo %}Categorias{% endblock %}
+{% block intro_texto %}A ordem em que os grupos aparecem no cardapio.{% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     <h1>Nova categoria</h1>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -16,7 +17,7 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Categorias</h1>
     <p class="muted">
       Desativar uma categoria esconde os produtos dela da vitrine, sem apagar nada.

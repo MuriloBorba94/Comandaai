@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Bairros — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Bairros e taxas{% endblock %}
+{% block intro_titulo %}Bairros e taxas{% endblock %}
+{% block intro_texto %}Taxa e prazo de entrega por regiao.{% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     <h1>Novo bairro de entrega</h1>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -19,7 +20,7 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Bairros atendidos</h1>
     {% if not bairros %}
       <p class="muted">

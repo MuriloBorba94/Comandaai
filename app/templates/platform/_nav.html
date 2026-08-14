@@ -1,24 +1,24 @@
-{# Navegação da área da plataforma, dentro da sidebar. #}
+{# Navegação da área da plataforma, com o mesmo desenho de menu da Gestão. #}
 {% set atual = request.endpoint or "" %}
-<nav class="nav">
-  <span class="nav-titulo">Visão geral</span>
-  <a href="{{ url_for('platform.inicio') }}" class="{{ 'ativo' if atual == 'platform.inicio' }}">
-    <i>⌂</i> Início
+<nav class="v17-nav">
+  <span class="v17-nav-label">Visão geral</span>
+  <a class="tab-btn {{ 'active' if atual == 'platform.inicio' }}" href="{{ url_for('platform.inicio') }}">
+    <span>⌂</span> Início
   </a>
 
-  <span class="nav-titulo">Clientes</span>
-  <a href="{{ url_for('platform.tenants_list') }}" class="{{ 'ativo' if atual in ('platform.tenants_list', 'platform.tenant_editar') }}">
-    <i>▦</i> Tenants
+  <span class="v17-nav-label">Clientes</span>
+  <a class="tab-btn {{ 'active' if atual in ('platform.tenants_list', 'platform.tenant_editar') }}" href="{{ url_for('platform.tenants_list') }}">
+    <span>▦</span> Tenants
   </a>
-  <a href="{{ url_for('platform.tenant_new') }}" class="{{ 'ativo' if atual == 'platform.tenant_new' }}">
-    <i>✦</i> Novo tenant
+  <a class="tab-btn {{ 'active' if atual == 'platform.tenant_new' }}" href="{{ url_for('platform.tenant_new') }}">
+    <span>✦</span> Novo tenant
   </a>
 
-  <span class="nav-titulo">Assinatura</span>
-  <a href="{{ url_for('platform.cobrancas') }}" class="{{ 'ativo' if atual == 'platform.cobrancas' }}">
-    <i>◒</i> Cobranças
+  <span class="v17-nav-label">Assinatura</span>
+  <a class="tab-btn {{ 'active' if atual == 'platform.cobrancas' }}" href="{{ url_for('platform.cobrancas') }}">
+    <span>◒</span> Cobranças
   </a>
-  <a href="{{ url_for('platform.planos') }}" class="{{ 'ativo' if atual == 'platform.planos' }}">
-    <i>◆</i> Planos
+  <a class="tab-btn {{ 'active' if atual == 'platform.planos' }}" href="{{ url_for('platform.planos') }}">
+    <span>◆</span> Planos
   </a>
 </nav>

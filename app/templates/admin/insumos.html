@@ -1,82 +1,87 @@
 {% extends "base.html" %}
 {% block title %}Estoque — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Controle de estoque{% endblock %}
+{% block intro_titulo %}Controle de estoque{% endblock %}
+{% block intro_texto %}Saldo dos insumos, entradas, perdas e o histórico de movimentação.{% endblock %}
 {% block content %}
 
   {% if alertas %}
-    <div class="card">
-      <h1>Precisa repor</h1>
-      <ul class="lista-simples">
-        {% for insumo in alertas %}
-          <li>
-            <strong>{{ insumo.nome }}</strong>
-            {% if insumo.negativo %}
-              <span class="pill pill-erro">saldo negativo: {{ insumo.estoque_atual|round(2) }} {{ insumo.unidade }}</span>
-              <span class="muted">houve venda sem entrada registrada</span>
-            {% else %}
-              <span class="pill pill-erro">
-                {{ insumo.estoque_atual|round(2) }} de {{ insumo.estoque_minimo|round(2) }} {{ insumo.unidade }}
-              </span>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
+    <div class="notice notice-danger">
+      <strong>Atenção:</strong> {{ alertas|length }} insumo(s) no estoque mínimo ou abaixo.
     </div>
   {% endif %}
 
-  <div class="card">
-    <h1>Novo insumo</h1>
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="card-admin">
+    <h2>📦 Estoque de insumos</h2>
+    <p>Pedidos novos baixam a ficha técnica uma única vez quando avançam de status.</p>
 
-      <label for="nome">Nome</label>
-      <input id="nome" name="nome" required maxlength="100" placeholder="Ex.: Carne bovina, Pão brioche">
-
-      <label for="unidade">Unidade de uso</label>
-      <select id="unidade" name="unidade">
-        {% for unidade in unidades %}<option value="{{ unidade }}">{{ unidade }}</option>{% endfor %}
-      </select>
-      <p class="muted">
-        A unidade em que a receita mede: se a ficha diz "150 g de carne", a unidade é <code>g</code>.
-      </p>
-
-      <label for="preco_compra">Preço pago na compra</label>
-      <input id="preco_compra" name="preco_compra" value="0,00">
-
-      <label for="quantidade_compra">Quantidade que veio nessa compra</label>
-      <input id="quantidade_compra" name="quantidade_compra" value="1">
-      <p class="muted">
-        O custo por unidade sai daí. Comprou <strong>5 kg por R$ 120</strong> e usa
-        em gramas? Informe <strong>120,00</strong> e <strong>5000</strong>.
-      </p>
-
-      <label for="estoque_minimo">Estoque mínimo (avisa quando chegar aqui)</label>
-      <input id="estoque_minimo" name="estoque_minimo" value="0">
-
-      <label class="check-inline">
-        <input type="checkbox" name="controle_estoque" checked> Controlar saldo deste insumo
-      </label>
-      <p class="muted">
-        Desmarcado, o insumo entra no custo do prato mas não movimenta saldo —
-        útil para tempero, cujo consumo não vale a pena rastrear.
-      </p>
-
-      <button type="submit">Cadastrar</button>
-    </form>
+    <div class="v17-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Insumo</th><th>Saldo</th><th>Mínimo</th><th>Custo/un</th><th>Situação</th><th>Movimentar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for insumo in insumos %}
+            <tr>
+              <td>
+                <strong>{{ insumo.nome }}</strong>
+                <small>{{ insumo.fichas|length }} produto(s) usam</small>
+              </td>
+              <td>
+                {% if insumo.controle_estoque %}
+                  <strong>{{ insumo.estoque_atual|round(2) }} {{ insumo.unidade }}</strong>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+              <td>{{ insumo.estoque_minimo|round(2) }} {{ insumo.unidade }}</td>
+              <td>R$ {{ "%.4f"|format(insumo.custo_unitario)|replace(".", ",") }}</td>
+              <td>
+                {% if not insumo.controle_estoque %}
+                  <span class="muted">Não controlado</span>
+                {% elif insumo.negativo %}
+                  <span class="money-negative">⚠ Saldo negativo</span>
+                {% elif insumo.abaixo_do_minimo %}
+                  <span class="money-negative">⚠ Repor</span>
+                {% else %}
+                  <span class="money-positive">✓ Normal</span>
+                {% endif %}
+              </td>
+              <td>
+                <form method="post" action="{{ url_for('admin.insumo_movimentar', insumo_id=insumo.id) }}"
+                      style="display:flex;gap:6px;flex-wrap:wrap">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <select name="tipo" class="admin-input" style="width:auto;margin:0" aria-label="Tipo">
+                    <option value="entrada">Entrada</option>
+                    <option value="perda">Perda</option>
+                    <option value="ajuste_entrada">Ajuste +</option>
+                    <option value="ajuste_saida">Ajuste −</option>
+                  </select>
+                  <input name="quantidade" required class="admin-input" style="width:100px;margin:0" placeholder="Qtd" aria-label="Quantidade">
+                  <input name="observacao" maxlength="250" class="admin-input" style="width:170px;margin:0" placeholder="Observação" aria-label="Observação">
+                  <button class="btn-save">Registrar</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="finance-empty">
+              Nenhum insumo cadastrado. Sem insumo e ficha técnica, o custo e o lucro
+              de cada pedido ficam em zero.
+            </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <div class="card">
-    <h1>Insumos</h1>
-    {% if not insumos %}
-      <p>
-        Nenhum insumo cadastrado. Sem insumo e ficha técnica, o custo e o lucro de
-        cada pedido ficam em zero.
-      </p>
-    {% else %}
-      <p class="muted">
+  {% if insumos %}
+    <div class="card-admin">
+      <h3>Editar insumos</h3>
+      <p class="muted" style="font-size:.8rem">
         Campos na ordem: nome · unidade · preço da compra · quantidade da compra ·
-        estoque mínimo. O custo por unidade é calculado e mostrado ao lado.
+        estoque mínimo. O custo por unidade sai daí.
       </p>
       {% for insumo in insumos %}
         <div class="insumo-bloco">
@@ -94,73 +99,44 @@
             <label class="check-inline">
               <input type="checkbox" name="controle_estoque" {% if insumo.controle_estoque %}checked{% endif %}> Controlar
             </label>
-            <button type="submit">Salvar</button>
+            <button type="submit" class="btn-save">Salvar</button>
           </form>
-
-          <div class="insumo-numeros">
-            <span class="muted">custo/unidade</span>
-            <strong>R$ {{ "%.4f"|format(insumo.custo_unitario)|replace(".", ",") }}</strong>
-            <span class="muted">saldo</span>
-            <strong class="{% if insumo.negativo %}baixa{% elif insumo.abaixo_do_minimo %}baixa{% endif %}">
-              {% if insumo.controle_estoque %}
-                {{ insumo.estoque_atual|round(2) }} {{ insumo.unidade }}
-              {% else %}
-                não controlado
-              {% endif %}
-            </strong>
-            <span class="muted">{{ insumo.fichas|length }} produto(s) usam</span>
-          </div>
-
-          <form class="linha-form" method="post" action="{{ url_for('admin.insumo_movimentar', insumo_id=insumo.id) }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <select name="tipo" class="campo-ordem" aria-label="Tipo de movimentação">
-              <option value="entrada">Entrada (compra)</option>
-              <option value="perda">Perda</option>
-              <option value="ajuste_entrada">Ajuste para mais</option>
-              <option value="ajuste_saida">Ajuste para menos</option>
-            </select>
-            <input class="campo-ordem" name="quantidade" placeholder="qtd" aria-label="Quantidade">
-            <input name="observacao" maxlength="250" placeholder="Observação (opcional)" aria-label="Observação">
-            <button type="submit" class="btn-secundario">Lançar</button>
-          </form>
-
           <form method="post" action="{{ url_for('admin.insumo_excluir', insumo_id=insumo.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn-secundario">Excluir insumo</button>
+            <button type="submit" class="btn-delete">Excluir</button>
           </form>
         </div>
       {% endfor %}
-    {% endif %}
-  </div>
-
-  {% if movimentacoes %}
-    <div class="card">
-      <h1>Últimas movimentações</h1>
-      <div class="scroll">
-        <table>
-          <thead>
-            <tr><th>Quando</th><th>Insumo</th><th>Tipo</th><th>Qtd</th><th>Saldo depois</th><th>Quem</th></tr>
-          </thead>
-          <tbody>
-            {% for mov in movimentacoes %}
-              <tr>
-                <td class="muted">{{ mov.created_at.strftime('%d/%m %H:%M') }}</td>
-                <td>{{ mov.insumo.nome }}</td>
-                <td>
-                  {{ mov.rotulo }}
-                  {% if mov.pedido_id %}<div class="muted">pedido #{{ mov.pedido.numero }}</div>{% endif %}
-                  {% if mov.observacao %}<div class="muted">{{ mov.observacao }}</div>{% endif %}
-                </td>
-                <td class="{% if mov.soma %}alta{% else %}baixa{% endif %}">
-                  {{ "+" if mov.soma else "−" }}{{ mov.quantidade|round(2) }}
-                </td>
-                <td>{{ mov.saldo_posterior|round(2) }}</td>
-                <td class="muted">{{ mov.usuario or "sistema" }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
     </div>
   {% endif %}
+
+  <div class="card-admin">
+    <h3>Histórico recente</h3>
+    <div class="v17-table-wrap">
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Insumo</th><th>Tipo</th><th>Quantidade</th><th>Saldo</th><th>Origem</th></tr>
+        </thead>
+        <tbody>
+          {% for mov in movimentacoes %}
+            <tr>
+              <td>{{ mov.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td>{{ mov.insumo.nome }}</td>
+              <td>{{ mov.rotulo }}</td>
+              <td class="{{ 'money-positive' if mov.soma else 'money-negative' }}">
+                {{ "+" if mov.soma else "−" }}{{ mov.quantidade|round(2) }} {{ mov.insumo.unidade }}
+              </td>
+              <td>{{ mov.saldo_posterior|round(2) }}</td>
+              <td>
+                {% if mov.pedido_id %}Pedido #{{ mov.pedido.numero }}
+                {% else %}{{ mov.observacao or mov.usuario or 'sistema' }}{% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="finance-empty">Nenhuma movimentação registrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 {% endblock %}

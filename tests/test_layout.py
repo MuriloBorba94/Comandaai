@@ -189,7 +189,7 @@ def test_vitrine_nao_tem_sidebar_do_painel(app, two_tenants):
     client = app.test_client()
     html = client.get("/", base_url="http://tenant-a.localhost").get_data(as_text=True)
 
-    assert 'class="painel-shell"' not in html
+    assert 'v17-app-shell' not in html
     assert "Configurações" not in html
     assert 'class="topbar"' in html
 
@@ -199,8 +199,8 @@ def test_painel_do_restaurante_tem_sidebar(app, two_tenants):
     _logar_a(client)
     html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
 
-    assert 'class="painel-shell"' in html
-    assert 'class="nav"' in html
+    assert 'v17-app-shell' in html
+    assert 'class="v17-nav"' in html
     assert "Restaurante A" in html
 
 
@@ -213,7 +213,7 @@ def test_painel_da_plataforma_usa_a_marca_do_produto(app, platform_admin):
     )
     html = client.get("/plataforma/", base_url="http://app.localhost").get_data(as_text=True)
 
-    assert 'class="painel-shell"' in html
+    assert 'v17-app-shell' in html
     assert f"--brand: {COR_PADRAO}" in html
     assert "Comanda ai" in html
 
@@ -223,7 +223,7 @@ def test_login_do_tenant_ainda_e_vitrine(app, two_tenants):
     client = app.test_client()
     html = client.get("/login", base_url="http://tenant-a.localhost").get_data(as_text=True)
 
-    assert 'class="painel-shell"' not in html
+    assert 'v17-app-shell' not in html
     assert 'class="pagina-centrada"' in html
 
 
@@ -299,7 +299,7 @@ def test_logo_fica_na_pasta_do_tenant_e_aparece_na_sidebar(app, two_tenants):
 
     html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
     assert caminho in html
-    assert 'class="marca-inicial"' not in html, "com logo não mostra a inicial"
+    assert 'v17-brand-inicial' not in html, "com logo não mostra a inicial"
 
 
 def test_sem_logo_a_sidebar_mostra_a_inicial_do_nome(app, two_tenants):
@@ -307,7 +307,7 @@ def test_sem_logo_a_sidebar_mostra_a_inicial_do_nome(app, two_tenants):
     _logar_a(client)
     html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
 
-    assert 'class="marca-inicial"' in html
+    assert 'v17-brand-inicial' in html
     assert ">R<" in html, "Restaurante A -> R"
 
 

@@ -39,11 +39,25 @@ O que já existe aqui:
 
 ## Identidade visual de cada tenant
 
-O design system inteiro vive em `app/static/css/comanda.css`, com dois ambientes:
-o **painel** (admin do restaurante e área da plataforma), claro por padrão e com
-alternador para escuro guardado no `localStorage` de quem opera; e a **vitrine**
-(o cardápio público), sempre escura. Qual dos dois usar não é declarado por tela:
-`app/layout.py::contexto_layout()` decide pelo contexto da requisição.
+O design system inteiro vive em `app/static/css/comanda.css`, **portado do
+`gestao_v18.css`** do Borba's Burguer: mesmas classes (`v17-app-shell`,
+`card-admin`, `admin-input`, `btn-add/save/secondary/delete`, `metric-grid`,
+`mesas-grid`, `v17-kanban`, `finance-*`), mesmas medidas e mesmas cores. São dois
+ambientes: o **painel** (admin do restaurante e área da plataforma), claro por
+padrão e com alternador para escuro guardado no `localStorage` de quem opera; e a
+**vitrine** (o cardápio público), sempre escura, com tokens do `v2.css`. Qual dos
+dois usar não é declarado por tela: `app/layout.py::contexto_layout()` decide pelo
+contexto da requisição.
+
+Os gráficos do Financeiro são desenhados à mão em `<canvas>` (`static/js/painel.js`,
+portado do `gestao_v18.js`) — sem biblioteca externa e sem CDN, e as cores saem das
+variáveis CSS, então acompanham o tema e a marca do tenant.
+
+**Uma diferença de estrutura, deliberada:** no original a Gestão é UMA página com
+abas. Aqui cada item do menu é uma rota, porque o bloqueio por plano é por rota —
+uma página única carregaria de uma vez os recursos que o plano do tenant não
+inclui. O menu usa as mesmas classes (`tab-btn`), então sai idêntico; o que muda é
+que a classe veste um `<a>` em vez de um `<button>`.
 
 A cor de destaque é a variável CSS `--brand`, sobrescrita por tenant num bloco
 `<style>` do `base.html`. Como ela vai para dentro do CSS, passa

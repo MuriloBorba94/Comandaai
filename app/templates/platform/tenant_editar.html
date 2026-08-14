@@ -7,7 +7,7 @@
 {% endblock %}
 {% block content %}
 
-  <div class="card">
+  <div class="card-admin">
     <h1>{{ tenant.nome_fantasia }}</h1>
     <p class="muted">
       Loja em <a href="{{ url_do_tenant(tenant.slug) }}" target="_blank" rel="noopener">{{ url_do_tenant(tenant.slug) }}</a>
@@ -80,7 +80,7 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Assinatura</h1>
     <div class="stats">
       <div>
@@ -163,7 +163,7 @@
     {% endif %}
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Acesso do restaurante</h1>
     <p class="muted">
       A senha antiga não é pedida, e nem poderia: ela existe no banco apenas como

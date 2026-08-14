@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Custos — {{ tenant.nome_fantasia }}{% endblock %}
+{% block secao %}Custos e fichas técnicas{% endblock %}
+{% block intro_titulo %}Custos e fichas técnicas{% endblock %}
+{% block intro_texto %}Quanto custa produzir cada item e por quanto ele deveria ser vendido.{% endblock %}
+{% block content %}
+
+  <div class="admin-grid">
+    <div class="card-admin" style="grid-column: 1 / -1;">
+      <h3>🛒 Cadastro de Insumos (Matéria Prima)</h3>
+      <form action="{{ url_for('admin.insumos') }}" method="post" oninput="updateInsumoPreview(this)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="voltar" value="custos">
+        <input type="text" name="nome" class="admin-input" placeholder="Ex: Carne Bovina (KG)" required maxlength="80">
+        <div style="display: flex; gap: 10px;">
+          <input type="text" name="preco_compra" class="admin-input insumo-preco" placeholder="Preço Pago (R$)" required>
+          <input type="text" name="quantidade_compra" class="admin-input insumo-qtd" placeholder="Qtd" required>
+          <select name="unidade" class="admin-input insumo-un" style="width: 110px;">
+            {% for unidade in unidades %}<option value="{{ unidade }}">{{ unidade }}</option>{% endfor %}
+          </select>
+        </div>
+        <small class="insumo-preview" style="display:block;color:var(--text-sec);margin:4px 0 10px">Ex.: comprou 1kg (1000g) de carne por R$ 32,00 → preço 32,00, quantidade 1000, unidade g.</small>
+        <details style="margin:8px 0">
+          <summary style="cursor:pointer;color:var(--text-sec);font-size:.85rem">Controle de estoque (opcional)</summary>
+          <div style="display:flex;gap:10px;margin-top:8px">
+            <input type="text" name="estoque_minimo" class="admin-input" placeholder="Estoque mínimo">
+          </div>
+          <label style="display:flex;gap:8px;align-items:center;margin:8px 0">
+            <input type="checkbox" name="controle_estoque" checked> Controlar estoque automaticamente
+          </label>
+        </details>
+        <button type="submit" class="btn-add">➕ SALVAR INSUMO</button>
+      </form>
+
+      <h4>Sua Lista de Compras</h4>
+      {% for insumo in insumos %}
+        <div class="extra-row" style="font-size: 0.9rem;">
+          <span>{{ insumo.nome }} ({{ insumo.quantidade_compra|brl }}{{ insumo.unidade }})</span>
+          <strong>R$ {{ insumo.preco_compra|brl }}</strong>
+          <div style="display: flex; gap: 5px;">
+            <a class="btn-secondary" style="padding:4px 8px;font-size:.8rem" href="{{ url_for('admin.insumos') }}">Editar no estoque</a>
+          </div>
+        </div>
+      {% else %}
+        <p class="muted">Nenhum insumo cadastrado ainda.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <p style="color:var(--text-sec);font-size:.9rem;margin:4px 0 0">
+    Para montar a ficha técnica de um produto, use o botão <strong>“Editar Receita”</strong> na
+    tabela abaixo — dá para adicionar todos os ingredientes numa tela só.
+  </p>
+
+  <div class="card-admin" style="margin-top: 20px; border-top: 5px solid var(--success);">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:15px;gap:12px">
+      <h3 style="margin:0;border:0;padding:0">📉 Controle de Margem de Lucro</h3>
+      <form action="{{ url_for('admin.custos_margem') }}" method="post"
+            style="display:flex;align-items:center;gap:10px;background:var(--bg);padding:8px 15px;border-radius:8px;border:1px solid var(--border)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label style="color:var(--text-sec);font-size:.9rem;font-weight:bold;margin:0">Minha Meta:</label>
+        <div style="display:flex;align-items:center">
+          <input type="number" step="0.1" min="0" max="99.9" name="margem_lucro" value="{{ margem }}"
+                 class="admin-input" style="width:70px;padding:5px;margin:0;text-align:center;font-weight:bold;font-size:1.1rem" required>
+          <span style="color:var(--text);margin-left:5px;font-weight:bold;font-size:1.1rem">%</span>
+        </div>
+        <button type="submit" class="btn-save" style="padding:6px 12px;font-size:.85rem">Aplicar</button>
+      </form>
+    </div>
+
+    <p class="muted" style="margin:0 0 12px;font-size:.8rem">
+      A meta é sobre o <strong>preço de venda</strong>: 60% quer dizer “quero que 60% do que
+      entra seja lucro”. O sugerido sai de <code>custo ÷ (1 − meta)</code>.
+    </p>
+
+    <div class="v17-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Custo Produção</th>
+            <th style="color: var(--success)">Sugerido</th>
+            <th>Preço Atual</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in produtos_custo %}
+            <tr>
+              <td>
+                <strong>{{ item.produto.nome }}</strong><br>
+                <a class="btn-secondary" style="padding:4px 8px;margin-top:5px;font-size:.8rem"
+                   href="{{ url_for('admin.produto_ficha', produto_id=item.produto.id) }}">✏️ Editar Receita</a>
+                {% if item.ingredientes %}
+                  <small>{{ item.ingredientes }} ingrediente(s)</small>
+                {% endif %}
+              </td>
+              <td class="money-negative">R$ {{ item.custo|brl }}</td>
+              <td style="font-weight:bold" class="money-positive">
+                {% if item.custo > 0 %}R$ {{ item.sugerido|brl }}{% else %}--{% endif %}
+              </td>
+              <td style="font-weight:bold">R$ {{ item.produto.preco|brl }}</td>
+              <td>
+                {% if item.custo == 0 %}
+                  <span style="color:var(--text-sec)">⚪ Sem Ficha</span>
+                {% elif item.produto.preco >= item.sugerido %}
+                  <span class="money-positive">✅ Ótimo</span>
+                {% elif item.produto.preco > item.custo %}
+                  <span style="color:var(--warning)">⚠️ Alerta</span>
+                {% else %}
+                  <span class="money-negative" style="font-weight:bold">❌ Prejuízo</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="finance-empty">Nenhum produto cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* Mesmo preview do original: mostra o custo por unidade enquanto se digita,
+     que é onde erro de "1kg" vs "1000g" costuma aparecer. */
+  window.updateInsumoPreview = function (form) {
+    const preview = form.querySelector('.insumo-preview');
+    if (!preview) return;
+    const numero = campo => parseFloat((form.querySelector(campo)?.value || '').replace(',', '.'));
+    const preco = numero('.insumo-preco');
+    const qtd = numero('.insumo-qtd');
+    const unidade = form.querySelector('.insumo-un')?.value || '';
+    preview.textContent = (preco > 0 && qtd > 0)
+      ? `≈ R$ ${(preco / qtd).toFixed(4).replace('.', ',')} por ${unidade}`
+      : 'Ex.: comprou 1kg (1000g) de carne por R$ 32,00 → preço 32,00, quantidade 1000, unidade g.';
+  };
+</script>
+{% endblock %}

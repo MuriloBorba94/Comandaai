@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ produto.nome }} — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Editar produto{% endblock %}
+{% block intro_titulo %}Editar produto{% endblock %}
+{% block intro_texto %}Dados, foto e adicionais do item.{% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     <h1>Editar produto</h1>
     <form method="post" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

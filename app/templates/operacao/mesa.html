@@ -1,12 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Mesa {{ "%02d"|format(numero) }} — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}Mesa {{ "%02d"|format(numero) }} · {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}
-  <a href="{{ url_for('operacao.mesas') }}">Voltar ao salão</a>
-  <a href="{{ url_for('operacao.cozinha') }}">Cozinha</a>
-{% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     {% if pedido %}
       <h1>Comanda aberta · Pedido #{{ pedido.numero }}</h1>
       <p class="muted">{{ pedido.cliente }} · {{ pedido.status }}</p>
@@ -40,7 +35,7 @@
     {% endif %}
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Lançar item</h1>
     {% for nome_grupo, itens in grupos %}
       <section class="menu-grupo">

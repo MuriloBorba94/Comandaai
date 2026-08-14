@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Cupons — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Cupons promocionais{% endblock %}
+{% block intro_titulo %}Cupons promocionais{% endblock %}
+{% block intro_texto %}Desconto com limite de usos e pedido minimo.{% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     <h1>Novo cupom</h1>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -48,7 +49,7 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Cupons</h1>
     {% if not cupons %}
       <p>Nenhum cupom criado ainda.</p>

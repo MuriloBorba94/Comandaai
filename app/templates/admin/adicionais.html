@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Adicionais — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Adicionais{% endblock %}
+{% block intro_titulo %}Adicionais{% endblock %}
+{% block intro_texto %}Itens extras que o cliente escolhe no produto.{% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     <h1>Novo adicional</h1>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -15,7 +16,7 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Adicionais</h1>
     <p class="muted">
       Cadastrar aqui só cria o adicional. Para ele aparecer, marque-o na edição

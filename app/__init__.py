@@ -126,6 +126,60 @@ def create_app(config_object=Config) -> Flask:
         return len(insumos_em_alerta(tenant.id))
 
     @app.template_global()
+    def resumo_do_dia() -> dict:
+        """Os quatro números da faixa no alto do painel.
+
+        Espelha a `v17-overview-strip` da Gestão original. Estoque e contas só
+        são consultados quando o plano inclui o recurso: sem essa guarda, a
+        consulta rodaria em toda página de quem nem tem acesso à tela.
+        """
+        from datetime import date, datetime, time, timedelta
+
+        from flask import g
+        from sqlalchemy import func
+
+        from .models.pedido import STATUS_CANCELADO, Pedido
+        from .services.recursos import tenant_libera
+
+        vazio = {"pedidos_hoje": 0, "vendas_hoje": 0.0, "estoque_baixo": 0, "contas_abertas": 0}
+        tenant = g.get("tenant")
+        if tenant is None:
+            return vazio
+
+        hoje = date.today()
+        desde = datetime.combine(hoje, time.min)
+        ate = datetime.combine(hoje + timedelta(days=1), time.min)
+        pedidos, vendas = (
+            db.session.query(func.count(Pedido.id), func.coalesce(func.sum(Pedido.total), 0.0))
+            .filter(
+                Pedido.tenant_id == tenant.id,
+                Pedido.status != STATUS_CANCELADO,
+                Pedido.created_at >= desde,
+                Pedido.created_at < ate,
+            )
+            .one()
+        )
+
+        estoque_baixo = 0
+        if tenant_libera(tenant, "estoque"):
+            from .services.estoque import insumos_em_alerta
+
+            estoque_baixo = len(insumos_em_alerta(tenant.id))
+
+        contas_abertas = 0
+        if tenant_libera(tenant, "financeiro"):
+            from .models.financeiro import Despesa
+
+            contas_abertas = Despesa.query.filter_by(tenant_id=tenant.id, paga=False).count()
+
+        return {
+            "pedidos_hoje": int(pedidos or 0),
+            "vendas_hoje": float(vendas or 0.0),
+            "estoque_baixo": estoque_baixo,
+            "contas_abertas": contas_abertas,
+        }
+
+    @app.template_global()
     def libera(slug: str) -> bool:
         """Diz se o plano do tenant atual inclui um recurso.
 

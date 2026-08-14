@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Relatórios — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Vendas e pedidos{% endblock %}
+{% block intro_titulo %}Vendas e pedidos{% endblock %}
+{% block intro_texto %}Quanto o restaurante vendeu no periodo.{% endblock %}
 {% block content %}
 
-  <div class="card stats">
+  <div class="card-admin stats">
     <div>
       <p>Faturado hoje</p>
       <div class="stat">R$ {{ dados.hoje.faturado|brl }}</div>
@@ -41,7 +42,7 @@
   </div>
 
   {% if dados.mes.cancelado_qtd %}
-    <div class="card">
+    <div class="card-admin">
       <p class="muted">
         <strong>{{ dados.mes.cancelado_qtd }} pedido(s) cancelado(s)</strong> no mês,
         somando R$ {{ dados.mes.cancelado|brl }}. Não entra no faturamento, mas
@@ -50,7 +51,7 @@
     </div>
   {% endif %}
 
-  <div class="card barra-ao-vivo">
+  <div class="card-admin barra-ao-vivo">
     <div>
       <span class="muted">Detalhamento dos últimos</span>
       {% for periodo in dados.periodos %}
@@ -64,7 +65,7 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Faturamento por dia</h1>
     {% set maximo = dados.serie | map(attribute='valor') | max %}
     {% if maximo %}
@@ -84,7 +85,7 @@
     {% endif %}
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Mais vendidos</h1>
     {% if dados.mais_vendidos %}
       <div class="scroll">
@@ -111,7 +112,7 @@
     {% endif %}
   </div>
 
-  <div class="card colunas-relatorio">
+  <div class="card-admin colunas-relatorio">
     <div>
       <h1>Por forma de pagamento</h1>
       {% if dados.por_pagamento %}

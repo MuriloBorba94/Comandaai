@@ -4,7 +4,7 @@
 {% block header_actions %}{% include "platform/_nav.html" %}{% endblock %}
 {% block content %}
 
-  <div class="card stats">
+  <div class="card-admin stats">
     <div>
       <p>Receita recorrente</p>
       <div class="stat">R$ {{ receita_recorrente|brl }}</div>
@@ -28,7 +28,7 @@
   </div>
 
   {% if sem_planos %}
-    <div class="card">
+    <div class="card-admin">
       <h1>Comece definindo seus planos</h1>
       <p>
         Nenhum plano no catálogo, então nenhuma cobrança é gerada. Crie os planos
@@ -40,7 +40,7 @@
   {# Só aparece quando há de fato algo a resolver. Um bloco "nada a fazer"
      permanente treinaria o olho a ignorar a região da tela. #}
   {% if vencidas or trials_terminando or sem_prazo_de_trial %}
-    <div class="card">
+    <div class="card-admin">
       <h1>Precisa de atenção</h1>
 
       {% if vencidas %}
@@ -106,7 +106,7 @@
     </div>
   {% endif %}
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Tenants ({{ total_tenants }})</h1>
     <p class="muted">
       {% for status, quantidade in por_status|dictsort %}

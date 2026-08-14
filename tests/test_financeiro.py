@@ -328,7 +328,7 @@ def test_tela_financeira_renderiza(cenario, client):
     assert "R$ 60,00" in corpo   # receita
     assert "R$ 12,00" in corpo   # CMV
     assert "R$ 28,00" in corpo   # lucro líquido
-    assert "A pagar" in corpo
+    assert "Contas a pagar" in corpo
 
 
 def test_tela_financeira_bloqueada_fora_do_plano(cenario, client):
@@ -353,9 +353,13 @@ def test_tela_avisa_para_nao_lancar_insumo_como_despesa(cenario, client):
     _liberar(cenario["tenant_a"])
     login_tenant(client, "tenant-a", "admin", "senha-a-123")
 
-    corpo = client.get("/admin/financeiro", base_url=BASE_A).get_data(as_text=True)
-    assert "não</strong> se lança como despesa" in corpo or "não" in corpo
-    assert "conta duas vezes" in corpo
+    corpo = " ".join(
+        client.get("/admin/financeiro", base_url=BASE_A).get_data(as_text=True).split()
+    )
+    # O aviso vive no formulário de despesa, ao lado do campo que erraria.
+    assert "não</strong> se lança aqui" in corpo
+    assert "já entra pelo CMV" in corpo
+    assert "entrada no estoque" in corpo
 
 
 def test_lancar_despesa_pela_tela(cenario, client):

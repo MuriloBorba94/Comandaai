@@ -1,14 +1,18 @@
 {# Esqueleto único, com o shell escolhido pelo contexto da requisição.
 
-   Nenhuma tela declara em qual mundo vive: `contexto_layout()` decide entre o
-   painel (sidebar + commandbar, claro por padrão) e a vitrine (topbar escura).
-   Por isso `header_actions` só sai na vitrine — no painel a navegação é a
-   sidebar.
+   O painel reproduz o shell da Gestão do Borba's Burguer (v17-app-shell):
+   sidebar de 246px, commandbar de 64px, cabeçalho de página com eyebrow/h1/p e
+   a faixa de quatro números à direita.
+
+   Uma diferença de fundo em relação ao original, deliberada: lá a Gestão era UMA
+   página com abas (`tab-btn` + `tab-content`). Aqui cada item é uma rota, porque
+   o bloqueio por plano é por rota — uma página única carregaria de uma vez os
+   recursos que o plano do tenant não inclui. A classe `.tab-btn` continua a
+   mesma para o menu sair idêntico; o que muda é que ela veste um <a>.
 
    As tags de abertura e fechamento do shell ficam em `{% if %}` separados, em
-   volta de UM único `{% block content %}`. É de propósito: o Jinja recusa o
-   mesmo bloco declarado duas vezes, então não dá para repetir o bloco dentro de
-   cada ramo. #}
+   volta de UM único `{% block content %}`: o Jinja recusa o mesmo bloco
+   declarado duas vezes. #}
 {% set contexto = contexto_layout() %}
 {% set painel = contexto in ("admin", "plataforma") %}
 {% set tons = tons_da_marca() %}
@@ -17,6 +21,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <meta name="theme-color" content="{{ cor_da_marca() if painel else '#0f1115' }}">
   <title>{% block title %}Comanda ai{% endblock %}</title>
 
@@ -56,56 +61,79 @@
 <body class="{{ 'painel' if painel else 'vitrine' }}">
 
 {% if painel %}
-  <div class="painel-shell">
-    <button type="button" class="fab-menu" id="fab-menu" aria-label="Abrir menu">☰</button>
-    <div class="sidebar-fundo" id="sidebar-fundo"></div>
+  <div class="v17-app-shell">
+    <button type="button" class="v17-fab-menu" id="v17-fab-menu" aria-label="Abrir menu">☰</button>
+    <div class="v17-sidebar-backdrop" id="v17-sidebar-backdrop"></div>
 
-    <aside class="sidebar" id="sidebar" aria-label="Navegação do painel">
+    <aside class="v17-sidebar" id="v17-sidebar" aria-label="Navegação da Gestão">
       {% if contexto == "admin" %}
-        <a class="marca" href="{{ url_for('admin.dashboard') }}">
+        <a class="v17-brand" href="{{ url_for('admin.dashboard') }}">
           {% if logo_do_tenant() %}
             <img src="{{ url_for('static', filename='uploads/' + logo_do_tenant()) }}"
                  alt="{{ g.tenant.nome_fantasia }}">
           {% else %}
-            <span class="marca-inicial" aria-hidden="true">{{ inicial_do_tenant() }}</span>
+            <span class="v17-brand-inicial" aria-hidden="true">{{ inicial_do_tenant() }}</span>
           {% endif %}
-          <span>
-            <strong>{{ g.tenant.nome_fantasia }}</strong>
-            <small>Painel do restaurante</small>
-          </span>
+          <span><strong>Gestão</strong><small>{{ g.tenant.nome_fantasia }}</small></span>
         </a>
         {% include "admin/_nav.html" %}
+
+        <div class="v17-sidebar-status">
+          <div>
+            <span class="v17-status-dot {{ 'online' if g.tenant.ativo else 'offline' }}"></span>
+            <span><small>Loja</small><strong>{{ 'Ativa' if g.tenant.ativo else 'Suspensa' }}</strong></span>
+          </div>
+          <a href="{{ url_for('public.index') }}" target="_blank" rel="noopener">
+            <span class="v17-status-dot online"></span>
+            <span><small>Cardápio</small><strong>Ver como cliente</strong></span>
+          </a>
+        </div>
       {% else %}
-        <a class="marca" href="{{ url_for('platform.inicio') }}">
-          <span class="marca-inicial" aria-hidden="true">C</span>
+        <a class="v17-brand" href="{{ url_for('platform.inicio') }}">
+          <span class="v17-brand-inicial" aria-hidden="true">C</span>
           <span><strong>Comanda ai</strong><small>Plataforma</small></span>
         </a>
         {% include "platform/_nav.html" %}
       {% endif %}
     </aside>
 
-    <div class="painel-main">
-      <header class="commandbar">
-        <div class="commandbar-titulo">
-          <small>{{ "Restaurante" if contexto == "admin" else "Administração" }}</small>
-          <strong>{% if contexto == "admin" %}{{ g.tenant.nome_fantasia }}{% else %}Comanda ai{% endif %}</strong>
+    <div class="v17-main">
+      <header class="v17-commandbar">
+        <div class="v17-commandbar-title">
+          <div>
+            <small>{{ "Central de Gestão" if contexto == "admin" else "Administração" }}</small>
+            <strong id="v17-current-section">{% block secao %}{{ g.tenant.nome_fantasia if contexto == "admin" else "Comanda ai" }}{% endblock %}</strong>
+          </div>
         </div>
-        <div class="commandbar-acoes">
-          <button type="button" class="link-rapido" id="alternar-tema"
+        <div class="v17-commandbar-actions">
+          <button type="button" class="v17-quick-link" id="theme-toggle"
                   title="Alternar tema claro/escuro">🌙 Escuro</button>
           {% if contexto == "admin" %}
-            <a class="link-rapido" href="{{ url_for('public.index') }}" target="_blank"
-               rel="noopener">Ver cardápio</a>
-            <span class="chip-usuario">
-              <b aria-hidden="true">{{ (session.get('username') or '?')[0]|upper }}</b>
-              <span><small>Conectado</small><strong>{{ session.get('username') or '—' }}</strong></span>
+            <a class="v17-quick-link hide-mobile" href="{{ url_for('public.index') }}"
+               target="_blank" rel="noopener">Cardápio</a>
+            <span class="v17-user-chip">
+              <b>{{ (session.get('username') or 'U')[0]|upper }}</b>
+              <span><small>Logado como</small><strong>{{ session.get('username') or '—' }}</strong></span>
             </span>
-            <a class="botao-sair" href="{{ url_for('auth.logout') }}" title="Sair">⏻</a>
+            <a class="v17-logout" href="{{ url_for('auth.logout') }}" title="Sair">↪</a>
           {% else %}
-            <a class="botao-sair" href="{{ url_for('platform.logout') }}" title="Sair">⏻</a>
+            <a class="v17-logout" href="{{ url_for('platform.logout') }}" title="Sair">↪</a>
           {% endif %}
         </div>
       </header>
+
+      <main class="v17-content">
+        <section class="v17-page-intro">
+          <div>
+            <span class="eyebrow">{% block eyebrow %}{{ g.tenant.nome_fantasia ~ " • Gestão" if contexto == "admin" else "Comanda ai • Plataforma" }}{% endblock %}</span>
+            <h1>{% block intro_titulo %}Central de Gestão{% endblock %}</h1>
+            <p>{% block intro_texto %}Informações, configurações e decisões do negócio em um só lugar.{% endblock %}</p>
+          </div>
+          {% block faixa %}{% if contexto == "admin" %}{% include "admin/_faixa.html" %}{% endif %}{% endblock %}
+        </section>
+
+        {% include "_mensagens.html" %}
+        {% block content %}{% endblock %}
 {% else %}
   <header class="topbar">
     <div class="topbar-inner">
@@ -123,16 +151,21 @@
       <div class="acoes-topbar">{% block header_actions %}{% endblock %}</div>
     </div>
   </header>
+
+  <main class="container">
+    {% include "_mensagens.html" %}
+    {{ self.content() }}
+  </main>
 {% endif %}
 
-      <main class="{{ 'conteudo' if painel else 'container' }}">
-        {% include "_mensagens.html" %}
-        {% block content %}{% endblock %}
-      </main>
-
 {% if painel %}
+        <div class="v17-public-link">
+          <a href="{{ url_for('public.index') }}" target="_blank" rel="noopener">← Acessar o cardápio público</a>
+        </div>
+      </main>
     </div>
   </div>
+  <div id="toast" class="toast"></div>
   <script src="{{ url_for('static', filename='js/painel.js') }}" defer></script>
 {% endif %}
 

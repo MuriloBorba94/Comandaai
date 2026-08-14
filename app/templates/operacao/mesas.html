@@ -1,23 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Mesas — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}Salão · {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Mesas e comandas{% endblock %}
+{% block intro_titulo %}Salão / Mapa de Mesas{% endblock %}
+{% block intro_texto %}Selecione uma mesa livre para abrir a comanda, ou uma ocupada para adicionar itens.{% endblock %}
 {% block content %}
-  <div class="card">
-    <h1>Mesas</h1>
-    <p class="muted">Mesa em vermelho tem comanda aberta. Clique para lançar itens ou fechar.</p>
-    <div class="mesas">
+  <div class="card-admin" style="border-top: 5px solid var(--info);">
+    <h2 style="color: var(--info)">📱 Salão / Mapa de Mesas</h2>
+    <p style="color: var(--text-sec); font-size: 0.9rem;">
+      Selecione uma mesa livre para abrir a comanda, ou uma ocupada para adicionar itens.
+    </p>
+
+    <div class="mesas-grid" data-total-mesas="{{ numeros|length }}">
       {% for numero in numeros %}
         {% set pedido = ocupadas.get(numero) %}
-        <a class="mesa {% if pedido %}mesa-ocupada{% endif %}"
-           href="{{ url_for('operacao.mesa_detalhe', numero=numero) }}">
-          <strong>{{ "%02d"|format(numero) }}</strong>
-          {% if pedido %}
-            <span class="muted">R$ {{ pedido.total|brl }}</span>
-          {% else %}
-            <span class="muted">livre</span>
-          {% endif %}
-        </a>
+        {% if pedido %}
+          <a class="mesa-card mesa-ocupada" href="{{ url_for('operacao.mesa_detalhe', numero=numero) }}">
+            <span style="position:absolute;top:5px;left:8px;font-size:.9rem" aria-hidden="true">🔒</span>
+            <span class="mesa-number">{{ "%02d"|format(numero) }}</span>
+            <span class="mesa-status">R$ {{ pedido.total|brl }}</span>
+          </a>
+        {% else %}
+          <a class="mesa-card mesa-livre" href="{{ url_for('operacao.mesa_detalhe', numero=numero) }}">
+            <span class="mesa-status" style="font-size:.7rem;margin-bottom:2px">LIVRE</span>
+            <span class="mesa-number">{{ "%02d"|format(numero) }}</span>
+          </a>
+        {% endif %}
       {% endfor %}
     </div>
   </div>

@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Cozinha — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}Cozinha · {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Monitor de pedidos{% endblock %}
+{% block intro_titulo %}Monitor de pedidos{% endblock %}
+{% block intro_texto %}A fila da cozinha, por status. A tela se atualiza sozinha.{% endblock %}
 {% block content %}
 
   {# Fica FORA de #painel para não ser substituído a cada atualização. #}
-  <div class="card barra-ao-vivo">
+  <div class="card-admin barra-ao-vivo">
     <div>
       <span id="estado-live" class="live live-ok" title="A tela se atualiza sozinha">
         <span class="live-ponto"></span> ao vivo
@@ -13,15 +14,15 @@
       <span id="live-quando" class="muted"></span>
     </div>
     <div class="row-actions">
-      <button type="button" id="btn-som" class="btn-secundario" aria-pressed="false">
+      <button type="button" id="btn-som" class="btn-secondary" aria-pressed="false">
         Ativar som de pedido novo
       </button>
-      <button type="button" id="btn-agora" class="btn-secundario">Atualizar agora</button>
+      <button type="button" id="btn-agora" class="btn-secondary">Atualizar agora</button>
     </div>
   </div>
 
   <div id="painel" data-versao="{{ versao }}" data-aguardando="{{ aguardando }}">
-    <div class="card">
+    <div class="card-admin">
       <h1>Pedidos em andamento ({{ total_ativos }})</h1>
       {% if not total_ativos %}
         <p>Nenhum pedido em andamento agora.</p>
@@ -29,15 +30,15 @@
     </div>
 
     {% if total_ativos %}
-    <div class="colunas">
+    <div class="v17-kanban">
       {% for status, pedidos in colunas %}
-        <div class="coluna">
-          <h2>{{ status }} ({{ pedidos|length }})</h2>
+        <div class="v17-kanban-column">
+          <div class="v17-kanban-title"><span>{{ status }}</span><span>{{ pedidos|length }}</span></div>
           {% for pedido in pedidos %}
-            <div class="pedido-card">
+            <div class="order-card" style="display:block">
               <h3>#{{ pedido.numero }} · {{ pedido.cliente }}</h3>
-              <p class="muted">{{ pedido.descricao_local }}</p>
-              <ul>
+              <p class="order-meta">{{ pedido.descricao_local }}</p>
+              <ul class="order-items">
                 {% for item in pedido.itens %}
                   <li>
                     {{ item.quantidade }}x {{ item.nome }}
@@ -55,16 +56,18 @@
 
               {# Só as transições válidas para este pedido aparecem, então a tela
                  nunca oferece um botão que o serviço vai recusar. #}
-              {% for proximo in proximos_status(pedido) %}
-                <form method="post" action="{{ url_for('operacao.pedido_status', pedido_id=pedido.id) }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="status" value="{{ proximo }}">
-                  <button type="submit" {% if proximo == "Cancelado" %}class="btn-secundario"{% endif %}>{{ proximo }}</button>
-                </form>
-              {% endfor %}
+              <div class="order-actions">
+                {% for proximo in proximos_status(pedido) %}
+                  <form method="post" action="{{ url_for('operacao.pedido_status', pedido_id=pedido.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="status" value="{{ proximo }}">
+                    <button type="submit" class="{{ 'btn-delete' if proximo == 'Cancelado' else 'btn-save' }}">{{ proximo }}</button>
+                  </form>
+                {% endfor %}
+              </div>
             </div>
           {% else %}
-            <p class="muted">—</p>
+            <div class="empty">Nenhum pedido aqui.</div>
           {% endfor %}
         </div>
       {% endfor %}

@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Produtos — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Produtos e adicionais{% endblock %}
+{% block intro_titulo %}Produtos e adicionais{% endblock %}
+{% block intro_texto %}O cardapio do restaurante.{% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     <h1>Novo produto</h1>
     {# enctype é obrigatório para o campo de imagem chegar em request.files. #}
     <form method="post" enctype="multipart/form-data">
@@ -63,7 +64,7 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Produtos</h1>
     <table>
       <thead>

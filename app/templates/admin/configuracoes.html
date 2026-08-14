@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Configurações — {{ tenant.nome_fantasia }}{% endblock %}
-{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
-{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block secao %}Loja e identidade{% endblock %}
+{% block intro_titulo %}Loja e identidade{% endblock %}
+{% block intro_texto %}Plano, identidade visual e ajustes da loja.{% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     <h1>Seu plano</h1>
     <p>
       <strong>{{ plano.nome if plano else tenant.plano }}</strong>
@@ -39,7 +40,7 @@
     </p>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Identidade visual</h1>
     <p class="muted">
       A logo aparece no topo do painel e no cabeçalho do cardápio. A cor pinta
@@ -71,7 +72,7 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Configurações da loja</h1>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

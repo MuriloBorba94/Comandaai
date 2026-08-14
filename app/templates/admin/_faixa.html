@@ -1,0 +1,12 @@
+{# Faixa de quatro números no alto do painel, igual à v17-overview-strip da
+   Gestão do Borba's Burguer.
+
+   "Estoque baixo" e "Contas abertas" saem zerados quando o plano do tenant não
+   inclui estoque/financeiro — o serviço nem consulta nesse caso. #}
+{% set resumo = resumo_do_dia() %}
+<div class="v17-overview-strip">
+  <span><small>Pedidos hoje</small><b>{{ resumo.pedidos_hoje }}</b></span>
+  <span><small>Vendas hoje</small><b>R$ {{ resumo.vendas_hoje|brl }}</b></span>
+  <span class="{{ 'attention' if resumo.estoque_baixo }}"><small>Estoque baixo</small><b>{{ resumo.estoque_baixo }}</b></span>
+  <span class="{{ 'attention' if resumo.contas_abertas }}"><small>Contas abertas</small><b>{{ resumo.contas_abertas }}</b></span>
+</div>

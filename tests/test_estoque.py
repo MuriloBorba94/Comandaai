@@ -476,7 +476,7 @@ def test_telas_de_estoque_renderizam(cenario, client):
     assert estoque.status_code == 200
     corpo = estoque.get_data(as_text=True)
     assert "Carne" in corpo
-    assert "Últimas movimentações" in corpo
+    assert "Histórico recente" in corpo
     assert "Saída (venda)" in corpo
 
     ficha = client.get(

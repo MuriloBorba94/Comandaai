@@ -5,7 +5,7 @@
   <a href="{{ url_for('public.index') }}">Cardápio</a>
 {% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     <h1>Pedido #{{ pedido.numero }}</h1>
     <p class="status-atual">{{ pedido.status }}</p>
 
@@ -20,7 +20,7 @@
     <p class="muted">{{ pedido.descricao_local }} · {{ pedido.pagamento }}</p>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Itens</h1>
     {% for item in pedido.itens %}
       <div class="menu-item">

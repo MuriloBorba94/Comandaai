@@ -3,7 +3,7 @@
 {% block header_title %}Comanda ai — Plataforma{% endblock %}
 {% block header_actions %}{% include "platform/_nav.html" %}{% endblock %}
 {% block content %}
-  <div class="card">
+  <div class="card-admin">
     <h1>Novo plano</h1>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -48,7 +48,7 @@
     </form>
   </div>
 
-  <div class="card">
+  <div class="card-admin">
     <h1>Planos</h1>
     {% if not planos %}
       <p>
