@@ -108,8 +108,21 @@ class Cobranca(TimestampMixin, db.Model):
 
     __tablename__ = "cobranca"
 
+    # Índice único PARCIAL: no máximo uma cobrança viva por competência, mas
+    # canceladas ficam fora da conta.
+    #
+    # Uma unique constraint comum impediria reemitir o mês depois de cancelar
+    # por engano — e apagar a cancelada para liberar a vaga perderia o registro
+    # de que houve um cancelamento.
     __table_args__ = (
-        db.UniqueConstraint("tenant_id", "competencia", name="uq_cobranca_tenant_competencia"),
+        db.Index(
+            "uq_cobranca_competencia_viva",
+            "tenant_id",
+            "competencia",
+            unique=True,
+            sqlite_where=db.text("status != 'cancelada'"),
+            postgresql_where=db.text("status != 'cancelada'"),
+        ),
     )
 
     id = db.Column(db.Integer, primary_key=True)

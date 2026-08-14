@@ -104,9 +104,16 @@ def register_cli(app: Flask) -> None:
             for tenant in Tenant.query.order_by(Tenant.slug).all():
                 em_aberto = [c for c in tenant.cobrancas if c.status == "pendente"]
                 atraso = max((c.dias_de_atraso(hoje) for c in em_aberto), default=0)
-                acao = "emitiria cobrança" if deve_cobrar(tenant, hoje) and not any(
-                    c.competencia.replace(day=1) == hoje.replace(day=1) for c in tenant.cobrancas
-                ) else "nada a emitir"
+                # Cobrança cancelada não conta como já emitida.
+                ja_emitida = any(
+                    c.competencia.replace(day=1) == hoje.replace(day=1) and c.status != "cancelada"
+                    for c in tenant.cobrancas
+                )
+                acao = (
+                    "emitiria cobrança"
+                    if deve_cobrar(tenant, hoje) and not ja_emitida
+                    else "nada a emitir"
+                )
                 click.echo(
                     f"  {tenant.slug:20s} status={tenant.status:10s} "
                     f"em aberto={len(em_aberto)} atraso={atraso}d  -> {acao}"

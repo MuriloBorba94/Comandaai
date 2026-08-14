@@ -536,3 +536,108 @@ def test_ciclo_pela_tela(client, platform_admin):
     )
     assert "Ciclo executado" in resposta.get_data(as_text=True)
     assert Cobranca.query.count() == 1
+
+
+# --------------------------------------------------------------------------- #
+# Reemissão depois de cancelar
+# --------------------------------------------------------------------------- #
+
+
+def test_reemitir_o_mes_depois_de_cancelar(client):
+    """Cancelar por engano travava o mês para sempre.
+
+    A busca não filtrava status (devolvia a cancelada como se valesse) e a unique
+    constraint cheia impediria inserir outra. Agora o índice único é parcial.
+    """
+    _plano(preco=99.90)
+    tenant = _tenant(slug="loja")
+
+    primeira = gerar_cobranca(tenant, hoje=HOJE)
+    cancelar_cobranca(primeira, observacao="emitida por engano")
+
+    segunda = gerar_cobranca(tenant, hoje=HOJE)
+    assert segunda is not None
+    assert segunda.id != primeira.id, "precisa ser uma cobrança nova"
+    assert segunda.status == COBRANCA_PENDENTE
+    assert segunda.competencia == primeira.competencia
+
+
+def test_cancelamento_fica_no_historico(client):
+    """Reemitir não pode apagar o registro de que houve um cancelamento."""
+    _plano()
+    tenant = _tenant(slug="loja")
+    primeira = gerar_cobranca(tenant, hoje=HOJE)
+    cancelar_cobranca(primeira, observacao="acordo comercial")
+    gerar_cobranca(tenant, hoje=HOJE)
+
+    todas = Cobranca.query.filter_by(tenant_id=tenant.id).all()
+    assert len(todas) == 2
+    canceladas = [c for c in todas if c.status == COBRANCA_CANCELADA]
+    assert len(canceladas) == 1
+    assert canceladas[0].observacao == "acordo comercial"
+
+
+def test_reemissao_usa_o_preco_atual_do_plano(client):
+    plano = _plano(preco=99.90)
+    tenant = _tenant(slug="loja")
+    primeira = gerar_cobranca(tenant, hoje=HOJE)
+    cancelar_cobranca(primeira)
+
+    plano.preco_mensal = 149.90
+    db.session.commit()
+
+    segunda = gerar_cobranca(tenant, hoje=HOJE)
+    assert segunda.valor == 149.90
+    assert primeira.valor == 99.90, "a cancelada mantém o valor da época"
+
+
+def test_ainda_nao_duplica_cobranca_viva(client):
+    """A proteção contra duplicidade continua valendo para a pendente."""
+    _plano()
+    tenant = _tenant(slug="loja")
+
+    primeira = gerar_cobranca(tenant, hoje=HOJE)
+    segunda = gerar_cobranca(tenant, hoje=HOJE)
+
+    assert primeira.id == segunda.id
+    assert Cobranca.query.filter_by(tenant_id=tenant.id).count() == 1
+
+
+def test_ciclo_reemite_mes_cancelado(client):
+    """O ciclo do dia seguinte precisa reemitir o mês que foi cancelado."""
+    _plano()
+    tenant = _tenant(slug="loja")
+    cancelar_cobranca(gerar_cobranca(tenant, hoje=HOJE))
+
+    resumo = executar_ciclo(hoje=HOJE)
+
+    assert resumo["emitidas"] == 1
+    assert Cobranca.query.filter_by(tenant_id=tenant.id, status=COBRANCA_PENDENTE).count() == 1
+
+
+def test_ciclo_nao_reemite_mes_ja_pago(client):
+    _plano()
+    tenant = _tenant(slug="loja")
+    registrar_pagamento(gerar_cobranca(tenant, hoje=HOJE))
+
+    resumo = executar_ciclo(hoje=HOJE)
+
+    assert resumo["emitidas"] == 0
+    assert Cobranca.query.filter_by(tenant_id=tenant.id).count() == 1
+
+
+def test_cancelar_a_cobranca_libera_o_tenant_e_permite_recomecar(client):
+    """Fluxo real: cancelou por engano, o cliente saiu do bloqueio, reemite."""
+    _plano()
+    tenant = _tenant(slug="loja")
+    cobranca = gerar_cobranca(tenant, hoje=HOJE)
+    atrasado = cobranca.vencimento + timedelta(days=6)
+    avaliar_status(tenant, hoje=atrasado)
+    assert client.get("/", base_url="http://loja.localhost").status_code == 402
+
+    cancelar_cobranca(cobranca)
+    assert client.get("/", base_url="http://loja.localhost").status_code == 200
+
+    nova = gerar_cobranca(tenant, hoje=atrasado)
+    assert nova.status == COBRANCA_PENDENTE
+    assert nova.dias_de_atraso(atrasado) == 0, "a reemissão dá prazo novo"

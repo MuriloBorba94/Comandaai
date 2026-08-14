@@ -87,8 +87,22 @@ def criar_no_provedor(cobranca: Cobranca) -> str | None:
     raise ValueError(f"Provedor de cobrança desconhecido: {cobranca.provedor!r}")
 
 
-def cobranca_da_competencia(tenant_id: int, competencia: date) -> Cobranca | None:
-    return Cobranca.query.filter_by(tenant_id=tenant_id, competencia=primeiro_dia(competencia)).first()
+def cobranca_da_competencia(
+    tenant_id: int, competencia: date, *, incluir_canceladas: bool = False
+) -> Cobranca | None:
+    """Cobrança do mês. Por padrão ignora canceladas.
+
+    Ignorar é o comportamento correto em quase todo uso: uma cobrança cancelada
+    não está mais em jogo, e tratá-la como existente impedia reemitir o mês
+    depois de cancelar por engano.
+    """
+    consulta = Cobranca.query.filter(
+        Cobranca.tenant_id == tenant_id,
+        Cobranca.competencia == primeiro_dia(competencia),
+    )
+    if not incluir_canceladas:
+        consulta = consulta.filter(Cobranca.status != COBRANCA_CANCELADA)
+    return consulta.first()
 
 
 def cobrancas_em_aberto(tenant_id: int) -> list[Cobranca]:
@@ -131,9 +145,9 @@ def gerar_cobranca(
 ) -> Cobranca | None:
     """Emite a mensalidade de uma competência, uma única vez.
 
-    Devolve a cobrança existente se já houver uma para o mês — a unicidade de
-    (tenant_id, competencia) garante que rodar o ciclo duas vezes no mesmo dia
-    não gere cobrança duplicada.
+    Devolve a cobrança existente se já houver uma viva para o mês — o índice
+    único parcial garante que rodar o ciclo duas vezes no mesmo dia não gere
+    cobrança duplicada. Cobrança cancelada não conta: o mês pode ser reemitido.
     """
     hoje = hoje or date.today()
     competencia = primeiro_dia(competencia or hoje)
