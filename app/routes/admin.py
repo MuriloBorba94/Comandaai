@@ -137,6 +137,23 @@ def configuracoes():
     )
 
 
+@admin_bp.route("/relatorios")
+@admin_required
+@requer_recurso("relatorios")
+def relatorios():
+    """Quanto o restaurante vendeu. Sem modelo novo: tudo vem dos pedidos."""
+    from ..services.relatorios import PERIODOS, painel
+
+    try:
+        dias = int(request.args.get("dias", PERIODOS[0]))
+    except ValueError:
+        dias = PERIODOS[0]
+
+    return render_template(
+        "admin/relatorios.html", tenant=g.tenant, dados=painel(g.tenant.id, dias=dias)
+    )
+
+
 @admin_bp.route("/")
 @admin_required
 def dashboard():

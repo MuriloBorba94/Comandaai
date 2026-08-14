@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Relatórios — {{ tenant.nome_fantasia }}{% endblock %}
+{% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
+{% block header_actions %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+
+  <div class="card stats">
+    <div>
+      <p>Faturado hoje</p>
+      <div class="stat">R$ {{ dados.hoje.faturado|brl }}</div>
+      <p class="muted">
+        {{ dados.hoje.faturado_qtd }} pedido(s) entregue(s)
+        {% if dados.hoje.andamento_qtd %}
+          <br>+ R$ {{ dados.hoje.andamento|brl }} em {{ dados.hoje.andamento_qtd }} em andamento
+        {% endif %}
+      </p>
+    </div>
+    <div>
+      <p>Ticket médio hoje</p>
+      <div class="stat">R$ {{ dados.hoje.ticket_medio|brl }}</div>
+      <p class="muted">ontem: R$ {{ dados.ontem.ticket_medio|brl }}</p>
+    </div>
+    <div>
+      <p>Últimos 7 dias</p>
+      <div class="stat">R$ {{ dados.semana.faturado|brl }}</div>
+      <p class="muted">
+        {% if dados.variacao_semana is none %}
+          sem base na semana anterior
+        {% elif dados.variacao_semana >= 0 %}
+          <span class="alta">▲ {{ dados.variacao_semana }}%</span> vs. semana anterior
+        {% else %}
+          <span class="baixa">▼ {{ dados.variacao_semana|abs }}%</span> vs. semana anterior
+        {% endif %}
+      </p>
+    </div>
+    <div>
+      <p>Mês atual</p>
+      <div class="stat">R$ {{ dados.mes.faturado|brl }}</div>
+      <p class="muted">{{ dados.mes.faturado_qtd }} pedido(s)</p>
+    </div>
+  </div>
+
+  {% if dados.mes.cancelado_qtd %}
+    <div class="card">
+      <p class="muted">
+        <strong>{{ dados.mes.cancelado_qtd }} pedido(s) cancelado(s)</strong> no mês,
+        somando R$ {{ dados.mes.cancelado|brl }}. Não entra no faturamento, mas
+        cancelamento demais costuma ser sinal de problema na operação.
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="card barra-ao-vivo">
+    <div>
+      <span class="muted">Detalhamento dos últimos</span>
+      {% for periodo in dados.periodos %}
+        {% if periodo == dados.dias %}
+          <strong>{{ periodo }} dias</strong>
+        {% else %}
+          <a href="{{ url_for('admin.relatorios', dias=periodo) }}">{{ periodo }} dias</a>
+        {% endif %}
+        {% if not loop.last %} · {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h1>Faturamento por dia</h1>
+    {% set maximo = dados.serie | map(attribute='valor') | max %}
+    {% if maximo %}
+      <div class="barras">
+        {% for ponto in dados.serie %}
+          <div class="barra-dia" title="{{ ponto.dia.strftime('%d/%m') }}: R$ {{ ponto.valor|brl }} em {{ ponto.pedidos }} pedido(s)">
+            {# Altura relativa ao melhor dia do período, com um mínimo visível
+               para o dia sem venda não desaparecer da leitura. #}
+            <div class="barra-corpo" style="height: {{ (4 + (ponto.valor / maximo * 96)) | round | int }}px"></div>
+            <span class="barra-rotulo">{{ ponto.dia.strftime('%d/%m') }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="muted">Somente pedidos entregues. Melhor dia do período: R$ {{ maximo|brl }}.</p>
+    {% else %}
+      <p>Nenhum pedido entregue nos últimos {{ dados.dias }} dias.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h1>Mais vendidos</h1>
+    {% if dados.mais_vendidos %}
+      <div class="scroll">
+        <table>
+          <thead><tr><th>#</th><th>Item</th><th>Unidades</th><th>Valor</th></tr></thead>
+          <tbody>
+            {% for item in dados.mais_vendidos %}
+              <tr>
+                <td class="muted">{{ loop.index }}</td>
+                <td>{{ item.nome }}</td>
+                <td><strong>{{ item.unidades }}</strong></td>
+                <td>R$ {{ item.valor|brl }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">
+        Conta pelo nome gravado na venda, então produto já excluído do cardápio
+        continua no relatório.
+      </p>
+    {% else %}
+      <p>Nenhum item vendido no período.</p>
+    {% endif %}
+  </div>
+
+  <div class="card colunas-relatorio">
+    <div>
+      <h1>Por forma de pagamento</h1>
+      {% if dados.por_pagamento %}
+        <table>
+          <tbody>
+            {% for linha in dados.por_pagamento %}
+              <tr>
+                <td>{{ linha.rotulo }}</td>
+                <td class="muted">{{ linha.pedidos }} pedido(s)</td>
+                <td><strong>R$ {{ linha.valor|brl }}</strong></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">Sem pedidos no período.</p>
+      {% endif %}
+    </div>
+
+    <div>
+      <h1>Por tipo de pedido</h1>
+      {% if dados.por_tipo %}
+        <table>
+          <tbody>
+            {% for linha in dados.por_tipo %}
+              <tr>
+                <td>{{ linha.rotulo }}</td>
+                <td class="muted">{{ linha.pedidos }} pedido(s)</td>
+                <td><strong>R$ {{ linha.valor|brl }}</strong></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">Sem pedidos no período.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

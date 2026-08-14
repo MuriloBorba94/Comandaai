@@ -4,6 +4,7 @@
    oferecer para depois negar seria pior do que não oferecer. #}
 <a href="{{ url_for('admin.dashboard') }}">Painel</a>
 {% if libera('cozinha') %}<a href="{{ url_for('operacao.cozinha') }}">Cozinha</a>{% endif %}
+{% if libera('relatorios') %}<a href="{{ url_for('admin.relatorios') }}">Relatórios</a>{% endif %}
 {% if libera('mesas') and tenant.atende_mesa %}<a href="{{ url_for('operacao.mesas') }}">Mesas</a>{% endif %}
 <a href="{{ url_for('admin.produtos') }}">Produtos</a>
 <a href="{{ url_for('admin.categorias') }}">Categorias</a>
