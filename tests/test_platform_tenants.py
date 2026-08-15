@@ -523,9 +523,13 @@ def test_inicio_sem_pendencia_nao_mostra_o_bloco_de_atencao(client, platform_adm
 
 
 def test_landing_da_plataforma_tem_porta_de_entrada(client, platform_admin):
-    """Sem isso, o host da plataforma era uma tela sem caminho para lugar algum."""
+    """Sem isso, o host da plataforma era uma tela sem caminho para lugar algum.
+
+    Compara o destino, não o texto do botão: a página inicial virou o cartão de
+    visita do produto e a redação muda com a campanha, mas o caminho não.
+    """
     corpo = client.get("/", base_url=BASE_PLATAFORMA).get_data(as_text=True)
-    assert "Entrar na plataforma" in corpo
+    assert "/plataforma/" in corpo
 
 
 def test_landing_de_tenant_nao_expoe_a_plataforma(client, two_tenants):

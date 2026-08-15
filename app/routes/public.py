@@ -15,6 +15,7 @@ from flask import (
     url_for,
 )
 
+from ..models.assinatura import LIMITES
 from ..models.categoria import Categoria
 from ..models.pedido import Pedido, TIPO_ENTREGA, TIPO_RETIRADA
 from ..models.produto import Produto
@@ -83,10 +84,54 @@ def _itens_calculados(carrinho: list[dict]):
         return [], 0.0, str(exc)
 
 
+def _dados_da_landing() -> dict:
+    """Conteúdo da página inicial do produto.
+
+    Os planos saem do catálogo real, com o preço e os recursos que cada um
+    libera de fato. É o que evita a página de vendas prometer o que o sistema
+    não entrega — foi assim que uma descrição de plano já anunciou "relatórios"
+    quando a tela ainda não existia.
+    """
+    from ..models.assinatura import RECURSOS, Plano
+
+    rotulos = {slug: (rotulo, explicacao) for slug, rotulo, explicacao in RECURSOS}
+    planos = []
+    for plano in Plano.query.filter_by(ativo=True).order_by(Plano.ordem, Plano.preco_mensal).all():
+        liberados = plano.recursos_liberados
+        planos.append(
+            {
+                "nome": plano.nome,
+                "preco": plano.preco_mensal or 0.0,
+                "descricao": plano.descricao,
+                "gratuito": plano.gratuito,
+                # Na ordem do catálogo, não na ordem que o plano gravou: assim as
+                # colunas ficam alinhadas quando estão lado a lado.
+                "inclui": [rotulos[slug][0] for slug, _, _ in RECURSOS if slug in liberados],
+                "limites": [
+                    f"até {teto} {rotulo.lower()}"
+                    for teto, rotulo in (
+                        (plano.limite(chave), rotulo) for chave, rotulo, _ in LIMITES
+                    )
+                    if teto
+                ],
+            }
+        )
+
+    # Plano pago mais barato: é a referência da calculadora de comissão.
+    pagos = [plano for plano in planos if not plano["gratuito"]]
+    referencia = min(pagos, key=lambda p: p["preco"]) if pagos else None
+
+    return {
+        "planos": planos,
+        "plano_referencia": referencia,
+        "recursos": RECURSOS,
+    }
+
+
 @public_bp.route("/")
 def index():
     if g.tenant is None:
-        return render_template("public/landing.html")
+        return render_template("public/landing.html", **_dados_da_landing())
 
     categorias = (
         Categoria.query.filter_by(tenant_id=g.tenant.id, ativa=True)

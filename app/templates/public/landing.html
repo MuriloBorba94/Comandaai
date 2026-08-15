@@ -1,16 +1,470 @@
-{% extends "base.html" %}
-{% block title %}Comanda ai{% endblock %}
-{% block content %}
-  <div class="card-admin">
-    <h1>Comanda ai</h1>
-    <p>Sistema de pedidos para restaurantes, por assinatura.</p>
+{# Página inicial do Comanda ai — o cartão de visita do produto.
 
-    {# Só no host da plataforma. No subdomínio de um restaurante, o cliente
-       final nunca deve ver caminho para a área administrativa. #}
-    {% if g.is_platform_area %}
-      <p class="muted">
-        <a href="{{ url_for('platform.inicio') }}">Entrar na plataforma</a>
-      </p>
-    {% endif %}
+   Não estende o base.html de propósito: o base dá o shell da vitrine (topbar da
+   loja), que é de um restaurante, não do produto. Aqui a página é a própria
+   apresentação e tem folha de estilo só dela.
+
+   Regra de conteúdo: nada aqui promete o que o sistema não faz hoje. PIX
+   automático, WhatsApp oficial e agente de impressão estão no roadmap e por
+   isso NÃO aparecem. Os planos vêm do catálogo real, com preço e recursos que
+   o próprio sistema aplica. #}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0b0e">
+  <title>Comanda ai — o sistema de pedidos do seu restaurante</title>
+  <meta name="description" content="Cardápio digital, cozinha, mesas, estoque e financeiro num sistema só. Sem comissão por pedido: você paga uma mensalidade e fica com a venda inteira.">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+<body>
+<div class="brilho" aria-hidden="true"></div>
+
+<header class="topo">
+  <div class="wrap topo-inner">
+    <a class="logo" href="#">
+      <span class="logo-marca" aria-hidden="true">◧</span>
+      Comanda ai
+    </a>
+    <nav class="menu">
+      <a href="#recursos">Recursos</a>
+      <a href="#lucro">Seu lucro</a>
+      <a href="#como-funciona">Como funciona</a>
+      {% if planos %}<a href="#planos">Planos</a>{% endif %}
+    </nav>
+    <div style="display:flex;gap:10px;align-items:center">
+      {% if g.is_platform_area %}
+        <a class="btn btn-fantasma" href="{{ url_for('platform.inicio') }}">Entrar</a>
+      {% endif %}
+      <a class="btn btn-primario" href="#planos">Começar agora</a>
+    </div>
   </div>
-{% endblock %}
+</header>
+
+<main>
+  <!-- ==================== HERÓI ==================== -->
+  <section class="heroi">
+    <div class="wrap heroi-grade">
+      <div>
+        <span class="selo">● <b>0% de comissão</b> por pedido</span>
+        <h1>Seu restaurante vendendo <em>direto</em>, sem intermediário levando a margem.</h1>
+        <p class="heroi-texto">
+          Cardápio digital com o seu link, pedido caindo na cozinha na hora, mesa,
+          estoque e financeiro — tudo num sistema só. Você paga mensalidade,
+          não porcentagem da venda.
+        </p>
+        <div class="heroi-acoes">
+          <a class="btn btn-primario btn-grande" href="#planos">Ver planos</a>
+          <a class="btn btn-fantasma btn-grande" href="#economia">Calcular o que economizo</a>
+        </div>
+        <p class="heroi-nota">Sem taxa de adesão. Cancele quando quiser.</p>
+      </div>
+
+      <!-- Demonstração desenhada em CSS: o cliente pede no celular e o pedido
+           aparece na cozinha. É o produto inteiro numa imagem só. -->
+      <div class="demo" aria-hidden="true">
+        <div class="celular">
+          <div class="celular-tela">
+            <div class="celular-topo">
+              <div class="celular-logo"></div>
+              <div>
+                <strong>Sua Pizzaria</strong>
+                <span>● Aberto agora</span>
+              </div>
+            </div>
+            <div class="celular-itens">
+              <div class="item-demo">
+                <div class="item-demo-foto"></div>
+                <div><b>Pizza Calabresa</b><small>R$ 42,00</small></div>
+                <div class="item-demo-mais">+</div>
+              </div>
+              <div class="item-demo">
+                <div class="item-demo-foto"></div>
+                <div><b>X-Tudo</b><small>R$ 28,00</small></div>
+                <div class="item-demo-mais">+</div>
+              </div>
+              <div class="item-demo">
+                <div class="item-demo-foto"></div>
+                <div><b>Refrigerante 2L</b><small>R$ 12,00</small></div>
+                <div class="item-demo-mais">+</div>
+              </div>
+            </div>
+            <div class="celular-sacola">
+              <span>🛍️ 2 itens</span>
+              <span>R$ 70,00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cozinha">
+          <div class="cozinha-topo">
+            <strong>Cozinha</strong>
+            <span class="ao-vivo"><i></i> ao vivo</span>
+          </div>
+          <div class="cozinha-colunas">
+            <div class="cozinha-coluna">
+              <span>Novo</span>
+              <div class="pedido-demo pedido-novo">
+                <b>#182 · Mesa 04</b>
+                <small>1x Pizza Calabresa<br>1x Refrigerante 2L</small>
+              </div>
+            </div>
+            <div class="cozinha-coluna">
+              <span>Em preparo</span>
+              <div class="pedido-demo">
+                <b>#181 · Entrega</b>
+                <small>2x X-Tudo<br>+ bacon</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== FAIXA ==================== -->
+  <section class="faixa">
+    <div class="wrap faixa-grade">
+      <div class="faixa-item"><b><em>0%</em></b><span>de comissão sobre o pedido</span></div>
+      <div class="faixa-item"><b>1 link</b><span>o cardápio é seu, não de um app</span></div>
+      <div class="faixa-item"><b>Tempo real</b><span>o pedido cai na cozinha na hora</span></div>
+      <div class="faixa-item"><b>Do prato ao lucro</b><span>custo, CMV e resultado do mês</span></div>
+    </div>
+  </section>
+
+  <!-- ==================== CALCULADORA ==================== -->
+  <section class="secao" id="economia">
+    <div class="wrap">
+      <div class="secao-cabeca centro">
+        <span class="rotulo">Faça a conta</span>
+        <h2>Quanto a comissão está tirando de você?</h2>
+        <p>Mexa nos dois controles com os seus números. A conta é sua, feita aqui na tela.</p>
+      </div>
+
+      <div class="calculadora">
+        <div class="calc-campos">
+          <div class="calc-campo">
+            <label for="faturamento">
+              Faturamento por mês no aplicativo
+              <output id="saida-faturamento">R$ 20.000</output>
+            </label>
+            <input type="range" id="faturamento" min="2000" max="120000" step="1000" value="20000">
+          </div>
+          <div class="calc-campo">
+            <label for="taxa">
+              Comissão que você paga hoje
+              <output id="saida-taxa">12%</output>
+            </label>
+            <input type="range" id="taxa" min="5" max="30" step="0.5" value="12">
+          </div>
+
+          <div class="calc-linhas">
+            <div class="calc-linha">
+              <span>O aplicativo leva por mês</span>
+              <b id="saida-comissao">R$ 2.400</b>
+            </div>
+            <div class="calc-linha">
+              <span>Comanda ai{% if plano_referencia %} · plano {{ plano_referencia.nome }}{% endif %}</span>
+              <b id="saida-mensalidade">R$ 0</b>
+            </div>
+            <div class="calc-linha">
+              <span>Diferença por mês</span>
+              <b id="saida-mes">R$ 0</b>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="calc-resultado">
+            <span>No fim de um ano, fica no seu caixa</span>
+            <b id="saida-ano">R$ 0</b>
+            <small id="saida-equivalente"></small>
+          </div>
+          <p class="calc-nota">
+            Estimativa com os números que você digitou, comparando comissão sobre venda
+            com mensalidade fixa. Não é previsão de faturamento — é só a diferença entre
+            as duas formas de cobrar.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== RECURSOS ==================== -->
+  <section class="secao" id="recursos">
+    <div class="wrap">
+      <div class="secao-cabeca">
+        <span class="rotulo">O que vem junto</span>
+        <h2>O restaurante inteiro numa tela só</h2>
+        <p>Do cardápio que o cliente abre no celular até o lucro que sobrou no fim do mês.</p>
+      </div>
+
+      <div class="recursos-grade">
+        <article class="recurso">
+          <div class="recurso-icone">🍔</div>
+          <h3>Cardápio com o seu link</h3>
+          <p>Foto, descrição, adicionais e categorias na ordem que você define. O endereço é do seu restaurante.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-icone">🔥</div>
+          <h3>Cozinha ao vivo</h3>
+          <p>O pedido entra e o painel se atualiza sozinho, por status. Ninguém precisa ficar apertando F5.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-icone">▦</div>
+          <h3>Mesas e comanda</h3>
+          <p>Mapa do salão, comanda aberta por mesa e fechamento com a forma de pagamento.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-icone">▣</div>
+          <h3>Estoque que baixa sozinho</h3>
+          <p>A ficha técnica desconta o insumo quando a venda acontece, e avisa quando chega no mínimo.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-icone">◒</div>
+          <h3>Custo e preço sugerido</h3>
+          <p>Você diz a margem que quer; o sistema mostra por quanto cada prato deveria ser vendido.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-icone">▤</div>
+          <h3>Financeiro de verdade</h3>
+          <p>Faturamento, CMV, despesas, fluxo de caixa e o lucro líquido do período — com o mês anterior ao lado.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-icone">◆</div>
+          <h3>Cupom e taxa por bairro</h3>
+          <p>Desconto com limite de uso e pedido mínimo. Taxa e prazo próprios para cada região.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-icone">▥</div>
+          <h3>Relatórios de venda</h3>
+          <p>Quanto vendeu, ticket médio e os itens que mais saem, no período que você escolher.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-icone">◎</div>
+          <h3>A sua cara</h3>
+          <p>Sua logo e a cor da sua marca no painel e no cardápio. O cliente vê o seu restaurante, não o nosso.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== LUCRO ==================== -->
+  <section class="secao" id="lucro">
+    <div class="wrap lucro">
+      <div>
+        <span class="rotulo">O que quase ninguém mostra</span>
+        <h2>Vender bastante não é a mesma coisa que lucrar.</h2>
+        <p style="color:var(--texto-2);font-size:1.05rem;margin:0">
+          A maioria dos sistemas para no faturamento. O Comanda ai vai até o fim da conta:
+          quanto custa produzir cada item, quanto disso saiu do estoque e o que
+          realmente sobrou depois das despesas.
+        </p>
+        <ul class="lucro-lista">
+          <li><i>✓</i><div><b>Ficha técnica por produto</b><span>quanto de cada insumo o prato consome</span></div></li>
+          <li><i>✓</i><div><b>CMV automático</b><span>o custo entra no pedido no momento da venda</span></div></li>
+          <li><i>✓</i><div><b>Preço sugerido pela sua meta</b><span>e um aviso quando o item está no prejuízo</span></div></li>
+          <li><i>✓</i><div><b>Lucro líquido do período</b><span>já descontando as despesas que você lançou</span></div></li>
+        </ul>
+      </div>
+
+      <div class="ficha" aria-hidden="true">
+        <div class="ficha-titulo">
+          <strong>X-Tudo</strong>
+          <span>ficha técnica</span>
+        </div>
+        <div class="ficha-linha"><span>Carne 150 g</span><b>R$ 6,00</b></div>
+        <div class="ficha-linha"><span>Pão brioche 1 un</span><b>R$ 1,20</b></div>
+        <div class="ficha-linha"><span>Queijo 2 fatias</span><b>R$ 1,40</b></div>
+        <div class="ficha-linha"><span>Bacon 40 g</span><b>R$ 2,60</b></div>
+        <div class="ficha-total"><span>Custo de produção</span><span>R$ 11,20</span></div>
+        <div class="ficha-destaque">
+          <span>Preço sugerido<br>para 60% de margem</span>
+          <b>R$ 28,00</b>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== COMO FUNCIONA ==================== -->
+  <section class="secao" id="como-funciona">
+    <div class="wrap">
+      <div class="secao-cabeca centro">
+        <span class="rotulo">Começar é rápido</span>
+        <h2>Três passos até o primeiro pedido</h2>
+      </div>
+      <div class="passos">
+        <div class="passo">
+          <div class="passo-numero">1</div>
+          <h3>Monte o cardápio</h3>
+          <p>Cadastre os produtos com foto, preço e adicionais. As categorias saem na ordem que você escolher.</p>
+        </div>
+        <div class="passo">
+          <div class="passo-numero">2</div>
+          <h3>Divulgue o seu link</h3>
+          <p>Você recebe um endereço próprio. Coloque no Instagram, no status do WhatsApp e na porta da loja.</p>
+        </div>
+        <div class="passo">
+          <div class="passo-numero">3</div>
+          <h3>Receba na cozinha</h3>
+          <p>O pedido cai no painel na hora e caminha pelos status até sair. O cliente acompanha sozinho.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== PLANOS ==================== -->
+  {% if planos %}
+    <section class="secao" id="planos">
+      <div class="wrap">
+        <div class="secao-cabeca centro">
+          <span class="rotulo">Planos</span>
+          <h2>Mensalidade fixa. Nada por pedido.</h2>
+          <p>Você sabe quanto vai pagar antes do mês começar — venda o quanto vender.</p>
+        </div>
+
+        <div class="planos-grade">
+          {% for plano in planos %}
+            {% set destaque = loop.index == (planos|length + 1) // 2 and planos|length > 1 %}
+            <article class="plano {{ 'plano-destaque' if destaque }}">
+              {% if destaque %}<span class="plano-fita">Mais escolhido</span>{% endif %}
+              <h3>{{ plano.nome }}</h3>
+              <p class="plano-descricao">{{ plano.descricao or 'Tudo que o restaurante precisa para vender direto.' }}</p>
+              <div class="plano-preco">
+                {% if plano.gratuito %}
+                  <b>Grátis</b>
+                {% else %}
+                  <b>R$ {{ plano.preco|brl }}</b><span>/mês</span>
+                {% endif %}
+              </div>
+              <ul class="plano-inclui">
+                {% for item in plano.inclui %}
+                  <li><i>✓</i> {{ item }}</li>
+                {% else %}
+                  <li><i>✓</i> Cardápio, carrinho e pedidos</li>
+                {% endfor %}
+              </ul>
+              {% if plano.limites %}
+                <p class="plano-limites">{{ plano.limites|join(' · ') }}</p>
+              {% endif %}
+              <a class="btn {{ 'btn-primario' if destaque else 'btn-fantasma' }}" href="#contato">Quero este</a>
+            </article>
+          {% endfor %}
+        </div>
+
+        <p style="text-align:center;color:var(--texto-3);font-size:.86rem;margin-top:26px">
+          Cardápio, carrinho, pedido e acompanhamento pelo cliente estão em todos os planos.
+        </p>
+      </div>
+    </section>
+  {% endif %}
+
+  <!-- ==================== PERGUNTAS ==================== -->
+  <section class="secao">
+    <div class="wrap">
+      <div class="secao-cabeca centro">
+        <span class="rotulo">Dúvidas</span>
+        <h2>O que perguntam antes de assinar</h2>
+      </div>
+      <div class="perguntas">
+        <details class="pergunta">
+          <summary>Vocês cobram porcentagem do que eu vendo?</summary>
+          <p>Não. A cobrança é uma mensalidade fixa do plano. Se o restaurante vender o dobro no mês, a mensalidade continua a mesma.</p>
+        </details>
+        <details class="pergunta">
+          <summary>Preciso instalar alguma coisa?</summary>
+          <p>Não. Funciona no navegador, no computador do caixa e no celular da equipe. O cliente também não instala nada para pedir.</p>
+        </details>
+        <details class="pergunta">
+          <summary>O cardápio fica com a minha marca?</summary>
+          <p>Fica. Você envia a sua logo e escolhe a cor da marca, e ela aparece no painel e no cardápio que o cliente abre.</p>
+        </details>
+        <details class="pergunta">
+          <summary>Consigo trocar de plano depois?</summary>
+          <p>Sim. Ao mudar de plano, os recursos liberados mudam junto. As cobranças já emitidas guardam o valor da época, então o histórico não se reescreve.</p>
+        </details>
+        <details class="pergunta">
+          <summary>Meus dados ficam misturados com os de outro restaurante?</summary>
+          <p>Não. Cada restaurante tem o seu espaço, com endereço, cardápio, pedidos e relatórios separados — nenhum enxerga o do outro.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== CHAMADA FINAL ==================== -->
+  <section class="secao" id="contato">
+    <div class="wrap">
+      <div class="final">
+        <h2>Pare de dividir a sua margem.</h2>
+        <p>
+          Coloque o cardápio no ar com a sua cara, receba o pedido direto na cozinha
+          e descubra, no fim do mês, quanto realmente sobrou.
+        </p>
+        <div class="final-acoes">
+          <a class="btn btn-primario btn-grande" href="#planos">Ver planos</a>
+          {% if g.is_platform_area %}
+            <a class="btn btn-fantasma btn-grande" href="{{ url_for('platform.inicio') }}">Já sou cliente</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <div class="wrap rodape-inner">
+    <a class="logo" href="#"><span class="logo-marca" aria-hidden="true">◧</span> Comanda ai</a>
+    <p>Sistema de pedidos para restaurantes, por assinatura.</p>
+  </div>
+</footer>
+
+<script>
+/* Calculadora de comissão. A conta é simples de propósito — comissão sobre a
+   venda contra mensalidade fixa — e roda toda no navegador, com os números que
+   a pessoa digitou. Nenhum dado é enviado para lugar nenhum. */
+(() => {
+  'use strict';
+
+  const MENSALIDADE = {{ (plano_referencia.preco if plano_referencia else 0)|round(2) }};
+  const el = id => document.getElementById(id);
+  const reais = v => new Intl.NumberFormat('pt-BR', {
+    style: 'currency', currency: 'BRL', maximumFractionDigits: 0,
+  }).format(Math.max(0, Math.round(v)));
+
+  const faturamento = el('faturamento');
+  const taxa = el('taxa');
+
+  function calcular() {
+    const bruto = Number(faturamento.value);
+    const percentual = Number(taxa.value);
+    const comissao = bruto * percentual / 100;
+
+    // Arredonda a diferença UMA vez e tira o ano dela. Arredondando os dois
+    // separadamente, a tela mostrava R$ 2.300 por mês e R$ 27.601 no ano — quem
+    // multiplicasse na calculadora ia achar que a conta estava errada.
+    const porMes = Math.max(0, Math.round(comissao - MENSALIDADE));
+    const porAno = porMes * 12;
+
+    el('saida-faturamento').textContent = reais(bruto);
+    el('saida-taxa').textContent = percentual.toFixed(1).replace('.', ',').replace(',0', '') + '%';
+    el('saida-comissao').textContent = reais(comissao);
+    el('saida-mensalidade').textContent = MENSALIDADE ? reais(MENSALIDADE) : 'Grátis';
+    el('saida-mes').textContent = reais(porMes);
+    el('saida-ano').textContent = reais(porAno);
+
+    // Traduz o número para algo que se enxerga: quantos pedidos médios de R$ 60.
+    // Só vale a pena dizer a partir de um pedido inteiro — "0 pedidos" não
+    // informa nada e ainda soa como defeito.
+    const pedidos = Math.floor(porAno / 60);
+    el('saida-equivalente').textContent = pedidos >= 1
+      ? `o equivalente a ${pedidos.toLocaleString('pt-BR')} pedidos de R$ 60 que você não precisa vender só para pagar a comissão`
+      : 'com esses números, a comissão e a mensalidade se equivalem';
+  }
+
+  [faturamento, taxa].forEach(campo => campo.addEventListener('input', calcular));
+  calcular();
+})();
+</script>
+</body>
+</html>
