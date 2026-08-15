@@ -404,3 +404,150 @@ def test_mesa_de_um_plano_nao_afeta_o_outro_tenant(cenario, client, two_tenants)
 
     assert tenant_libera(cenario["tenant"], "mesas") is True
     assert tenant_libera(tenant_b, "mesas") is False
+
+
+# --------------------------------------------------------------------------- #
+# Limites numéricos do plano
+#
+# O plano deixou de ser só "liga/desliga": agora tem teto. O que precisa ser
+# provado é a regra de compatibilidade — plano sem limite não limita nada — e
+# que o teto barra a CRIAÇÃO sem travar quem já passou dele.
+# --------------------------------------------------------------------------- #
+
+
+def _plano_com_limites(limites, slug="starter", recursos=None):
+    plano = _plano(recursos=recursos, slug=slug)
+    plano.definir_limites(limites)
+    db.session.commit()
+    return plano
+
+
+def test_plano_sem_limites_nao_limita(cenario):
+    from app.services.recursos import dentro_do_limite, limite_do_tenant
+
+    _plano(recursos=None)
+    assert limite_do_tenant(cenario["tenant"], "max_produtos") is None
+    assert dentro_do_limite(cenario["tenant"], "max_produtos", 10_000) is True
+
+
+@pytest.mark.parametrize("valor", [0, -3, "", None, "abc"])
+def test_limite_zerado_ou_invalido_vira_sem_limite(cenario, valor):
+    """Zero significa "sem teto"; texto inválido não pode virar teto acidental."""
+    from app.services.recursos import limite_do_tenant
+
+    _plano_com_limites({"max_produtos": valor})
+    assert limite_do_tenant(cenario["tenant"], "max_produtos") is None
+
+
+def test_limite_de_produtos_barra_a_criacao(cenario, client):
+    # Já existe 1 produto no cenário; o teto de 1 fecha a porta.
+    _plano_com_limites({"max_produtos": 1})
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    resposta = client.post(
+        "/admin/produtos",
+        data={"nome": "Segundo produto", "preco": "10,00", "disponivel": "on"},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert "permite até 1" in resposta.get_data(as_text=True)
+    assert Produto.query.filter_by(tenant_id=cenario["tenant"].id).count() == 1
+
+
+def test_limite_folgado_deixa_criar(cenario, client):
+    _plano_com_limites({"max_produtos": 5})
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    client.post(
+        "/admin/produtos",
+        data={"nome": "Segundo produto", "preco": "10,00", "disponivel": "on"},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert Produto.query.filter_by(tenant_id=cenario["tenant"].id).count() == 2
+
+
+def test_limite_de_mesas_barra_o_salao_maior(cenario, client):
+    _plano_com_limites({"max_mesas": 4})
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    resposta = client.post(
+        "/admin/configuracoes",
+        data={"qtd_mesas": "30", "tempo_estimado_min": "40", "tempo_estimado_max": "60"},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert "permite até 4" in resposta.get_data(as_text=True)
+    db.session.refresh(cenario["tenant"])
+    assert cenario["tenant"].qtd_mesas == 5, "o valor antigo não pode ser alterado"
+
+
+def test_limite_de_um_plano_nao_vaza_para_outro(cenario, two_tenants):
+    from app.services.recursos import limite_do_tenant
+
+    _plano_com_limites({"max_produtos": 3}, slug="starter")
+    _plano_com_limites({"max_produtos": 50}, slug="basico")
+
+    tenant_b = db.session.get(Tenant, two_tenants["tenant_b"])
+    tenant_b.plano = "basico"
+    db.session.commit()
+
+    assert limite_do_tenant(cenario["tenant"], "max_produtos") == 3
+    assert limite_do_tenant(tenant_b, "max_produtos") == 50
+
+
+def test_super_admin_edita_limite_pela_tela_de_planos(cenario, client, platform_admin):
+    plano = _plano(recursos=["cozinha"])
+    client.post(
+        "/plataforma/login",
+        data={"username": "admin", "password": "senha-super-admin-123"},
+        base_url="http://app.localhost",
+    )
+
+    client.post(
+        f"/plataforma/planos/{plano.id}/salvar",
+        data={
+            "nome": plano.nome, "preco_mensal": "99,00", "ordem": "0", "ativo": "on",
+            "recursos": ["cozinha"], "limite_max_produtos": "25", "limite_max_mesas": "",
+        },
+        base_url="http://app.localhost",
+        follow_redirects=True,
+    )
+
+    db.session.refresh(plano)
+    assert plano.limite("max_produtos") == 25
+    assert plano.limite("max_mesas") is None
+
+
+# --------------------------------------------------------------------------- #
+# Recursos novos: custos e identidade
+# --------------------------------------------------------------------------- #
+
+
+def test_custos_tem_recurso_proprio_separado_de_estoque(cenario, client):
+    """Quem tem estoque mas não custos vê o Estoque e não vê a ficha técnica."""
+    _plano(recursos=["estoque"])
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    assert client.get("/admin/insumos", base_url=BASE_A).status_code == 200
+
+    resposta = client.get("/admin/custos", base_url=BASE_A, follow_redirects=True)
+    assert "não está incluído no plano" in resposta.get_data(as_text=True)
+
+
+def test_identidade_fora_do_plano_nao_troca_a_cor(cenario, client):
+    _plano(recursos=["cozinha"])
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    client.post(
+        "/admin/configuracoes/identidade",
+        data={"cor_marca": "#1e88e5"},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    db.session.refresh(cenario["tenant"])
+    assert cenario["tenant"].cor_marca is None

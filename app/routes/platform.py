@@ -21,6 +21,8 @@ from ..extensions import db, limiter
 from ..models.assinatura import (
     COBRANCA_PAGA,
     COBRANCA_PENDENTE,
+    LIMITES,
+    LIMITES_CHAVES,
     RECURSOS,
     Cobranca,
     Plano,
@@ -438,6 +440,9 @@ def planos():
                 ordem=_para_int(request.form.get("ordem")),
             )
             plano.definir_recursos(request.form.getlist("recursos"))
+            plano.definir_limites(
+                {chave: request.form.get(f"limite_{chave}") for chave in LIMITES_CHAVES}
+            )
             db.session.add(plano)
             db.session.commit()
             flash(f"Plano '{nome}' criado.", "sucesso")
@@ -448,7 +453,9 @@ def planos():
     uso = {
         plano.slug: Tenant.query.filter_by(plano=plano.slug).count() for plano in lista
     }
-    return render_template("platform/planos.html", planos=lista, uso=uso, recursos=RECURSOS)
+    return render_template(
+        "platform/planos.html", planos=lista, uso=uso, recursos=RECURSOS, limites=LIMITES
+    )
 
 
 @platform_bp.route("/planos/<int:plano_id>/salvar", methods=["POST"])
@@ -469,6 +476,9 @@ def plano_salvar(plano_id: int):
         plano.ordem = _para_int(request.form.get("ordem"))
         plano.ativo = request.form.get("ativo") == "on"
         plano.definir_recursos(request.form.getlist("recursos"))
+        plano.definir_limites(
+            {chave: request.form.get(f"limite_{chave}") for chave in LIMITES_CHAVES}
+        )
         db.session.commit()
         # O preço novo vale para cobranças futuras: as já emitidas guardam o
         # valor congelado.

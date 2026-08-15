@@ -456,7 +456,9 @@ def test_baixa_ignora_insumo_de_outro_tenant(cenario):
 def _liberar_estoque(tenant_id, liberado=True):
     from app.models.assinatura import Plano
 
-    recursos = ["cozinha", "relatorios"] + (["estoque"] if liberado else [])
+    # "custos" saiu de dentro de "estoque" e virou recurso próprio: a ficha
+    # técnica vive lá, então os dois precisam estar liberados aqui.
+    recursos = ["cozinha", "relatorios"] + (["estoque", "custos"] if liberado else [])
     plano = Plano(slug="starter", nome="Starter", preco_mensal=99.0)
     plano.definir_recursos(recursos)
     db.session.add(plano)

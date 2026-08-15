@@ -44,6 +44,21 @@
         estão em todos os planos — não dá para desligá-los.
       </p>
 
+      <label>Limites deste plano</label>
+      <div class="recursos">
+        {% for chave, rotulo, explicacao in limites %}
+          <label>
+            <span>
+              <strong>{{ rotulo }}</strong><br>
+              <span class="muted">{{ explicacao }}</span><br>
+              <input class="campo-ordem" name="limite_{{ chave }}" type="number" min="0"
+                     placeholder="sem limite" aria-label="{{ rotulo }}">
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+      <p class="muted">Campo em branco ou zero = <strong>sem limite</strong>.</p>
+
       <button type="submit">Criar plano</button>
     </form>
   </div>
@@ -91,6 +106,20 @@
               {% endfor %}
             </div>
 
+            <div class="recursos">
+              {% for chave, rotulo, explicacao in limites %}
+                <label>
+                  <span>
+                    <strong>{{ rotulo }}</strong><br>
+                    <span class="muted">{{ explicacao }}</span><br>
+                    <input class="campo-ordem" name="limite_{{ chave }}" type="number" min="0"
+                           value="{{ plano.limite(chave) or '' }}" placeholder="sem limite"
+                           aria-label="{{ rotulo }} do plano {{ plano.nome }}">
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+
             {% if not plano.recursos_configurados %}
               <p class="muted">
                 Este plano ainda não foi configurado, então <strong>libera tudo</strong>.
@@ -102,7 +131,7 @@
           </form>
           <form method="post" action="{{ url_for('platform.plano_excluir', plano_id=plano.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn-secundario">Excluir plano</button>
+            <button type="submit" class="btn-delete">Excluir plano</button>
           </form>
         </div>
       {% endfor %}

@@ -29,16 +29,32 @@ STATUS_COBRANCA = (COBRANCA_PENDENTE, COBRANCA_PAGA, COBRANCA_CANCELADA)
 # tira pedido não faria sentido.
 RECURSOS = (
     ("cozinha", "Painel da cozinha", "Fila de pedidos por status, com atualização automática."),
-    ("mesas", "Salão e comanda de mesa", "Mapa de mesas, comanda aberta e fechamento."),
+    ("mesas", "Salão e comanda de mesa", "Mapa de mesas, PDV da comanda e fechamento."),
     ("cupons", "Cupons de desconto", "Cupom com limite de usos e pedido mínimo."),
     ("bairros", "Taxa de entrega por bairro", "Taxa e prazo próprios por região."),
     ("fotos", "Fotos nos produtos", "Imagem no cardápio, otimizada automaticamente."),
+    ("identidade", "Identidade visual própria", "Logo e cor de marca do restaurante no painel e no cardápio."),
     ("relatorios", "Relatórios de venda", "Faturamento, ticket médio e mais vendidos."),
-    ("estoque", "Estoque e ficha técnica", "Insumos, receita por produto, custo e lucro por venda."),
-    ("financeiro", "Financeiro", "Despesas a pagar, CMV e lucro líquido do período."),
+    ("estoque", "Controle de estoque", "Insumos, saldo, entradas, perdas e alerta de reposição."),
+    ("custos", "Custos e ficha técnica", "Receita por produto, custo de produção e preço sugerido."),
+    ("financeiro", "Financeiro", "Despesas a pagar, CMV, fluxo de caixa e lucro do período."),
 )
 
 RECURSOS_SLUGS = tuple(slug for slug, _, _ in RECURSOS)
+
+# Limites numéricos do plano. NULL/vazio = sem limite, que é o comportamento de
+# quem já usava o sistema antes de existir limite — o mesmo princípio do
+# `recursos` NULL: apertar a régua é uma decisão explícita, nunca um efeito
+# colateral de uma migration.
+# Só entram aqui limites que o código de fato aplica. "Usuários" ficou de fora
+# de propósito: não existe tela de equipe ainda, então um teto de usuários seria
+# um limite que não limita — pior do que não ter.
+LIMITES = (
+    ("max_produtos", "Produtos no cardápio", "Quantos itens o restaurante pode cadastrar."),
+    ("max_mesas", "Mesas do salão", "Teto para a quantidade de mesas configurada."),
+)
+
+LIMITES_CHAVES = tuple(chave for chave, _, _ in LIMITES)
 
 
 class Plano(TimestampMixin, db.Model):
@@ -69,6 +85,10 @@ class Plano(TimestampMixin, db.Model):
     # alguém marca as caixas na tela de planos.
     recursos = db.Column(db.Text)
 
+    # Limites numéricos, como `max_produtos=50,max_usuarios=3`. Vazio ou NULL =
+    # sem limite, pela mesma razão do campo acima.
+    limites = db.Column(db.Text)
+
     @property
     def gratuito(self) -> bool:
         return (self.preco_mensal or 0) <= 0
@@ -96,6 +116,47 @@ class Plano(TimestampMixin, db.Model):
 
     def libera(self, slug: str) -> bool:
         return slug in self.recursos_liberados
+
+    # ----------------------------------------------------------- limites ---
+    @property
+    def limites_definidos(self) -> dict[str, int]:
+        """Limites numéricos do plano, só com as chaves que têm valor.
+
+        Guardados como `chave=valor` separados por vírgula, no mesmo espírito do
+        campo `recursos`: texto simples, sem tabela nova nem JSON, porque são
+        três números por plano e o catálogo inteiro cabe numa tela.
+        """
+        if not self.limites:
+            return {}
+        valores = {}
+        for trecho in self.limites.split(","):
+            chave, _, bruto = trecho.partition("=")
+            chave = chave.strip()
+            if chave not in LIMITES_CHAVES:
+                continue
+            try:
+                numero = int(bruto)
+            except (TypeError, ValueError):
+                continue
+            if numero > 0:
+                valores[chave] = numero
+        return valores
+
+    def definir_limites(self, valores: dict) -> None:
+        """Grava os limites. Valor ausente, zero ou negativo = sem limite."""
+        partes = []
+        for chave in LIMITES_CHAVES:
+            try:
+                numero = int(valores.get(chave) or 0)
+            except (TypeError, ValueError):
+                numero = 0
+            if numero > 0:
+                partes.append(f"{chave}={numero}")
+        self.limites = ",".join(partes)
+
+    def limite(self, chave: str) -> int | None:
+        """Teto do plano para esta chave, ou None quando não há limite."""
+        return self.limites_definidos.get(chave)
 
     def __repr__(self) -> str:  # pragma: no cover - conveniência de debug
         return f"<Plano {self.slug!r} R$ {self.preco_mensal:.2f}>"

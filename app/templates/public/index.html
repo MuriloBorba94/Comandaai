@@ -2,57 +2,307 @@
 {% block title %}{{ tenant.nome_fantasia }} — Cardápio{% endblock %}
 {% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
 {% block header_actions %}
-  <a href="{{ url_for('public.carrinho') }}">
-    Carrinho{% if qtd_carrinho %} ({{ qtd_carrinho }}){% endif %}
+  <a class="btn btn-muted btn-ghost-mobile" href="{{ url_for('auth.login') }}" aria-label="Painel administrativo">
+    👤<span class="btn-label"> Painel</span>
   </a>
 {% endblock %}
 {% block content %}
-  <div class="card-admin">
-    <h1>Cardápio</h1>
+{# Cardápio do cliente, portado do index.html do Borba's Burguer: banner da
+   loja, busca fixa, navegação por categoria e cards em lista com miniatura à
+   direita. O carrinho continua vivendo na sessão do servidor — é ele que
+   calcula preço —, mas a tela conversa com ele por fetch, sem recarregar. #}
+
+  <section class="store-banner">
+    <div class="store-banner-inner">
+      <div class="store-banner-logo">
+        {% if logo_do_tenant() %}
+          <img src="{{ url_for('static', filename='uploads/' + logo_do_tenant()) }}" alt="{{ tenant.nome_fantasia }}">
+        {% else %}
+          <span style="font-size:2rem;font-weight:800;color:var(--price)">{{ inicial_do_tenant() }}</span>
+        {% endif %}
+      </div>
+      <div class="store-banner-info">
+        <h1>{{ tenant.nome_fantasia }}</h1>
+        <div class="store-banner-meta">
+          <span class="status-pill status-open">● Aberto agora</span>
+          <span class="store-meta-item">⏱️ {{ tenant.tempo_estimado_min }}–{{ tenant.tempo_estimado_max }} min</span>
+          {% if tenant.telefone_contato %}
+            <span class="store-meta-item">📞 {{ tenant.telefone_contato }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cardapio">
+    <div class="menu-toolbar" id="menu-toolbar">
+      <div class="menu-search-wrap">
+        <span class="menu-search-icon" aria-hidden="true">🔍</span>
+        <input type="search" id="menu-search" class="menu-search" placeholder="Buscar no cardápio..."
+               inputmode="search" enterkeyhint="search" autocomplete="off" aria-label="Buscar item do cardápio">
+      </div>
+      <nav class="category-nav" id="category-nav">
+        <button type="button" class="active" data-category="Todos">🍽️ Todos</button>
+        {% for nome_grupo, itens in grupos %}
+          <button type="button" data-category="{{ nome_grupo }}">{{ nome_grupo }}</button>
+        {% endfor %}
+      </nav>
+    </div>
 
     {% for nome_grupo, itens in grupos %}
-      <section class="menu-grupo">
-        <h2>{{ nome_grupo }}</h2>
-        {% for produto in itens %}
-          <article class="menu-item">
-            {% if produto.imagem %}
-              <img class="thumb" src="{{ url_for('static', filename='uploads/' + produto.imagem) }}" alt="{{ produto.nome }}">
-            {% else %}
-              <div class="thumb-vazia">sem foto</div>
-            {% endif %}
-            <div class="menu-corpo">
-              <h3>{{ produto.nome }}</h3>
-              {% if produto.descricao %}<p class="muted">{{ produto.descricao }}</p>{% endif %}
-
-              {% set extras = produto.adicionais | selectattr("disponivel") | list %}
-              <form method="post" action="{{ url_for('public.carrinho_adicionar') }}" class="form-add">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="produto_id" value="{{ produto.id }}">
-
-                {% if extras %}
-                  <div class="checks">
-                    {% for extra in extras|sort(attribute="nome") %}
-                      <label>
-                        <input type="checkbox" name="adicionais" value="{{ extra.id }}">
-                        {{ extra.nome }} (+R$ {{ extra.preco|brl }})
-                      </label>
-                    {% endfor %}
-                  </div>
+      <section class="category-section" data-section="{{ nome_grupo }}">
+        <div class="category-title">
+          <h2>{{ nome_grupo }}</h2>
+          <span>{{ itens|length }} {{ 'item' if itens|length == 1 else 'itens' }}</span>
+        </div>
+        <div class="product-grid">
+          {% for produto in itens %}
+            <article class="product-card" id="produto-{{ produto.id }}"
+                     data-category="{{ nome_grupo }}"
+                     data-search="{{ (produto.nome ~ ' ' ~ (produto.descricao or ''))|lower }}"
+                     data-produto='{{ {
+                        "id": produto.id,
+                        "nome": produto.nome,
+                        "preco": produto.preco,
+                        "imagem": url_for('static', filename='uploads/' + produto.imagem) if produto.imagem else "",
+                        "extras": extras_por_produto.get(produto.id, [])
+                     }|tojson }}'>
+              <div class="product-body">
+                <h3>{{ produto.nome }}</h3>
+                {% if produto.descricao %}<p>{{ produto.descricao }}</p>{% endif %}
+                <span class="price">R$ {{ produto.preco|brl }}</span>
+              </div>
+              <div class="product-thumb">
+                {% if produto.imagem %}
+                  <img src="{{ url_for('static', filename='uploads/' + produto.imagem) }}"
+                       alt="{{ produto.nome }}" loading="lazy">
+                {% else %}
+                  <div class="thumb-vazia" style="width:100%;height:100%">sem foto</div>
                 {% endif %}
-
-                <div class="linha-add">
-                  <input class="campo-obs" name="observacao" maxlength="180" placeholder="Ex.: sem cebola">
-                  <input class="campo-qtd" name="quantidade" type="number" value="1" min="1" max="30" aria-label="Quantidade">
-                  <button type="submit">Adicionar</button>
-                </div>
-              </form>
-            </div>
-            <div class="menu-preco">R$ {{ produto.preco|brl }}</div>
-          </article>
-        {% endfor %}
+                <button type="button" class="product-add" aria-label="Adicionar {{ produto.nome }}">+</button>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
       </section>
     {% else %}
-      <p>Nenhum produto disponível ainda.</p>
+      <p class="menu-empty">Nenhum produto disponível ainda.</p>
     {% endfor %}
+    <p class="menu-empty" id="menu-empty" style="display:none">
+      😕 Nenhum item encontrado. Tente buscar por outro termo ou escolha outra categoria.
+    </p>
+  </section>
+
+  <button id="floating-cart" class="floating-cart" type="button">
+    <span class="floating-cart-left">🛍️ <span id="cart-count">0</span> itens</span>
+    <span class="floating-cart-right">Ver sacola · <span id="cart-value">R$ 0,00</span></span>
+  </button>
+
+  <!-- ================= PRODUTO ================= -->
+  <div class="modal-backdrop" id="product-modal">
+    <section class="modal">
+      <div class="modal-head">
+        <h2 id="product-title">Adicionar item</h2>
+        <button class="icon-btn" type="button" data-fechar="product-modal">×</button>
+      </div>
+      <img id="product-modal-image" class="product-modal-image" alt="">
+      <div class="field">
+        <label for="product-removals">Remover ou observação</label>
+        <input class="input" id="product-removals" maxlength="180" placeholder="Ex.: sem cebola">
+      </div>
+      <div class="field" id="product-extras-field">
+        <label>Adicionais</label>
+        <div class="option-list" id="product-extras"></div>
+      </div>
+      <div class="field">
+        <label>Quantidade</label>
+        <div class="qty-stepper">
+          <button type="button" class="qty-btn" data-passo="-1" aria-label="Diminuir quantidade">−</button>
+          <span id="product-qty-display">1</span>
+          <button type="button" class="qty-btn" data-passo="1" aria-label="Aumentar quantidade">+</button>
+        </div>
+      </div>
+      <button id="add-to-cart-btn" class="btn btn-primary" style="width:100%" type="button">Adicionar</button>
+    </section>
   </div>
+
+  <!-- ================= SACOLA ================= -->
+  <div class="modal-backdrop" id="cart-modal">
+    <section class="modal">
+      <div class="modal-head">
+        <h2>Seu carrinho</h2>
+        <button class="icon-btn" type="button" data-fechar="cart-modal">×</button>
+      </div>
+      <div id="cart-list"></div>
+      <div class="cart-total"><span>Subtotal</span><span id="cart-total">R$ 0,00</span></div>
+      <a class="btn btn-success" style="width:100%" href="{{ url_for('public.carrinho') }}">Continuar pedido</a>
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Cardápio do cliente, portado do original.
+ *
+ * Diferença: lá o carrinho vivia só no navegador e o total ia junto no POST.
+ * Aqui ele continua na sessão do servidor, que é quem calcula preço — a tela
+ * só manda ids e quantidade. Um preço adulterado no navegador não vira desconto.
+ */
+(() => {
+  'use strict';
+
+  const el = id => document.getElementById(id);
+  const moeda = v => 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',');
+  const escapar = t => String(t == null ? '' : t).replace(/[&<>"']/g,
+    c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+  const csrf = () => document.querySelector('meta[name="csrf-token"]').content;
+
+  let produtoAtual = null;
+  let quantidade = 1;
+
+  // ------------------------------------------------------------- modais ---
+  const abrir = id => { el(id).style.display = 'block'; };
+  const fechar = id => { el(id).style.display = 'none'; };
+
+  document.querySelectorAll('[data-fechar]').forEach(b =>
+    b.addEventListener('click', () => fechar(b.dataset.fechar)));
+  ['product-modal', 'cart-modal'].forEach(id =>
+    el(id).addEventListener('click', e => { if (e.target.id === id) fechar(id); }));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') ['product-modal', 'cart-modal'].forEach(fechar);
+  });
+
+  // ------------------------------------------------------ busca e filtro ---
+  let categoria = 'Todos';
+
+  function aplicarFiltro() {
+    const busca = el('menu-search').value.trim().toLowerCase();
+    let visiveis = 0;
+    document.querySelectorAll('.category-section').forEach(secao => {
+      let naSecao = 0;
+      secao.querySelectorAll('.product-card').forEach(card => {
+        const combina = (categoria === 'Todos' || card.dataset.category === categoria) &&
+                        (!busca || card.dataset.search.includes(busca));
+        card.style.display = combina ? '' : 'none';
+        if (combina) naSecao++;
+      });
+      secao.style.display = naSecao ? '' : 'none';
+      visiveis += naSecao;
+    });
+    el('menu-empty').style.display = visiveis ? 'none' : 'block';
+  }
+
+  el('menu-search').addEventListener('input', aplicarFiltro);
+  document.querySelectorAll('#category-nav button').forEach(botao =>
+    botao.addEventListener('click', () => {
+      document.querySelectorAll('#category-nav button').forEach(b => b.classList.remove('active'));
+      botao.classList.add('active');
+      categoria = botao.dataset.category;
+      aplicarFiltro();
+    }));
+
+  // ----------------------------------------------------------- produto ----
+  function abrirProduto(card) {
+    produtoAtual = JSON.parse(card.dataset.produto);
+    quantidade = 1;
+    el('product-title').textContent = produtoAtual.nome;
+    el('product-qty-display').textContent = '1';
+    el('product-removals').value = '';
+
+    const imagem = el('product-modal-image');
+    if (produtoAtual.imagem) {
+      imagem.src = produtoAtual.imagem;
+      imagem.alt = produtoAtual.nome;
+      imagem.style.display = 'block';
+    } else {
+      imagem.style.display = 'none';
+    }
+
+    const extras = produtoAtual.extras || [];
+    el('product-extras-field').style.display = extras.length ? '' : 'none';
+    el('product-extras').innerHTML = extras.map(a =>
+      `<label class="option-item"><span><input type="checkbox" class="extra-check" value="${a.id}"> ${escapar(a.nome)}</span><strong>+ ${moeda(a.preco)}</strong></label>`
+    ).join('');
+
+    abrir('product-modal');
+  }
+
+  document.querySelectorAll('.product-card').forEach(card => {
+    card.addEventListener('click', () => abrirProduto(card));
+    card.querySelector('.product-add')?.addEventListener('click', e => {
+      e.stopPropagation();
+      abrirProduto(card);
+    });
+  });
+
+  document.querySelectorAll('.qty-btn').forEach(botao =>
+    botao.addEventListener('click', () => {
+      quantidade = Math.max(1, Math.min(30, quantidade + Number(botao.dataset.passo)));
+      el('product-qty-display').textContent = quantidade;
+    }));
+
+  // ---------------------------------------------------------- carrinho ----
+  async function chamar(url, corpo) {
+    const resposta = await fetch(url, {
+      method: corpo ? 'POST' : 'GET',
+      headers: {'X-Requested-With': 'fetch', 'X-CSRFToken': csrf()},
+      body: corpo,
+    });
+    const dados = await resposta.json().catch(() => ({}));
+    if (!resposta.ok) throw new Error(dados.mensagem || 'Não foi possível atualizar o carrinho.');
+    return dados;
+  }
+
+  function pintarCarrinho(dados) {
+    el('cart-count').textContent = dados.quantidade;
+    el('cart-value').textContent = moeda(dados.subtotal);
+    el('cart-total').textContent = moeda(dados.subtotal);
+    el('floating-cart').style.display = dados.quantidade ? 'flex' : 'none';
+
+    el('cart-list').innerHTML = dados.itens.length
+      ? dados.itens.map(item => `
+        <div class="cart-row">
+          <div>
+            <strong>${item.quantidade}x ${escapar(item.nome)}</strong>
+            ${item.detalhes ? `<small>${escapar(item.detalhes)}</small>` : ''}
+          </div>
+          <div style="text-align:right">
+            <div>${moeda(item.total)}</div>
+            <button type="button" class="btn btn-muted btn-small" data-remover="${item.indice}">remover</button>
+          </div>
+        </div>`).join('')
+      : '<p class="empty">Sua sacola está vazia.</p>';
+
+    el('cart-list').querySelectorAll('[data-remover]').forEach(botao =>
+      botao.addEventListener('click', async () => {
+        const corpo = new FormData();
+        corpo.append('indice', botao.dataset.remover);
+        try { pintarCarrinho(await chamar({{ url_for('public.carrinho_remover')|tojson }}, corpo)); }
+        catch (erro) { alert(erro.message); }
+      }));
+  }
+
+  el('add-to-cart-btn').addEventListener('click', async function () {
+    if (!produtoAtual) return;
+    this.disabled = true;
+    const corpo = new FormData();
+    corpo.append('produto_id', produtoAtual.id);
+    corpo.append('quantidade', quantidade);
+    corpo.append('observacao', el('product-removals').value);
+    document.querySelectorAll('.extra-check:checked').forEach(c => corpo.append('adicionais', c.value));
+    try {
+      pintarCarrinho(await chamar({{ url_for('public.carrinho_adicionar')|tojson }}, corpo));
+      fechar('product-modal');
+    } catch (erro) {
+      alert(erro.message);
+    } finally {
+      this.disabled = false;
+    }
+  });
+
+  el('floating-cart').addEventListener('click', () => abrir('cart-modal'));
+
+  chamar({{ url_for('public.carrinho_json')|tojson }}).then(pintarCarrinho).catch(() => {});
+})();
+</script>
 {% endblock %}

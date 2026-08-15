@@ -31,6 +31,10 @@ O que já existe aqui:
 - **Relatórios de venda** e **estoque com ficha técnica** (Fase 9): custo e lucro
   por pedido, baixa automática de insumo ao vender, despesas a pagar e resultado
   do período.
+- **Planos versáteis**: cada plano marca quais dos 10 recursos libera e pode
+  impor limites numéricos (produtos no cardápio, mesas do salão). Plano sem
+  recursos configurados libera tudo; limite em branco ou zero significa sem
+  teto — apertar a régua é sempre uma decisão explícita.
 - **Layout do Borba's Burguer portado**: painel claro/escuro com sidebar e
   commandbar, vitrine escura para o cliente final, e identidade por tenant —
   cada restaurante envia a sua logo e escolhe a cor da marca em
@@ -52,6 +56,14 @@ contexto da requisição.
 Os gráficos do Financeiro são desenhados à mão em `<canvas>` (`static/js/painel.js`,
 portado do `gestao_v18.js`) — sem biblioteca externa e sem CDN, e as cores saem das
 variáveis CSS, então acompanham o tema e a marca do tenant.
+
+A **vitrine** também veio do original (`index.html` + `v2.css`): banner da loja,
+busca fixa, navegação por categoria, cards em lista com miniatura à direita e
+botão `+`, modal de produto com stepper de quantidade e sacola flutuante. A
+diferença: lá o carrinho vivia só no navegador e o total ia junto no POST; aqui
+ele continua na sessão do servidor, que é quem calcula preço — a tela só manda
+ids e quantidade, então um preço adulterado no navegador não vira desconto. O
+acompanhamento do pedido (`pedido_status.html`) veio com a mesma régua de etapas.
 
 **Uma diferença de estrutura, deliberada:** no original a Gestão é UMA página com
 abas. Aqui cada item do menu é uma rota, porque o bloqueio por plano é por rota —

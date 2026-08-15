@@ -7,6 +7,7 @@ from flask import (
     abort,
     flash,
     g,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -114,6 +115,16 @@ def index():
         tenant=g.tenant,
         grupos=grupos,
         qtd_carrinho=sum(int(linha.get("quantidade", 1)) for linha in _carrinho_da_sessao()),
+        # Adicionais vão por produto: no original a tela oferecia a lista inteira
+        # e o servidor recusava depois. Aqui só aparece o que o produto aceita.
+        extras_por_produto={
+            produto.id: [
+                {"id": extra.id, "nome": extra.nome, "preco": float(extra.preco or 0)}
+                for extra in sorted(produto.adicionais, key=lambda a: a.nome)
+                if extra.disponivel
+            ]
+            for produto in produtos
+        },
     )
 
 
@@ -194,6 +205,57 @@ def carrinho_cupom_remover():
     return redirect(url_for("public.carrinho"))
 
 
+def _quer_json() -> bool:
+    """A vitrine em modal fala JSON; o formulário sem script continua em HTML.
+
+    As duas usam as MESMAS rotas de propósito: assim o carrinho tem um caminho
+    só no servidor, e quem estiver sem JavaScript ainda consegue pedir.
+    """
+    return request.headers.get("X-Requested-With") == "fetch"
+
+
+def _carrinho_json(mensagem: str | None = None, erro: str | None = None, status: int = 200):
+    """Estado atual do carrinho, já com preços calculados pelo servidor."""
+    linhas = _carrinho_da_sessao()
+    itens, subtotal, falha = _itens_calculados(linhas)
+    return (
+        jsonify(
+            status="erro" if erro else "ok",
+            mensagem=erro or mensagem,
+            aviso=falha,
+            quantidade=sum(item.quantidade for item in itens),
+            subtotal=round(subtotal, 2),
+            itens=[
+                {
+                    "indice": indice,
+                    "nome": item.nome,
+                    "quantidade": item.quantidade,
+                    "total": round(item.total, 2),
+                    "detalhes": " · ".join(
+                        parte
+                        for parte in (
+                            ("+ " + ", ".join(extra.nome for extra in item.adicionais))
+                            if item.adicionais
+                            else "",
+                            f"obs.: {item.observacao}" if item.observacao else "",
+                        )
+                        if parte
+                    ),
+                }
+                for indice, item in enumerate(itens)
+            ],
+        ),
+        status,
+    )
+
+
+@public_bp.route("/carrinho.json")
+def carrinho_json():
+    if g.tenant is None:
+        abort(404)
+    return _carrinho_json()
+
+
 @public_bp.route("/carrinho/adicionar", methods=["POST"])
 def carrinho_adicionar():
     if g.tenant is None:
@@ -202,11 +264,15 @@ def carrinho_adicionar():
     try:
         produto_id = int(request.form.get("produto_id", ""))
     except ValueError:
+        if _quer_json():
+            return _carrinho_json(erro="Produto inválido.", status=400)
         flash("Produto inválido.", "erro")
         return redirect(url_for("public.index"))
 
     produto = Produto.query.filter_by(id=produto_id, tenant_id=g.tenant.id, disponivel=True).first()
     if produto is None:
+        if _quer_json():
+            return _carrinho_json(erro="Este produto não está disponível.", status=400)
         flash("Este produto não está disponível.", "erro")
         return redirect(url_for("public.index"))
 
@@ -218,6 +284,8 @@ def carrinho_adicionar():
     # Guarda apenas ids e quantidade. Nenhum preço vem do formulário.
     linhas = list(_carrinho_da_sessao())
     if len(linhas) >= MAX_LINHAS_CARRINHO:
+        if _quer_json():
+            return _carrinho_json(erro="Seu carrinho está cheio.", status=400)
         flash("Seu carrinho está cheio.", "erro")
         return redirect(url_for("public.carrinho"))
 
@@ -232,6 +300,8 @@ def carrinho_adicionar():
         }
     )
     _salvar_carrinho(linhas)
+    if _quer_json():
+        return _carrinho_json(mensagem=f"{produto.nome} adicionado.")
     flash(f"{produto.nome} adicionado ao carrinho.", "sucesso")
     return redirect(url_for("public.index"))
 
@@ -249,7 +319,11 @@ def carrinho_remover():
     if 0 <= indice < len(linhas):
         linhas.pop(indice)
         _salvar_carrinho(linhas)
+        if _quer_json():
+            return _carrinho_json(mensagem="Item removido.")
         flash("Item removido.", "sucesso")
+    elif _quer_json():
+        return _carrinho_json(erro="Item não encontrado no carrinho.", status=400)
     return redirect(url_for("public.carrinho"))
 
 

@@ -2,50 +2,118 @@
 {% block title %}Pedido #{{ pedido.numero }} — {{ tenant.nome_fantasia }}{% endblock %}
 {% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
 {% block header_actions %}
-  <a href="{{ url_for('public.index') }}">Cardápio</a>
+  <a class="btn btn-muted" href="{{ url_for('public.index') }}">Cardápio</a>
 {% endblock %}
 {% block content %}
-  <div class="card-admin">
-    <h1>Pedido #{{ pedido.numero }}</h1>
-    <p class="status-atual">{{ pedido.status }}</p>
+{# Acompanhamento do pedido, portado do pedido_status.html do original: número
+   em destaque, ícone e frase do estado atual, previsão, e a régua de etapas com
+   done/current. As etapas de entrega só aparecem quando o pedido é entrega. #}
+{% set cancelado = pedido.status == "Cancelado" %}
+{% set entrega = pedido.tipo == "Entrega" %}
+{% set icones = {
+     "Novo": "🧾", "Confirmado": "✅", "Em preparo": "👨‍🍳", "Pronto": "🛎️",
+     "Saiu para entrega": "🛵", "Entregue": "🎉", "Cancelado": "✖"
+   } %}
+{% set frases = {
+     "Novo": "Recebemos seu pedido e ele já está na fila.",
+     "Confirmado": "Pedido confirmado pela cozinha.",
+     "Em preparo": "Estamos preparando seu pedido agora.",
+     "Pronto": "Seu pedido ficou pronto." ,
+     "Saiu para entrega": "Saiu para entrega — já está a caminho.",
+     "Entregue": "Pedido entregue. Bom apetite!",
+     "Cancelado": "Este pedido foi cancelado. Fale com o restaurante se tiver dúvida."
+   } %}
+{% set etapas = ["Novo", "Confirmado", "Em preparo", "Pronto"]
+                 + (["Saiu para entrega"] if entrega else []) + ["Entregue"] %}
+{% set posicao = etapas.index(pedido.status) if pedido.status in etapas else -1 %}
 
-    {% if pedido.status == "Cancelado" %}
-      <p class="muted">Este pedido foi cancelado. Fale com o restaurante se tiver dúvida.</p>
-    {% elif pedido.status != "Entregue" and pedido.tempo_estimado_min %}
-      <p class="muted">
-        Previsão de {{ pedido.tempo_estimado_min }} a {{ pedido.tempo_estimado_max }} minutos.
-      </p>
-    {% endif %}
-
-    <p class="muted">{{ pedido.descricao_local }} · {{ pedido.pagamento }}</p>
-  </div>
-
-  <div class="card-admin">
-    <h1>Itens</h1>
-    {% for item in pedido.itens %}
-      <div class="menu-item">
-        <div class="menu-corpo">
-          <h3>{{ item.quantidade }}x {{ item.nome }}</h3>
-          {% if item.adicionais %}
-            <p class="muted">
-              Adicionais: {% for extra in item.adicionais %}{{ extra.nome }}{% if not loop.last %}, {% endif %}{% endfor %}
-            </p>
-          {% endif %}
-          {% if item.observacao %}<p class="muted">Obs.: {{ item.observacao }}</p>{% endif %}
-        </div>
-        <div class="menu-preco">R$ {{ item.total|brl }}</div>
+  <section class="tracking-shell">
+    <div class="panel tracking-hero{% if cancelado %} tracking-cancelled{% endif %}">
+      <div class="tracking-number">
+        <span>Pedido</span>
+        <strong>#{{ pedido.numero }}</strong>
       </div>
-    {% endfor %}
+      <div class="tracking-main-status">
+        <div class="tracking-status-icon">{{ icones.get(pedido.status, "🧾") }}</div>
+        <div>
+          <h1>{{ pedido.status }}</h1>
+          <p>{{ frases.get(pedido.status, "") }}</p>
+        </div>
+      </div>
 
-    <p class="total-linha">Subtotal: R$ {{ pedido.subtotal|brl }}</p>
-    {% if pedido.taxa_entrega %}<p class="total-linha">Entrega: R$ {{ pedido.taxa_entrega|brl }}</p>{% endif %}
-    {% if pedido.desconto %}
-      <p class="total-linha">
-        Desconto{% if pedido.cupom_codigo %} ({{ pedido.cupom_codigo }}){% endif %}: −R$ {{ pedido.desconto|brl }}
-      </p>
+      {% if not cancelado and pedido.status != "Entregue" and pedido.tempo_estimado_min %}
+        <div class="estimate-card">
+          <span>Previsão de entrega</span>
+          <strong>{{ pedido.tempo_estimado_min }} a {{ pedido.tempo_estimado_max }} minutos</strong>
+          <small>O tempo aumenta sozinho quando a fila está grande.</small>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if not cancelado %}
+      <div class="panel tracking-progress-panel">
+        <h2>Acompanhe seu pedido</h2>
+        <ul class="tracking-progress">
+          {% for etapa in etapas %}
+            <li class="{% if posicao >= 0 and loop.index0 < posicao %}done{% elif loop.index0 == posicao %}current{% endif %}">
+              <span>{{ '✓' if posicao >= 0 and loop.index0 < posicao else loop.index }}</span>
+              <div>
+                <strong>{{ etapa }}</strong>
+                <small>{{ frases.get(etapa, "") }}</small>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
     {% endif %}
-    <p class="total-linha"><strong>Total: R$ {{ pedido.total|brl }}</strong></p>
 
-    {% if pedido.observacao %}<p class="muted">Observação: {{ pedido.observacao }}</p>{% endif %}
-  </div>
+    <div class="tracking-grid">
+      <div class="panel tracking-details">
+        <h2>Itens do pedido</h2>
+        {% for item in pedido.itens %}
+          <div class="cart-row">
+            <div>
+              <strong>{{ item.quantidade }}x {{ item.nome }}</strong>
+              {% if item.adicionais %}
+                <small>+ {% for extra in item.adicionais %}{{ extra.nome }}{% if not loop.last %}, {% endif %}{% endfor %}</small>
+              {% endif %}
+              {% if item.observacao %}<small>obs.: {{ item.observacao }}</small>{% endif %}
+            </div>
+            <div>R$ {{ item.total|brl }}</div>
+          </div>
+        {% endfor %}
+
+        <div class="summary-line"><span>Subtotal</span><span>R$ {{ pedido.subtotal|brl }}</span></div>
+        {% if pedido.taxa_entrega %}
+          <div class="summary-line"><span>Entrega{% if pedido.bairro_nome %} · {{ pedido.bairro_nome }}{% endif %}</span><span>R$ {{ pedido.taxa_entrega|brl }}</span></div>
+        {% endif %}
+        {% if pedido.desconto %}
+          <div class="summary-line">
+            <span>Desconto{% if pedido.cupom_codigo %} ({{ pedido.cupom_codigo }}){% endif %}</span>
+            <span>− R$ {{ pedido.desconto|brl }}</span>
+          </div>
+        {% endif %}
+        <div class="summary-line summary-total"><span>Total</span><span>R$ {{ pedido.total|brl }}</span></div>
+      </div>
+
+      <div class="panel tracking-help">
+        <h2>Detalhes</h2>
+        <p>{{ pedido.descricao_local }}</p>
+        <p>Pagamento: <strong>{{ pedido.pagamento }}</strong></p>
+        {% if pedido.observacao %}<p>Observação: {{ pedido.observacao }}</p>{% endif %}
+        <a class="btn btn-muted" href="{{ url_for('public.index') }}">Voltar ao cardápio</a>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* O estado muda na cozinha, não aqui. Recarregar de tempos em tempos é o que
+     faz a página acompanhar sem o cliente ficar apertando F5. Para em pedido
+     encerrado, senão a aba fica recarregando para sempre. */
+  {% if not cancelado and pedido.status != "Entregue" %}
+    setTimeout(() => window.location.reload(), 45000);
+  {% endif %}
+</script>
 {% endblock %}

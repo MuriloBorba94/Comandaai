@@ -38,8 +38,28 @@
       Cardápio, carrinho, pedidos e acompanhamento pelo cliente estão em todos os
       planos.
     </p>
+
+    {% set com_teto = limites | selectattr('teto') | list %}
+    {% if com_teto %}
+      <h4>Limites do plano</h4>
+      <div class="v17-table-wrap">
+        <table>
+          <thead><tr><th>Limite</th><th>Usando</th><th>Teto</th></tr></thead>
+          <tbody>
+            {% for item in com_teto %}
+              <tr>
+                <td><strong>{{ item.rotulo }}</strong><small>{{ item.explicacao }}</small></td>
+                <td class="{{ 'money-negative' if item.usado >= item.teto }}">{{ item.usado }}</td>
+                <td>{{ item.teto }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
   </div>
 
+  {% if libera('identidade') %}
   <div class="card-admin">
     <h1>Identidade visual</h1>
     <p class="muted">
@@ -71,6 +91,7 @@
       <button type="submit">Salvar identidade</button>
     </form>
   </div>
+  {% endif %}
 
   <div class="card-admin">
     <h1>Configurações da loja</h1>

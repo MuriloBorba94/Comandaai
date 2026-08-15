@@ -62,7 +62,9 @@
       {% set repor = insumos_para_repor() %}
       {% if repor %}<b class="v17-nav-count" title="Insumos para repor">{{ repor }}</b>{% endif %}
     </a>
-    <a class="tab-btn {{ 'active' if atual == 'admin.custos' }}" href="{{ url_for('admin.custos') }}">
+  {% endif %}
+  {% if libera('custos') %}
+    <a class="tab-btn {{ 'active' if atual in ('admin.custos', 'admin.produto_ficha') }}" href="{{ url_for('admin.custos') }}">
       <span>◒</span> Custos
     </a>
   {% endif %}

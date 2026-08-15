@@ -15,7 +15,7 @@ from functools import wraps
 
 from flask import abort, flash, g, redirect, url_for
 
-from ..models.assinatura import RECURSOS, RECURSOS_SLUGS, Plano
+from ..models.assinatura import LIMITES, RECURSOS, RECURSOS_SLUGS, Plano
 
 
 def recursos_do_tenant(tenant) -> set[str]:
@@ -37,6 +37,64 @@ def rotulo_do_recurso(slug: str) -> str:
         if chave == slug:
             return rotulo
     return slug
+
+
+# --------------------------------------------------------------------------- #
+# Limites numéricos do plano
+# --------------------------------------------------------------------------- #
+
+
+def limite_do_tenant(tenant, chave: str) -> int | None:
+    """Teto do plano para `chave`, ou None quando o plano não impõe limite."""
+    if tenant is None:
+        return None
+    plano = Plano.query.filter_by(slug=tenant.plano).first() if tenant.plano else None
+    # Plano fora do catálogo não limita nada, pela mesma razão dos recursos.
+    return plano.limite(chave) if plano else None
+
+
+def rotulo_do_limite(chave: str) -> str:
+    for nome, rotulo, _ in LIMITES:
+        if nome == chave:
+            return rotulo
+    return chave
+
+
+def dentro_do_limite(tenant, chave: str, usados: int) -> bool:
+    """Diz se cabe MAIS UM. `usados` é quanto já existe hoje."""
+    teto = limite_do_tenant(tenant, chave)
+    return teto is None or usados < teto
+
+
+def mensagem_de_limite(tenant, chave: str) -> str:
+    teto = limite_do_tenant(tenant, chave)
+    return (
+        f"O plano deste restaurante permite até {teto} em “{rotulo_do_limite(chave)}”. "
+        "Fale com o suporte para aumentar."
+    )
+
+
+def uso_do_tenant(tenant) -> list[dict]:
+    """Quanto de cada limite o tenant já usa, para mostrar na tela do plano."""
+    if tenant is None:
+        return []
+
+    from ..models.produto import Produto
+
+    contagem = {
+        "max_produtos": Produto.query.filter_by(tenant_id=tenant.id).count(),
+        "max_mesas": tenant.qtd_mesas or 0,
+    }
+    return [
+        {
+            "chave": chave,
+            "rotulo": rotulo,
+            "explicacao": explicacao,
+            "usado": contagem.get(chave, 0),
+            "teto": limite_do_tenant(tenant, chave),
+        }
+        for chave, rotulo, explicacao in LIMITES
+    ]
 
 
 def requer_recurso(slug: str):

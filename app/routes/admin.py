@@ -100,10 +100,19 @@ def _adicionais_do_tenant() -> list[Adicional]:
 @admin_required
 def configuracoes():
     """Ajustes da loja feitos pelo próprio dono do restaurante."""
+    from ..services.recursos import limite_do_tenant, mensagem_de_limite, uso_do_tenant
+
     if request.method == "POST":
         qtd_mesas = max(0, min(_to_int(request.form.get("qtd_mesas")), 200))
         minimo = max(1, _to_int(request.form.get("tempo_estimado_min")) or 40)
         maximo = max(minimo, _to_int(request.form.get("tempo_estimado_max")) or 60)
+
+        # O salão é um número, não uma contagem de linhas: o teto do plano vale
+        # sobre o valor pedido, e não "cabe mais uma".
+        teto_mesas = limite_do_tenant(g.tenant, "max_mesas")
+        if teto_mesas is not None and qtd_mesas > teto_mesas:
+            flash(mensagem_de_limite(g.tenant, "max_mesas"), "erro")
+            return redirect(url_for("admin.configuracoes"))
 
         # Reduzir o salão não pode deixar comanda aberta fora da faixa: ela
         # sumiria do mapa e ninguém conseguiria fechar (o "fantasma" que o
@@ -139,12 +148,14 @@ def configuracoes():
         # Mostra o catálogo inteiro marcando o que está incluído: o dono precisa
         # saber tanto o que tem quanto o que ganharia mudando de plano.
         recursos=[(rotulo, explicacao, slug in liberados) for slug, rotulo, explicacao in RECURSOS],
+        limites=uso_do_tenant(g.tenant),
         cor_atual=cor_valida(g.tenant.cor_marca) or COR_PADRAO,
     )
 
 
 @admin_bp.route("/configuracoes/identidade", methods=["POST"])
 @admin_required
+@requer_recurso("identidade")
 def identidade():
     """Logo e cor de marca do restaurante.
 
@@ -533,6 +544,15 @@ def produtos():
             flash("Informe o nome do produto.", "erro")
             return redirect(url_for("admin.produtos"))
 
+        # O teto do plano vale na criação, não na edição: quem já passou do
+        # limite (porque o plano mudou depois) continua editando o que tem.
+        from ..services.recursos import dentro_do_limite, mensagem_de_limite
+
+        usados = Produto.query.filter_by(tenant_id=g.tenant.id).count()
+        if not dentro_do_limite(g.tenant, "max_produtos", usados):
+            flash(mensagem_de_limite(g.tenant, "max_produtos"), "erro")
+            return redirect(url_for("admin.produtos"))
+
         categoria = _categoria_do_tenant(request.form.get("categoria_id"))
         produto = Produto(
             tenant_id=g.tenant.id,
@@ -812,7 +832,7 @@ def insumo_movimentar(insumo_id: int):
 
 @admin_bp.route("/custos")
 @admin_required
-@requer_recurso("estoque")
+@requer_recurso("custos")
 def custos():
     """Custos e fichas técnicas — a aba "Custos" da Gestão original.
 
@@ -849,7 +869,7 @@ def custos():
 
 @admin_bp.route("/custos/margem", methods=["POST"])
 @admin_required
-@requer_recurso("estoque")
+@requer_recurso("custos")
 def custos_margem():
     """Meta de margem do restaurante, usada para o preço sugerido."""
     margem = _to_float(request.form.get("margem_lucro"))
@@ -866,7 +886,7 @@ def custos_margem():
 
 @admin_bp.route("/produtos/<int:produto_id>/ficha", methods=["GET", "POST"])
 @admin_required
-@requer_recurso("estoque")
+@requer_recurso("custos")
 def produto_ficha(produto_id: int):
     """Ficha técnica: quanto de cada insumo uma unidade do produto consome."""
     from ..services.estoque import definir_ficha
