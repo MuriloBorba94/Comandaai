@@ -5,6 +5,113 @@
 {% block intro_texto %}Quanto o restaurante vendeu no periodo.{% endblock %}
 {% block content %}
 
+  {# ================= RELATÓRIO DE VENDAS HISTÓRICO =================
+     A lista crua dos pedidos, como na aba Vendas da Gestão. É o que responde
+     "qual foi aquele pedido?" — pergunta que nenhum agregado responde. #}
+  <div class="card-admin">
+    <div class="item-header" style="border-bottom:0;margin-bottom:18px;flex-wrap:wrap;gap:14px">
+      <h2 style="margin:0;border:0;padding:0">📈 Relatório de Vendas Histórico</h2>
+
+      <form method="get" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+        <input type="date" name="data_inicio" value="{{ data_inicio }}" class="input-small"
+               style="width:150px;color:inherit;font-weight:400" aria-label="Data inicial">
+        <span class="muted">até</span>
+        <input type="date" name="data_fim" value="{{ data_fim }}" class="input-small"
+               style="width:150px;color:inherit;font-weight:400" aria-label="Data final">
+        <button type="submit" class="btn-save">Filtrar</button>
+        {% if filtrado %}
+          <a href="{{ url_for('admin.relatorios') }}" class="btn-secondary btn-small">Limpar</a>
+        {% endif %}
+      </form>
+
+      <a class="btn-secondary" href="{{ url_for('admin.relatorios_exportar', data_inicio=data_inicio, data_fim=data_fim) }}">
+        ⬇ Exportar CSV
+      </a>
+    </div>
+
+    <div class="v17-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th><th>Pedido</th><th>Cliente</th><th>Tipo</th>
+            <th>Pagamento</th><th>Total</th><th>Status</th><th>Itens</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pedido in pedidos %}
+            <tr>
+              <td>{{ pedido.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td><strong>#{{ pedido.numero }}</strong></td>
+              <td>
+                <strong>{{ pedido.cliente }}</strong>
+                {% if pedido.telefone %}<small>{{ pedido.telefone }}</small>{% endif %}
+              </td>
+              <td>{{ pedido.tipo }}<small>{{ pedido.descricao_local }}</small></td>
+              <td>{{ pedido.pagamento }}</td>
+              <td class="{{ 'money-negative' if pedido.status == 'Cancelado' else 'money-positive' }}">
+                R$ {{ pedido.total|brl }}
+              </td>
+              <td>
+                {% if pedido.status == 'Cancelado' %}
+                  <span class="pill pill-erro">{{ pedido.status }}</span>
+                {% elif pedido.status == 'Entregue' %}
+                  <span class="pill pill-ok">{{ pedido.status }}</span>
+                {% else %}
+                  <span class="pill pill-neutro">{{ pedido.status }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {# Os itens vão num data-attribute, e não interpolados no onclick:
+                   observação de cliente tem aspas e quebra de linha. #}
+                <button type="button" class="v17-edit" onclick="verItens(this)"
+                        data-numero="{{ pedido.numero }}"
+                        data-cliente="{{ pedido.cliente }}"
+                        data-local="{{ pedido.descricao_local }}"
+                        data-pagamento="{{ pedido.pagamento }}"
+                        data-total="{{ pedido.total|brl }}"
+                        data-itens="{% for item in pedido.itens %}{{ item.quantidade }}x {{ item.nome }}{% if item.adicionais %}
+   + {% for e in item.adicionais %}{{ e.nome }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}{% if item.observacao %}
+   obs.: {{ item.observacao }}{% endif %}
+{% endfor %}">Ver itens</button>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8" class="finance-empty">
+              {% if filtrado %}Nenhum pedido nesse período.{% else %}Nenhum pedido registrado ainda.{% endif %}
+            </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if pedidos %}
+      <div class="summary-line" style="margin-top:14px;border-bottom:0">
+        <span class="muted">
+          {{ totais.quantidade }} pedido(s) na lista
+          {% if totais.cancelados %} · {{ totais.cancelados }} cancelado(s), fora da soma{% endif %}
+          {% if not filtrado and totais.quantidade >= 250 %}
+            · mostrando os 250 mais recentes — filtre por data para ver o resto
+          {% endif %}
+        </span>
+        <span>
+          <strong>R$ {{ totais.faturado|brl }}</strong>
+          <span class="muted"> · ticket R$ {{ totais.ticket|brl }}</span>
+        </span>
+      </div>
+    {% endif %}
+  </div>
+
+  <div id="modal-itens" class="modal-overlay">
+    <div class="modal-content" style="max-width:460px">
+      <h2 class="modal-title" id="itens-titulo"></h2>
+      <p class="muted" id="itens-meta"></p>
+      <pre id="itens-lista" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--raio-sm);padding:14px;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:.82rem"></pre>
+      <p class="total-linha" id="itens-total"></p>
+      <button type="button" class="btn-secondary" style="width:100%"
+              onclick="document.getElementById('modal-itens').style.display='none'">Fechar</button>
+    </div>
+  </div>
+
   <div class="card-admin stats">
     <div>
       <p>Faturado hoje</p>
@@ -151,4 +258,27 @@
       {% endif %}
     </div>
   </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* Detalhe do pedido em modal, como na Gestão original. Os valores vêm de
+     data-attributes: observação de cliente tem aspas e quebra de linha, que
+     quebrariam um onclick com o texto interpolado dentro. */
+  window.verItens = function (botao) {
+    const d = botao.dataset;
+    document.getElementById('itens-titulo').textContent = 'Pedido #' + d.numero;
+    document.getElementById('itens-meta').textContent = d.cliente + ' · ' + d.local + ' · ' + d.pagamento;
+    document.getElementById('itens-lista').textContent = (d.itens || '').trim() || 'Pedido sem itens.';
+    document.getElementById('itens-total').innerHTML = '<strong>Total: R$ ' + d.total + '</strong>';
+    document.getElementById('modal-itens').style.display = 'block';
+  };
+
+  document.getElementById('modal-itens').addEventListener('click', e => {
+    if (e.target.id === 'modal-itens') e.target.style.display = 'none';
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('modal-itens').style.display = 'none';
+  });
+</script>
 {% endblock %}

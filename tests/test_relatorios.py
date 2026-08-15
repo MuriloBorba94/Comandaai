@@ -348,3 +348,184 @@ def test_tela_sem_nenhuma_venda(cardapio, client):
     corpo = client.get("/admin/relatorios", base_url=BASE_A).get_data(as_text=True)
     assert "Nenhum pedido entregue" in corpo
     assert "Nenhum item vendido" in corpo
+
+
+# --------------------------------------------------------------------------- #
+# Relatório de vendas histórico
+#
+# É a lista crua dos pedidos, como na aba Vendas da Gestão original — a que
+# responde "qual foi aquele pedido?". Nenhum agregado responde isso.
+# --------------------------------------------------------------------------- #
+
+
+def _historico_de(cardapio, client, **params):
+    _liberar_relatorios(cardapio["tenant_a"])
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    from urllib.parse import urlencode
+
+    query = ("?" + urlencode(params)) if params else ""
+    return client.get(f"/admin/relatorios{query}", base_url=BASE_A).get_data(as_text=True)
+
+
+def test_historico_lista_os_pedidos(cardapio, client):
+    _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 2)], entregar=True)
+    _pedido(cardapio["tenant_a"], [(cardapio["refri"], 1)])
+
+    corpo = _historico_de(cardapio, client)
+
+    assert "Relatório de Vendas Histórico" in corpo
+    assert corpo.count("Ver itens") == 2, "cada pedido vira uma linha"
+    assert "Maria" in corpo
+
+
+def test_historico_filtra_por_data(cardapio, client):
+    """Filtro que não filtra é pior do que não ter filtro."""
+    _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 1)], entregar=True)
+
+    ontem = (HOJE - timedelta(days=1)).isoformat()
+    corpo = _historico_de(cardapio, client, data_inicio=ontem, data_fim=ontem)
+
+    assert "Nenhum pedido nesse período" in corpo
+    assert corpo.count("Ver itens") == 0
+
+
+def test_historico_inclui_o_dia_final_inteiro(cardapio, client):
+    """`<= fim` deixaria de fora o pedido feito às 14h do próprio dia final."""
+    _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 1)], entregar=True)
+
+    corpo = _historico_de(cardapio, client, data_inicio=HOJE.isoformat(), data_fim=HOJE.isoformat())
+
+    assert corpo.count("Ver itens") == 1
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"data_inicio": "abc"},
+        {"data_fim": "<script>"},
+        {"data_inicio": "2026-13-45", "data_fim": "x"},
+    ],
+)
+def test_historico_aguenta_data_invalida(cardapio, client, params):
+    """As datas vêm da query string, que é dado do cliente."""
+    _liberar_relatorios(cardapio["tenant_a"])
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    from urllib.parse import urlencode
+
+    resposta = client.get(f"/admin/relatorios?{urlencode(params)}", base_url=BASE_A)
+    assert resposta.status_code == 200
+
+
+def test_historico_com_datas_invertidas_nao_some_com_tudo(cardapio, client):
+    """Início depois do fim: troca a ordem em vez de devolver lista vazia."""
+    _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 1)], entregar=True)
+
+    corpo = _historico_de(
+        cardapio, client,
+        data_inicio=HOJE.isoformat(),
+        data_fim=(HOJE - timedelta(days=7)).isoformat(),
+    )
+
+    assert corpo.count("Ver itens") == 1
+
+
+def test_totais_do_rodape_ignoram_cancelado(cardapio, client):
+    """Cancelado aparece na lista, mas não pode entrar na soma."""
+    from app.services.relatorios import totais_do_historico
+
+    entregue = _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 1)], entregar=True)
+    cancelado = _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 1)])
+    transicionar(cancelado, STATUS_CANCELADO)
+
+    totais = totais_do_historico([entregue, cancelado])
+
+    assert totais["quantidade"] == 2
+    assert totais["cancelados"] == 1
+    assert totais["faturado"] == pytest.approx(entregue.total)
+    assert totais["ticket"] == pytest.approx(entregue.total)
+
+
+def test_historico_nao_mostra_pedido_de_outro_tenant(cardapio, client):
+    _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 1)], entregar=True)
+    _pedido(cardapio["tenant_b"], [(cardapio["pizza_b"], 1)], entregar=True, cliente="Cliente do B")
+
+    corpo = _historico_de(cardapio, client)
+
+    assert "Cliente do B" not in corpo
+    assert corpo.count("Ver itens") == 1
+
+
+# --------------------------------------------------------------------------- #
+# Exportação CSV
+# --------------------------------------------------------------------------- #
+
+
+def _exportar(cardapio, client, **params):
+    _liberar_relatorios(cardapio["tenant_a"])
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    from urllib.parse import urlencode
+
+    query = ("?" + urlencode(params)) if params else ""
+    return client.get(f"/admin/relatorios/exportar{query}", base_url=BASE_A)
+
+
+def test_csv_sai_pronto_para_o_excel_brasileiro(cardapio, client):
+    """BOM, ponto e vírgula e vírgula decimal: sem isso o Excel embaralha tudo."""
+    _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 2)], entregar=True)
+
+    resposta = _exportar(cardapio, client)
+    corpo = resposta.get_data(as_text=True)
+
+    assert resposta.status_code == 200
+    assert resposta.headers["Content-Type"] == "text/csv; charset=utf-8"
+    assert "attachment" in resposta.headers["Content-Disposition"]
+    assert ".csv" in resposta.headers["Content-Disposition"]
+    assert corpo.startswith("﻿")
+    assert "Número;Data;Cliente" in corpo
+    assert "60,00" in corpo, "valor com vírgula decimal"
+
+
+def test_csv_traz_os_itens_do_pedido(cardapio, client):
+    _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 2)], entregar=True)
+
+    corpo = _exportar(cardapio, client).get_data(as_text=True)
+
+    assert "2x X-Tudo" in corpo
+
+
+def test_csv_respeita_o_filtro_de_data(cardapio, client):
+    _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 1)], entregar=True)
+
+    ontem = (HOJE - timedelta(days=1)).isoformat()
+    corpo = _exportar(cardapio, client, data_inicio=ontem, data_fim=ontem).get_data(as_text=True)
+
+    linhas = [linha for linha in corpo.strip().splitlines() if linha.strip()]
+    assert len(linhas) == 1, "só o cabeçalho"
+
+
+def test_csv_nao_vaza_pedido_de_outro_tenant(cardapio, client):
+    """A exportação é a via mais fácil de vazar a base inteira de um vizinho."""
+    _pedido(cardapio["tenant_a"], [(cardapio["xtudo"], 1)], entregar=True)
+    _pedido(cardapio["tenant_b"], [(cardapio["pizza_b"], 1)], entregar=True, cliente="Cliente do B")
+
+    corpo = _exportar(cardapio, client).get_data(as_text=True)
+
+    assert "Cliente do B" not in corpo
+    assert "Pizza" not in corpo
+    assert "X-Tudo" in corpo
+
+
+def test_csv_bloqueado_fora_do_plano(cardapio, client):
+    _liberar_relatorios(cardapio["tenant_a"], liberado=False)
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    resposta = client.get("/admin/relatorios/exportar", base_url=BASE_A, follow_redirects=True)
+
+    assert "não está incluído no plano" in resposta.get_data(as_text=True)
+
+
+def test_csv_exige_login(cardapio, client):
+    resposta = client.get("/admin/relatorios/exportar", base_url=BASE_A)
+
+    assert resposta.status_code in (302, 303)
+    assert "/login" in resposta.headers["Location"]

@@ -26,7 +26,7 @@
           <form method="post" action="{{ url_for('public.carrinho_remover') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="indice" value="{{ loop.index0 }}">
-            <button type="submit" class="btn-secundario">Remover</button>
+            <button type="submit" class="btn-secondary">Remover</button>
           </form>
         </div>
       {% endfor %}
@@ -50,7 +50,7 @@
       <p>Cupom <strong>{{ codigo_cupom }}</strong> aplicado.</p>
       <form method="post" action="{{ url_for('public.carrinho_cupom_remover') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn-secundario">Remover cupom</button>
+        <button type="submit" class="btn-secondary">Remover cupom</button>
       </form>
     {% else %}
       <form method="post" action="{{ url_for('public.carrinho_cupom') }}">

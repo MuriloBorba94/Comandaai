@@ -37,7 +37,7 @@
         </form>
         <form method="post" action="{{ url_for('admin.adicional_excluir', adicional_id=adicional.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="btn-secundario">Excluir</button>
+          <button type="submit" class="btn-secondary">Excluir</button>
         </form>
       </div>
     {% else %}

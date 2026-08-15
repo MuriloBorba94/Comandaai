@@ -447,6 +447,10 @@ table tbody tr:hover { background: rgba(255, 255, 255, .025); }
 .v17-table-wrap { overflow: auto; scrollbar-width: thin; }
 .v17-table-wrap td small { display: block; color: var(--muted); margin-top: 3px; }
 .table-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Coluna de valor: alinhada à direita para os dígitos se lerem em coluna. */
+td.valor, th.valor { text-align: right; white-space: nowrap; }
+/* Formulário que precisa caber ao lado de outro botão, em vez de quebrar linha. */
+form.inline { display: inline; }
 .v17-edit, .v17-delete, .v17-pay {
   border: 1px solid transparent; border-radius: var(--raio-xs);
   padding: 7px 10px; font-size: .74rem; font-weight: 700; cursor: pointer;
@@ -482,6 +486,19 @@ table tbody tr:hover { background: rgba(255, 255, 255, .025); }
 .metric-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 13px; margin-bottom: 22px; }
 .metric span { display: block; color: var(--muted); font-size: .8rem; }
 .metric strong { display: block; font-size: 1.5rem; margin-top: 6px; font-weight: 800; letter-spacing: -.03em; }
+
+/* Mesma métrica com a marcação antiga (<p> + .stat), usada nas telas de ficha
+   técnica, relatórios e na área da plataforma. Vive aqui em vez de virar
+   `metric` nos templates porque são cinco telas e o desenho é o mesmo. */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0; }
+.stats > div { padding: 4px 22px; }
+.stats > div:first-child { padding-left: 0; }
+.stats > div:last-child { padding-right: 0; }
+.stats > div + div { border-left: 1px solid var(--border); }
+.stats > div > p:first-child { margin: 0; color: var(--muted); font-size: .8rem; }
+.stats > div > p:last-child { margin: 5px 0 0; font-size: .8rem; color: var(--muted); }
+.stat { display: block; font-size: 1.5rem; font-weight: 800; letter-spacing: -.03em; margin-top: 4px; line-height: 1.2; }
+.stat.alerta { color: var(--danger); }
 
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 300;

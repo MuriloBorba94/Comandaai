@@ -50,7 +50,7 @@
         </form>
         <form method="post" action="{{ url_for('admin.bairro_excluir', bairro_id=bairro.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="btn-secundario">Excluir</button>
+          <button type="submit" class="btn-secondary">Excluir</button>
         </form>
       </div>
     {% endfor %}

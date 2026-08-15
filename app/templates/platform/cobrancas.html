@@ -32,7 +32,7 @@
     </div>
     <form method="post" action="{{ url_for('platform.cobrancas_ciclo') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn-secundario">Rodar ciclo de hoje</button>
+      <button type="submit" class="btn-secondary">Rodar ciclo de hoje</button>
     </form>
   </div>
 
@@ -81,7 +81,7 @@
               <form method="post" action="{{ url_for('platform.cobranca_cancelar', cobranca_id=cobranca.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="voltar_para" value="{{ url_for('platform.cobrancas', status=filtro) }}">
-                <button type="submit" class="btn-secundario">Cancelar</button>
+                <button type="submit" class="btn-secondary">Cancelar</button>
               </form>
             </div>
           {% endif %}

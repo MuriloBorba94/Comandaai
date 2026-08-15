@@ -119,7 +119,7 @@
 
     <form method="post" action="{{ url_for('platform.tenant_cobranca_gerar', tenant_id=tenant.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn-secundario">Emitir cobrança do mês</button>
+      <button type="submit" class="btn-secondary">Emitir cobrança do mês</button>
     </form>
 
     {% if tenant.cobrancas %}
@@ -154,7 +154,7 @@
               <form method="post" action="{{ url_for('platform.cobranca_cancelar', cobranca_id=cobranca.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="voltar_para" value="{{ url_for('platform.tenant_editar', tenant_id=tenant.id) }}">
-                <button type="submit" class="btn-secundario">Cancelar</button>
+                <button type="submit" class="btn-secondary">Cancelar</button>
               </form>
             </div>
           {% endif %}

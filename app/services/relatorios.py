@@ -146,6 +146,60 @@ def vendas_por_dia(tenant_id: int, dias: int, hoje: date | None = None) -> list[
     return serie
 
 
+def historico(
+    tenant_id: int,
+    inicio: date | None = None,
+    fim: date | None = None,
+    limite: int = 2000,
+) -> list:
+    """Pedidos do período, do mais recente para o mais antigo.
+
+    É o "Relatório de Vendas Histórico" da Gestão original: a lista crua dos
+    pedidos, e não um agregado. Serve para conferir uma venda específica, achar
+    o pedido de um cliente e exportar o período para a contabilidade.
+
+    Sem filtro de data, devolve os últimos pedidos em vez da tabela inteira —
+    um restaurante com dois anos de operação tem dezenas de milhares de linhas,
+    e nenhuma tela precisa carregar isso para mostrar as últimas vendas.
+    """
+    from ..models.pedido import Pedido
+
+    consulta = Pedido.query.filter_by(tenant_id=tenant_id)
+    if inicio is not None:
+        consulta = consulta.filter(Pedido.created_at >= datetime.combine(inicio, time.min))
+    if fim is not None:
+        # Intervalo semiaberto até o dia seguinte: com `<= fim` os pedidos do
+        # próprio dia final ficariam de fora por causa da hora.
+        consulta = consulta.filter(
+            Pedido.created_at < datetime.combine(fim + timedelta(days=1), time.min)
+        )
+
+    if inicio is None and fim is None:
+        limite = min(limite, 250)
+
+    return consulta.order_by(Pedido.created_at.desc()).limit(limite).all()
+
+
+def totais_do_historico(pedidos: list) -> dict:
+    """Soma da lista que está na tela, para o rodapé do relatório.
+
+    Calculado sobre os pedidos já carregados, e não com uma consulta nova: o que
+    o rodapé mostra tem que ser a soma exata do que está sendo exibido, senão a
+    tela se contradiz quando o limite corta a lista.
+    """
+    from ..models.pedido import STATUS_CANCELADO
+
+    validos = [pedido for pedido in pedidos if pedido.status != STATUS_CANCELADO]
+    faturado = sum(float(pedido.total or 0) for pedido in validos)
+    return {
+        "quantidade": len(pedidos),
+        "validos": len(validos),
+        "cancelados": len(pedidos) - len(validos),
+        "faturado": round(faturado, 2),
+        "ticket": round(faturado / len(validos), 2) if validos else 0.0,
+    }
+
+
 def painel(tenant_id: int, dias: int = 7, hoje: date | None = None) -> dict:
     """Tudo que a tela de relatórios mostra, numa chamada."""
     hoje = hoje or date.today()

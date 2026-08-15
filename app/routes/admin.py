@@ -201,17 +201,105 @@ def identidade():
 @admin_required
 @requer_recurso("relatorios")
 def relatorios():
-    """Quanto o restaurante vendeu. Sem modelo novo: tudo vem dos pedidos."""
-    from ..services.relatorios import PERIODOS, painel
+    """Quanto o restaurante vendeu. Sem modelo novo: tudo vem dos pedidos.
+
+    A tela tem duas partes, e elas respondem a perguntas diferentes: o histórico
+    ("qual foi aquele pedido?", "quanto entrou entre tal e tal dia?") e o resumo
+    ("como está indo comparado à semana passada?").
+    """
+    from ..services.relatorios import PERIODOS, historico, painel, totais_do_historico
 
     try:
         dias = int(request.args.get("dias", PERIODOS[0]))
     except ValueError:
         dias = PERIODOS[0]
 
+    inicio = _to_data(request.args.get("data_inicio"))
+    fim = _to_data(request.args.get("data_fim"))
+    if inicio and fim and fim < inicio:
+        inicio, fim = fim, inicio
+
+    pedidos = historico(g.tenant.id, inicio, fim)
     return render_template(
-        "admin/relatorios.html", tenant=g.tenant, dados=painel(g.tenant.id, dias=dias)
+        "admin/relatorios.html",
+        tenant=g.tenant,
+        dados=painel(g.tenant.id, dias=dias),
+        pedidos=pedidos,
+        totais=totais_do_historico(pedidos),
+        data_inicio=inicio.isoformat() if inicio else "",
+        data_fim=fim.isoformat() if fim else "",
+        filtrado=bool(inicio or fim),
     )
+
+
+@admin_bp.route("/relatorios/exportar")
+@admin_required
+@requer_recurso("relatorios")
+def relatorios_exportar():
+    """Baixa o período como CSV, para abrir no Excel ou mandar à contabilidade.
+
+    Separador ponto e vírgula e BOM no começo: é o que faz o Excel em português
+    abrir o arquivo com as colunas separadas e os acentos certos. Vírgula como
+    separador decimal, pelo mesmo motivo.
+    """
+    import csv
+    import io
+    from datetime import datetime as _datetime
+
+    from flask import Response
+
+    from ..services.relatorios import historico
+
+    inicio = _to_data(request.args.get("data_inicio"))
+    fim = _to_data(request.args.get("data_fim"))
+    if inicio and fim and fim < inicio:
+        inicio, fim = fim, inicio
+
+    buffer = io.StringIO()
+    escritor = csv.writer(buffer, delimiter=";")
+    escritor.writerow(
+        ["Número", "Data", "Cliente", "Telefone", "Tipo", "Local", "Pagamento",
+         "Subtotal", "Entrega", "Desconto", "Total", "Status", "Itens"]
+    )
+    for pedido in historico(g.tenant.id, inicio, fim, limite=20000):
+        itens = " | ".join(
+            f"{item.quantidade}x {item.nome}"
+            + (" + " + ", ".join(extra.nome for extra in item.adicionais) if item.adicionais else "")
+            for item in pedido.itens
+        )
+        escritor.writerow(
+            [
+                pedido.numero,
+                pedido.created_at.strftime("%d/%m/%Y %H:%M"),
+                pedido.cliente,
+                pedido.telefone or "",
+                pedido.tipo,
+                pedido.descricao_local,
+                pedido.pagamento,
+                _virgula(pedido.subtotal),
+                _virgula(pedido.taxa_entrega),
+                _virgula(pedido.desconto),
+                _virgula(pedido.total),
+                pedido.status,
+                itens,
+            ]
+        )
+
+    nome = f"vendas_{g.tenant.slug}_{_datetime.now():%Y%m%d}.csv"
+    return Response(
+        # BOM no início: é o que faz o Excel em português reconhecer UTF-8 e não
+        # transformar "Número" em "NÃºmero".
+        "﻿" + buffer.getvalue(),
+        # content_type, e não mimetype: com mimetype o Flask acrescenta o charset
+        # de novo e o cabeçalho sai com "charset=utf-8" duplicado.
+        content_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{nome}"'},
+    )
+
+
+def _virgula(valor) -> str:
+    """Número no formato que a planilha brasileira entende."""
+    return f"{float(valor or 0):.2f}".replace(".", ",")
 
 
 @admin_bp.route("/")
