@@ -31,6 +31,7 @@ from app.services.pedidos import (
     calcular_carrinho,
     criar_pedido,
     fechar_comanda,
+    mesas_ativas,
     normalizar_mesa,
     transicionar,
 )
@@ -720,6 +721,129 @@ def test_telas_de_operacao_renderizam(client, cardapio, tenant_a_obj):
     comanda = client.get("/mesas/2", base_url=BASE_A).get_data(as_text=True)
     assert "Comanda aberta" in comanda
     assert "Bacon" in comanda
+
+
+# --------------------------------------------------------------------------- #
+# PDV de mesa em modal (o carrinho montado no salão)
+#
+# É uma rota JSON que abre ou complementa comanda. O que precisa ser provado: o
+# preço vem do servidor (não do corpo enviado), o carrinho é validado, e um
+# produto de outro tenant não entra na comanda deste.
+# --------------------------------------------------------------------------- #
+
+
+def _abrir_comanda(client, numero, carrinho, base_url=BASE_A, **extra):
+    corpo = {"carrinho": carrinho}
+    corpo.update(extra)
+    return client.post(f"/mesas/{numero}/comanda", json=corpo, base_url=base_url)
+
+
+def test_pdv_abre_a_mesa_e_depois_complementa(client, cardapio, tenant_a_obj):
+    tenant_a_obj.qtd_mesas = 10
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    resposta = _abrir_comanda(
+        client, 3, [{"produto_id": cardapio["refri"], "quantidade": 2}], observacao="sem gelo"
+    )
+    assert resposta.status_code == 200
+    assert resposta.get_json()["status"] == "ok"
+
+    pedido = mesas_ativas(tenant_a_obj.id)[3]
+    assert pedido.comanda_aberta is True
+    assert pedido.total == pytest.approx(12.0)   # 2 x 6,00
+
+    assert _abrir_comanda(client, 3, [{"produto_id": cardapio["refri"], "quantidade": 1}]).status_code == 200
+    assert mesas_ativas(tenant_a_obj.id)[3].total == pytest.approx(18.0)
+
+
+def test_pdv_ignora_preco_enviado_pelo_cliente(client, cardapio, tenant_a_obj):
+    """O corpo é dado do navegador: mandar preço não pode virar desconto."""
+    tenant_a_obj.qtd_mesas = 10
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    _abrir_comanda(
+        client, 4,
+        [{"produto_id": cardapio["refri"], "quantidade": 1, "preco": 0.01, "total": 0.01}],
+    )
+    assert mesas_ativas(tenant_a_obj.id)[4].total == pytest.approx(6.0)
+
+
+def test_pdv_recusa_produto_de_outro_tenant(client, cardapio, tenant_a_obj):
+    """A barreira aqui é código: o carrinho vem por id, sem tenant junto."""
+    tenant_a_obj.qtd_mesas = 10
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    resposta = _abrir_comanda(client, 5, [{"produto_id": cardapio["pizza_b"], "quantidade": 1}])
+
+    assert resposta.status_code == 400
+    assert 5 not in mesas_ativas(tenant_a_obj.id)
+
+
+@pytest.mark.parametrize("carrinho", [[], "nao sou lista", None])
+def test_pdv_recusa_carrinho_invalido(client, cardapio, tenant_a_obj, carrinho):
+    tenant_a_obj.qtd_mesas = 10
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    resposta = _abrir_comanda(client, 6, carrinho)
+
+    assert resposta.status_code == 400
+    assert 6 not in mesas_ativas(tenant_a_obj.id)
+
+
+def test_pdv_recusa_mesa_fora_do_salao(client, cardapio, tenant_a_obj):
+    """Reduzir o salão não pode deixar abrir comanda numa mesa que não existe."""
+    tenant_a_obj.qtd_mesas = 4
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    resposta = _abrir_comanda(client, 90, [{"produto_id": cardapio["refri"], "quantidade": 1}])
+
+    assert resposta.status_code == 400
+    assert 90 not in mesas_ativas(tenant_a_obj.id)
+
+
+def test_pdv_exige_login(client, cardapio, tenant_a_obj):
+    tenant_a_obj.qtd_mesas = 10
+    db.session.commit()
+
+    resposta = _abrir_comanda(client, 7, [{"produto_id": cardapio["refri"], "quantidade": 1}])
+
+    assert resposta.status_code in (302, 303)
+    assert 7 not in mesas_ativas(tenant_a_obj.id)
+
+
+def test_mapa_de_mesas_traz_o_pdv_e_o_cardapio(client, cardapio, tenant_a_obj):
+    tenant_a_obj.qtd_mesas = 6
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    html = client.get("/mesas", base_url=BASE_A).get_data(as_text=True)
+
+    for modal in ("modal-acoes-mesa", "modal-add-comanda", "modal-fechar-comanda"):
+        assert modal in html
+    assert "comanda-cardapio" in html
+    assert "X-Tudo" in html, "o catálogo do PDV precisa vir embutido"
+
+
+def test_cardapio_do_pdv_nao_vaza_entre_tenants(client, cardapio, tenant_a_obj):
+    """O catálogo vai embutido no HTML: um produto do vizinho ali seria vazamento."""
+    import json
+    import re
+
+    tenant_a_obj.qtd_mesas = 4
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    html = client.get("/mesas", base_url=BASE_A).get_data(as_text=True)
+    bruto = re.search(r'id="comanda-cardapio">(.*?)</script>', html, re.S).group(1)
+    ids = {item["id"] for item in json.loads(bruto)}
+
+    assert cardapio["xtudo"] in ids
+    assert cardapio["pizza_b"] not in ids, "produto do tenant B entrou no PDV do A"
 
 
 # --------------------------------------------------------------------------- #

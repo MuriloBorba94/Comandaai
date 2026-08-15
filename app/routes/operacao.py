@@ -139,6 +139,53 @@ def pedido_status(pedido_id: int):
 # --------------------------------------------------------------------------- #
 
 
+def _catalogo_da_comanda() -> tuple[list[dict], list[dict]]:
+    """Cardápio e adicionais como listas simples, para o PDV de mesa montar.
+
+    Vai para o HTML como JSON. Cada produto carrega os ids dos adicionais que
+    ELE aceita: no sistema original o botão de personalizar só aparecia para a
+    categoria "Burgers", cravada no código — aqui quem manda é o vínculo
+    produto↔adicional, que é o que o servidor de fato aceita no carrinho.
+    """
+    produtos = []
+    for categoria_nome, itens in _produtos_para_lancamento():
+        for produto in itens:
+            produtos.append(
+                {
+                    "id": produto.id,
+                    "nome": produto.nome,
+                    "preco": float(produto.preco or 0),
+                    "categoria": categoria_nome,
+                    "adicionais": [a.id for a in produto.adicionais if a.disponivel],
+                }
+            )
+
+    adicionais = {}
+    for produto in Produto.query.filter_by(tenant_id=g.tenant.id, disponivel=True).all():
+        for extra in produto.adicionais:
+            if extra.disponivel:
+                adicionais[extra.id] = {
+                    "id": extra.id,
+                    "nome": extra.nome,
+                    "preco": float(extra.preco or 0),
+                }
+    return produtos, sorted(adicionais.values(), key=lambda a: a["nome"])
+
+
+def _resumo_dos_itens(pedido) -> str:
+    """Texto do pedido para o modal de ações da mesa, uma linha por item."""
+    linhas = []
+    for item in pedido.itens:
+        linha = f"{item.quantidade}x {item.nome}"
+        extras = ", ".join(extra.nome for extra in item.adicionais)
+        if extras:
+            linha += f"\n   + {extras}"
+        if item.observacao:
+            linha += f"\n   obs.: {item.observacao}"
+        linhas.append(linha)
+    return "\n".join(linhas) or "Comanda sem itens."
+
+
 @operacao_bp.route("/mesas")
 @login_required
 @requer_recurso("mesas")
@@ -151,12 +198,82 @@ def mesas():
         return redirect(url_for("admin.configuracoes"))
 
     ocupadas = mesas_ativas(g.tenant.id)
+    produtos, adicionais = _catalogo_da_comanda()
     return render_template(
         "operacao/mesas.html",
         tenant=g.tenant,
         numeros=range(1, (g.tenant.qtd_mesas or 0) + 1),
         ocupadas=ocupadas,
+        resumos={numero: _resumo_dos_itens(pedido) for numero, pedido in ocupadas.items()},
+        catalogo=produtos,
+        adicionais=adicionais,
+        formas_pagamento=FORMAS_PAGAMENTO,
     )
+
+
+@operacao_bp.route("/mesas/<int:numero>/comanda", methods=["POST"])
+@login_required
+@requer_recurso("mesas")
+def mesa_comanda(numero: int):
+    """Recebe o carrinho montado no PDV de mesa e abre ou complementa a comanda.
+
+    O corpo tem o MESMO formato do carrinho da vitrine ({produto_id, quantidade,
+    adicionais, observacao}) porque as duas telas caem no mesmo serviço de
+    pedidos — nada de total digitado pelo cliente da API: o preço é recalculado
+    aqui a partir dos ids.
+    """
+    if not g.tenant.atende_mesa or numero < 1 or numero > (g.tenant.qtd_mesas or 0):
+        return jsonify(status="erro", mensagem=f"A mesa {numero} não existe."), 400
+
+    dados = request.get_json(silent=True) or {}
+    carrinho = dados.get("carrinho") or []
+    if not isinstance(carrinho, list) or not carrinho:
+        return jsonify(status="erro", mensagem="Monte o pedido antes de enviar."), 400
+
+    observacao = (dados.get("observacao") or "").strip()[:180]
+    linhas = []
+    for bruta in carrinho[:60]:
+        if not isinstance(bruta, dict):
+            continue
+        try:
+            quantidade = max(1, min(int(bruta.get("quantidade", 1)), 30))
+        except (TypeError, ValueError):
+            quantidade = 1
+        extras = [str(v) for v in (bruta.get("adicionais") or []) if str(v).strip().isdigit()]
+        linhas.append(
+            {
+                "produto_id": bruta.get("produto_id"),
+                "quantidade": quantidade,
+                "adicionais": extras,
+                "observacao": (bruta.get("remocoes") or "").strip()[:180],
+            }
+        )
+
+    if not linhas:
+        return jsonify(status="erro", mensagem="Monte o pedido antes de enviar."), 400
+
+    pedido = mesas_ativas(g.tenant.id).get(numero)
+    try:
+        if pedido is None:
+            criar_pedido(
+                g.tenant,
+                {
+                    "cliente": f"Mesa {numero:02d}",
+                    "tipo": TIPO_MESA,
+                    "mesa": numero,
+                    "carrinho": linhas,
+                    "observacao": observacao,
+                    "origem": "mesa",
+                },
+            )
+            mensagem = f"Mesa {numero:02d} aberta e pedido enviado para a cozinha."
+        else:
+            adicionar_itens_comanda(pedido, linhas, actor=session.get("username"))
+            mensagem = "Itens adicionados à comanda."
+    except ValueError as exc:
+        return jsonify(status="erro", mensagem=str(exc)), 400
+
+    return jsonify(status="ok", mensagem=mensagem)
 
 
 @operacao_bp.route("/mesas/<int:numero>")

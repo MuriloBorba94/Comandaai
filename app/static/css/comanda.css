@@ -126,7 +126,12 @@ label{color:var(--text-2)}
 input[type=checkbox]{width:auto;margin:0 6px 0 0;accent-color:var(--brand)}
 input[type=color]{width:64px;height:40px;padding:3px;cursor:pointer}
 input[type=file]{padding:8px 10px}
-.btn-add,.btn-save,.btn-primary,.btn-secondary,.btn-delete,button:not(.tab-btn):not(.v17-fab-menu):not(.v17-logout):not(.v17-quick-link){border-radius:8px;border:0;font-weight:750;cursor:pointer;transition:filter .15s,transform .15s;padding:10px 14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;background:var(--brand);color:var(--brand-contraste)}
+/* Botão sem classe herda a aparência do primário. O seletor é `button` puro, de
+   propósito: com `button:not(.a):not(.b)...` cada :not() conta como classe e a
+   regra sobe para (0,4,1), passando por cima de .btn-save, .btn-delete,
+   .v17-edit e companhia — todos os botões do painel saíam na cor da marca. */
+button{border-radius:8px;border:0;font-weight:750;cursor:pointer;transition:filter .15s,transform .15s;padding:10px 14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;background:var(--brand);color:var(--brand-contraste)}
+.btn-add,.btn-save,.btn-primary,.btn-secondary,.btn-delete{border-radius:8px;border:0;font-weight:750;cursor:pointer;transition:filter .15s,transform .15s;padding:10px 14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;background:var(--brand);color:var(--brand-contraste)}
 .btn-add{width:100%;margin-top:9px;background:var(--brand);color:var(--brand-contraste)}
 .btn-save{background:var(--success);color:#fff}
 .btn-add:hover,.btn-save:hover,button:hover{filter:brightness(1.08);transform:translateY(-1px)}
@@ -155,6 +160,11 @@ input:checked+.slider:before{transform:translateX(21px)}
 .mesa-ocupada{background:var(--brand-bg);color:var(--brand-texto);border-color:var(--brand-border)}
 .mesa-number{font-size:1.6rem;font-weight:850}
 .mesa-status{font-size:.75rem;font-weight:750}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(20,22,26,.55);z-index:200;overflow:auto;padding:28px 14px}
+.modal-content,.modal-detalhes{width:min(620px,100%);margin:0 auto;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:var(--shadow-lg)}
+.modal-title{margin-top:0;border-bottom:1px solid var(--border);padding-bottom:12px;font-weight:800}
+.modal-detalhes pre{background:var(--panel-2);padding:13px;color:var(--code-text);font-family:ui-monospace,Consolas,monospace;border-radius:9px;white-space:pre-wrap;border:1px solid var(--border)}
+
 table{width:100%;border-collapse:separate;border-spacing:0;color:var(--text)}
 table thead th{background:var(--panel-2);color:var(--muted);font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;font-weight:800;padding:10px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:left}
 table tbody td{padding:10px;border-bottom:1px solid var(--border);font-size:.82rem;vertical-align:middle}
@@ -310,6 +320,72 @@ table tbody tr:hover{background:var(--panel-2)}
 @media(max-width:1050px){.v17-content{padding:18px 16px 60px}.v17-page-intro{align-items:stretch;flex-direction:column}.v17-overview-strip{min-width:0;width:100%}.finance-chart-grid{grid-template-columns:1fr}.finance-insights-grid{grid-template-columns:1fr 1fr}.finance-entry-grid,.finance-manager-grid{grid-template-columns:1fr}}
 @media(max-width:720px){.v17-commandbar{padding:0 12px;height:60px}.v17-commandbar-actions{gap:5px}.v17-quick-link.hide-mobile{display:none}.v17-user-chip>span{display:none}.v17-user-chip{border:0;padding:0}.v17-content{padding:14px 10px 55px}.v17-page-intro h1{font-size:1.4rem}.v17-overview-strip{grid-template-columns:1fr 1fr}.v17-overview-strip>span:nth-child(2){border-right:0}.v17-overview-strip>span:nth-child(-n+2){border-bottom:1px solid var(--border)}.admin-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:1fr 1fr}.finance-hero{align-items:stretch;flex-direction:column}.finance-actions{display:grid;grid-template-columns:1fr 1fr}.finance-action.muted{grid-column:1/-1;text-align:center;justify-content:center}.finance-period-bar{align-items:stretch;flex-direction:column}.finance-period-presets{width:100%}.finance-period-presets a{flex:1;text-align:center}.finance-custom-period{display:grid;grid-template-columns:1fr 1fr}.finance-custom-period label{display:grid}.finance-custom-period input{width:100%}.finance-custom-period button{grid-column:1/-1}.finance-kpis{grid-template-columns:1fr 1fr}.finance-kpi em i{display:none}.finance-chart-grid,.finance-insights-grid{grid-template-columns:1fr}.finance-products-profit{grid-column:auto}.finance-donut-layout{grid-template-columns:1fr}.finance-donut{width:160px;height:160px}.finance-entry-form{grid-template-columns:1fr}.finance-entry-form>div{grid-template-columns:1fr}.finance-entry-form .finance-form-note{grid-column:auto}.finance-flow-panel>header{flex-direction:column}.v17-table-wrap{margin:0 -4px}.v17-kanban{grid-template-columns:86vw}.mesas-grid{grid-template-columns:repeat(auto-fill,minmax(78px,1fr))}}
 @media(max-width:440px){.finance-kpis{grid-template-columns:1fr}.v17-commandbar-title small{display:none}.v17-commandbar-title strong{font-size:.8rem}.finance-kpi strong{font-size:1.1rem}.v17-sidebar{width:min(280px,88vw)}.metric-grid{grid-template-columns:1fr}}
+
+/* ===== Comanda de mesa: montar pedido (portado literal do original) ===== */
+.comanda-modal{max-width:1000px;width:min(1000px,96vw);padding:0;display:flex;flex-direction:column;max-height:92vh}
+.comanda-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.comanda-fechar{width:38px;height:38px;padding:0;border-radius:50%;border:1px solid var(--border);font-size:1rem;line-height:1;flex:0 0 auto}
+.comanda-corpo{display:grid;grid-template-columns:1.15fr 1fr;gap:0;min-height:0;flex:1 1 auto}
+.comanda-catalogo{display:flex;flex-direction:column;gap:10px;padding:16px 18px;border-right:1px solid var(--border);min-height:0}
+.comanda-chips{display:flex;flex-wrap:wrap;gap:6px}
+.comanda-chip{border:1px solid var(--border);background:var(--card);color:var(--text-sec);border-radius:999px;padding:6px 13px;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.comanda-chip:hover{border-color:var(--info);color:var(--text)}
+.comanda-chip.ativo{background:var(--info);border-color:var(--info);color:#fff}
+.comanda-produtos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;overflow-y:auto;min-height:0;padding-right:4px;align-content:start}
+.comanda-produto{display:flex;flex-direction:column;gap:3px;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 12px;cursor:pointer;transition:transform .06s,border-color .12s;color:var(--text)}
+.comanda-produto:hover{border-color:var(--info);filter:none;transform:none}
+.comanda-produto:active{transform:scale(.97)}
+.comanda-produto b{font-size:.86rem;font-weight:700;color:var(--text);line-height:1.25}
+.comanda-produto span{font-size:.85rem;font-weight:800;color:var(--success)}
+.comanda-vazio{grid-column:1/-1;color:var(--muted);text-align:center;padding:26px 10px;font-size:.9rem}
+.comanda-pedido{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+.comanda-pedido-topo{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 8px;color:var(--text)}
+.comanda-limpar{padding:5px 12px;font-size:.78rem;border:1px solid var(--border)}
+.comanda-lista{flex:1 1 auto;overflow-y:auto;min-height:120px;padding:0 18px;display:flex;flex-direction:column;gap:8px}
+.comanda-linha{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.comanda-linha-topo{display:flex;align-items:flex-start;gap:10px}
+.comanda-linha-nome{flex:1 1 auto;min-width:0}
+.comanda-linha-nome b{display:block;font-size:.88rem;color:var(--text);line-height:1.3}
+.comanda-linha-nome small{color:var(--muted);font-size:.76rem}
+.comanda-linha-valor{font-weight:800;color:var(--success);font-size:.9rem;white-space:nowrap}
+.comanda-qtd{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.comanda-qtd button{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;font-weight:800;cursor:pointer;line-height:1;padding:0}
+.comanda-qtd button:hover{border-color:var(--info);color:var(--info);filter:none;transform:none}
+.comanda-qtd b{min-width:20px;text-align:center;font-size:.9rem;color:var(--text)}
+.comanda-linha-acoes{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.comanda-linha-acoes button{background:none;border:0;color:var(--muted);font-size:.76rem;font-weight:700;cursor:pointer;padding:2px 0;text-decoration:underline}
+.comanda-linha-acoes button:hover{color:var(--info);filter:none;transform:none}
+.comanda-linha-acoes button.remover:hover{color:var(--danger)}
+.comanda-extras{margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)}
+.comanda-extras-lista{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.comanda-extra{border:1px solid var(--border);background:var(--bg);color:var(--text-sec);border-radius:999px;padding:4px 10px;font-size:.76rem;font-weight:700;cursor:pointer}
+.comanda-extra:hover{filter:none;transform:none}
+.comanda-extra.ativo{background:var(--warning);border-color:var(--warning);color:#111}
+.comanda-rodape{flex:0 0 auto;padding:12px 18px 16px;border-top:1px solid var(--border);background:var(--card)}
+.comanda-rotulo{display:block;color:var(--text-sec);font-size:.8rem;margin-bottom:4px}
+.comanda-total{display:flex;align-items:center;justify-content:space-between;margin:12px 0 10px;color:var(--text)}
+.comanda-total strong{font-size:1.5rem;color:var(--success)}
+.comanda-enviar{width:100%;margin:0;background:var(--info);color:#fff;padding:16px;font-size:1rem;font-weight:800}
+.comanda-enviar[disabled]{opacity:.45;cursor:not-allowed}
+@media(max-width:860px){
+  #modal-add-comanda{padding:0}
+  .comanda-modal{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
+  /* flex em vez de grid: a linha `auto` do grid crescia com o conteudo e
+     empurrava o botao de enviar para fora da tela no celular */
+  .comanda-corpo{display:flex;flex-direction:column}
+  .comanda-catalogo{flex:1 1 auto;min-height:0;border-right:0;border-bottom:1px solid var(--border);padding:12px}
+  .comanda-produtos{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
+  .comanda-pedido{flex:0 1 auto;min-height:0;max-height:56%}
+  .comanda-lista{min-height:0;padding:0 12px}
+  .comanda-pedido-topo,.comanda-rodape{padding-left:12px;padding-right:12px}
+  /* alvos de toque: garcom usa com o dedo, em pe, com o celular na mao */
+  .comanda-qtd button{width:40px;height:40px;font-size:1.2rem}
+  .comanda-produto{padding:14px 12px}
+  .comanda-extra{padding:8px 13px}
+  .comanda-linha-acoes button{padding:6px 0}
+  .comanda-enviar{padding:18px}
+  .comanda-fechar{width:44px;height:44px}
+}
 
 /* ===========================================================================
    VITRINE — o cardápio que o cliente final vê. Tokens do v2.css do original:

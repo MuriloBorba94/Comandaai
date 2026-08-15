@@ -13,19 +13,389 @@
     <div class="mesas-grid" data-total-mesas="{{ numeros|length }}">
       {% for numero in numeros %}
         {% set pedido = ocupadas.get(numero) %}
+        {% set num = "%02d"|format(numero) %}
         {% if pedido %}
-          <a class="mesa-card mesa-ocupada" href="{{ url_for('operacao.mesa_detalhe', numero=numero) }}">
+          {# Os valores vão por data-attribute, não interpolados no onclick: o
+             nome do cliente e a observação podem ter aspas e quebra de linha,
+             que quebrariam o atributo de evento. #}
+          <div class="mesa-card mesa-ocupada"
+               data-id="{{ pedido.id }}"
+               data-num="{{ num }}"
+               data-numero="{{ numero }}"
+               data-total="{{ pedido.total }}"
+               data-itens="{{ resumos.get(numero, '') }}"
+               onclick="abrirAcoesMesaViaData(this)">
             <span style="position:absolute;top:5px;left:8px;font-size:.9rem" aria-hidden="true">🔒</span>
-            <span class="mesa-number">{{ "%02d"|format(numero) }}</span>
+            <span class="mesa-number">{{ num }}</span>
             <span class="mesa-status">R$ {{ pedido.total|brl }}</span>
-          </a>
+          </div>
         {% else %}
-          <a class="mesa-card mesa-livre" href="{{ url_for('operacao.mesa_detalhe', numero=numero) }}">
+          <div class="mesa-card mesa-livre" onclick="abrirMesaLivre('{{ num }}', {{ numero }})">
             <span class="mesa-status" style="font-size:.7rem;margin-bottom:2px">LIVRE</span>
-            <span class="mesa-number">{{ "%02d"|format(numero) }}</span>
-          </a>
+            <span class="mesa-number">{{ num }}</span>
+          </div>
         {% endif %}
       {% endfor %}
     </div>
   </div>
+
+  <!-- ================= AÇÕES DA MESA ================= -->
+  <div id="modal-acoes-mesa" class="modal-overlay">
+    <div class="modal-content" style="max-width: 350px; text-align: center;">
+      <h2 style="color: var(--warning); margin-top: 0;">Mesa <span id="acao-mesa-num"></span></h2>
+      <h3 style="color: var(--success); margin-bottom: 25px; font-size: 1.8rem; border:0; padding:0;">
+        R$ <span id="acao-mesa-total"></span>
+      </h3>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button class="btn-save" style="background: var(--info); padding: 15px; font-size: 1.1rem; width: 100%;"
+                onclick="irParaAddComanda()">➕ Adicionar Produtos</button>
+        <button class="btn-save" style="padding: 15px; font-size: 1.1rem; width: 100%;"
+                onclick="irParaFecharComanda()">💰 Fechar Conta</button>
+
+        <div style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px;">
+          <p style="color: var(--text-sec); font-size: 0.9rem; text-align: left; margin: 0 0 10px 0;">Itens da Mesa:</p>
+          <pre id="acao-mesa-itens" style="background: var(--panel-2); padding: 10px; color: var(--code-text); border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; font-family: ui-monospace, Consolas, monospace; white-space: pre-wrap; text-align: left; max-height: 150px; overflow-y: auto; margin: 0;"></pre>
+        </div>
+
+        <button class="btn-secondary" onclick="fecharModal('modal-acoes-mesa')">Voltar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ADICIONAR NA COMANDA (O PDV) ================= -->
+  <div id="modal-add-comanda" class="modal-overlay">
+    <div class="modal-content comanda-modal">
+      <div class="comanda-topo">
+        <h2 id="titulo-modal-add" class="modal-title" style="margin:0;border:0;padding:0;color:var(--info)">➕ Adicionar à Comanda</h2>
+        <button type="button" class="btn-secondary comanda-fechar" onclick="fecharModalComanda()">✕</button>
+      </div>
+
+      <div class="comanda-corpo">
+        <!-- Esquerda: escolher produto -->
+        <div class="comanda-catalogo">
+          <input type="search" id="comanda-busca" class="admin-input" placeholder="🔎 Buscar produto..."
+                 autocomplete="off" oninput="renderCatalogoComanda()">
+          <div id="comanda-categorias" class="comanda-chips"></div>
+          <div id="comanda-produtos" class="comanda-produtos"></div>
+        </div>
+
+        <!-- Direita: o pedido sendo montado -->
+        <div class="comanda-pedido">
+          <div class="comanda-pedido-topo">
+            <strong>Pedido</strong>
+            <button type="button" class="btn-secondary comanda-limpar" onclick="limparListaComanda()">Limpar</button>
+          </div>
+          <div id="comanda-lista" class="comanda-lista"></div>
+          <div class="comanda-rodape">
+            <label class="comanda-rotulo" for="comanda-observacao">Observação para a cozinha</label>
+            <input type="text" id="comanda-observacao" class="admin-input" placeholder="Ex: pressa, alergia, levar talher">
+            <div class="comanda-total">
+              <span>Total</span>
+              <strong id="comanda-total-valor">R$ 0,00</strong>
+            </div>
+            <button type="button" id="comanda-enviar" class="btn-add comanda-enviar" onclick="enviarComanda()">
+              ENVIAR PARA A COZINHA
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= FECHAR A CONTA ================= -->
+  <div id="modal-fechar-comanda" class="modal-overlay">
+    <div class="modal-content" style="max-width: 400px;">
+      <h2 class="modal-title" style="color: var(--success);">💰 Fechar Conta da Mesa</h2>
+      <form id="form-fechar-comanda" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p style="color: var(--text-sec); text-align: center; font-size: 1.1rem;">
+          Total a Pagar: <strong id="texto-total-comanda" style="color: var(--price);"></strong>
+        </p>
+
+        <label style="color: var(--text-sec); font-size: 0.9rem;">Como o cliente pagou?</label>
+        <select name="pagamento" class="admin-input" required style="font-weight: bold; font-size: 1.1rem; padding: 15px;">
+          {% for forma in formas_pagamento %}<option value="{{ forma }}">{{ forma }}</option>{% endfor %}
+        </select>
+
+        <button type="submit" class="btn-add" style="background: var(--success); color: #fff;">CONFIRMAR PAGAMENTO</button>
+        <button type="button" onclick="fecharModal('modal-fechar-comanda')" class="btn-secondary" style="width:100%;margin-top:8px">Cancelar</button>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" id="comanda-cardapio">{{ catalogo|tojson }}</script>
+<script type="application/json" id="comanda-adicionais">{{ adicionais|tojson }}</script>
+<script>
+/* PDV de mesa, portado da Gestão do Borba's Burguer.
+ *
+ * O carrinho tem o MESMO formato que a vitrine manda
+ * ({produto_id, quantidade, adicionais, remocoes}), porque as duas telas caem
+ * no mesmo serviço de pedidos no servidor. Nada de total digitado aqui: o preço
+ * mostrado é só para conferência, e quem calcula de verdade é o servidor.
+ *
+ * Diferença em relação ao original: lá o botão de personalizar só aparecia para
+ * a categoria "Burgers", cravada no código. Aqui aparece quando o produto tem
+ * adicionais vinculados — que é exatamente o que o servidor aceita.
+ */
+(() => {
+  'use strict';
+
+  const leJson = id => { try { return JSON.parse(document.getElementById(id).textContent); } catch (e) { return []; } };
+  const CARDAPIO = leJson('comanda-cardapio');
+  const ADICIONAIS = leJson('comanda-adicionais');
+  const URL_COMANDA = {{ url_for('operacao.mesa_comanda', numero=0)|tojson }};
+  const URL_FECHAR = {{ url_for('operacao.mesa_fechar', numero=0)|tojson }};
+
+  let carrinho = [];
+  let categoriaAtual = 'Todos';
+  let destino = {numero: null, pedidoId: null};
+  let acaoMesa = {pedidoId: null, num: null, numero: null, total: 0};
+
+  const el = id => document.getElementById(id);
+  const moeda = v => 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',');
+  const escapar = t => String(t == null ? '' : t).replace(/[&<>"']/g,
+    c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+  const rota = (modelo, numero) => modelo.replace(/\/0(\/|$)/, '/' + numero + '$1');
+
+  // ------------------------------------------------------------- modais ----
+  window.fecharModal = id => { el(id).style.display = 'none'; };
+
+  window.abrirAcoesMesaViaData = function (card) {
+    acaoMesa = {
+      pedidoId: card.dataset.id,
+      num: card.dataset.num,
+      numero: Number(card.dataset.numero),
+      total: parseFloat(card.dataset.total || '0'),
+    };
+    el('acao-mesa-num').textContent = acaoMesa.num;
+    el('acao-mesa-total').textContent = acaoMesa.total.toFixed(2).replace('.', ',');
+    el('acao-mesa-itens').textContent = card.dataset.itens || '';
+    el('modal-acoes-mesa').style.display = 'block';
+  };
+
+  window.abrirMesaLivre = function (num, numero) {
+    destino = {numero: numero, pedidoId: null};
+    abrirModalComanda('🟢 Abrir Mesa ' + num);
+  };
+
+  window.irParaAddComanda = function () {
+    el('modal-acoes-mesa').style.display = 'none';
+    destino = {numero: acaoMesa.numero, pedidoId: acaoMesa.pedidoId};
+    abrirModalComanda('➕ Adicionar à Mesa ' + acaoMesa.num);
+  };
+
+  window.irParaFecharComanda = function () {
+    el('modal-acoes-mesa').style.display = 'none';
+    el('form-fechar-comanda').action = rota(URL_FECHAR, acaoMesa.numero);
+    el('texto-total-comanda').textContent = moeda(acaoMesa.total);
+    el('modal-fechar-comanda').style.display = 'block';
+  };
+
+  function abrirModalComanda(titulo) {
+    el('titulo-modal-add').textContent = titulo;
+    el('comanda-busca').value = '';
+    categoriaAtual = 'Todos';
+    limparListaComanda();
+    renderCatalogoComanda();
+    el('modal-add-comanda').style.display = 'block';
+  }
+
+  window.fecharModalComanda = () => { el('modal-add-comanda').style.display = 'none'; };
+
+  // ---------------------------------------------------------- catálogo ----
+  window.renderCatalogoComanda = function () {
+    const busca = el('comanda-busca').value.trim().toLowerCase();
+    const categorias = ['Todos', ...new Set(CARDAPIO.map(p => p.categoria).filter(Boolean))];
+
+    el('comanda-categorias').innerHTML = categorias.map((cat, i) =>
+      `<button type="button" class="comanda-chip${cat === categoriaAtual ? ' ativo' : ''}" data-cat="${i}">${escapar(cat)}</button>`
+    ).join('');
+    el('comanda-categorias').querySelectorAll('[data-cat]').forEach((botao, i) => {
+      botao.addEventListener('click', () => { categoriaAtual = categorias[i]; renderCatalogoComanda(); });
+    });
+
+    const visiveis = CARDAPIO.filter(p =>
+      (categoriaAtual === 'Todos' || p.categoria === categoriaAtual) &&
+      (!busca || p.nome.toLowerCase().includes(busca))
+    );
+
+    const area = el('comanda-produtos');
+    area.innerHTML = visiveis.length
+      ? visiveis.map(p => `<button type="button" class="comanda-produto" data-id="${p.id}"><b>${escapar(p.nome)}</b><span>${moeda(p.preco)}</span></button>`).join('')
+      : '<div class="comanda-vazio">Nenhum produto encontrado.</div>';
+    area.querySelectorAll('[data-id]').forEach(botao => {
+      botao.addEventListener('click', () => adicionar(Number(botao.dataset.id)));
+    });
+  };
+
+  function adicionar(produtoId) {
+    const produto = CARDAPIO.find(p => p.id === produtoId);
+    if (!produto) return;
+    // Item igual e ainda sem personalização só aumenta a quantidade.
+    const existente = carrinho.find(l => l.produto_id === produtoId && !l.adicionais.length && !l.remocoes);
+    if (existente) {
+      existente.quantidade++;
+    } else {
+      carrinho.push({
+        produto_id: produto.id, nome: produto.nome, preco: produto.preco,
+        extrasPermitidos: produto.adicionais || [],
+        quantidade: 1, adicionais: [], remocoes: '', aberto: false,
+      });
+    }
+    renderLista();
+  }
+
+  // ------------------------------------------------------------ pedido ----
+  function precoLinha(linha) {
+    const extras = linha.adicionais.reduce((soma, id) => {
+      const extra = ADICIONAIS.find(a => a.id === id);
+      return soma + (extra ? extra.preco : 0);
+    }, 0);
+    return (linha.preco + extras) * linha.quantidade;
+  }
+
+  const total = () => carrinho.reduce((soma, linha) => soma + precoLinha(linha), 0);
+
+  function renderLista() {
+    const area = el('comanda-lista');
+    if (!carrinho.length) {
+      area.innerHTML = '<div class="comanda-vazio">Toque nos produtos ao lado para montar o pedido.</div>';
+      atualizarTotal();
+      return;
+    }
+
+    area.innerHTML = carrinho.map((linha, i) => {
+      const nomesExtras = linha.adicionais
+        .map(id => (ADICIONAIS.find(a => a.id === id) || {}).nome)
+        .filter(Boolean);
+      const detalhes = [];
+      if (nomesExtras.length) detalhes.push('+ ' + nomesExtras.join(', '));
+      if (linha.remocoes) detalhes.push('obs.: ' + linha.remocoes);
+
+      const permitidos = ADICIONAIS.filter(a => linha.extrasPermitidos.includes(a.id));
+      const painelExtras = linha.aberto ? `
+        <div class="comanda-extras">
+          <div class="comanda-extras-lista">
+            ${permitidos.map(a => `<button type="button" class="comanda-extra${linha.adicionais.includes(a.id) ? ' ativo' : ''}" data-extra="${i}:${a.id}">${escapar(a.nome)} +${moeda(a.preco)}</button>`).join('')}
+          </div>
+          <input type="text" class="admin-input" placeholder="Remover algo? Ex: cebola, tomate" value="${escapar(linha.remocoes)}" data-obs="${i}">
+        </div>` : '';
+
+      return `
+      <div class="comanda-linha">
+        <div class="comanda-linha-topo">
+          <div class="comanda-qtd">
+            <button type="button" data-qtd="${i}:-1">−</button>
+            <b>${linha.quantidade}</b>
+            <button type="button" data-qtd="${i}:1">+</button>
+          </div>
+          <div class="comanda-linha-nome">
+            <b>${escapar(linha.nome)}</b>
+            ${detalhes.length ? `<small>${escapar(detalhes.join(' · '))}</small>` : ''}
+          </div>
+          <div class="comanda-linha-valor">${moeda(precoLinha(linha))}</div>
+        </div>
+        <div class="comanda-linha-acoes">
+          ${permitidos.length ? `<button type="button" data-abrir="${i}">${linha.aberto ? 'fechar' : 'adicionais / remover'}</button>` : ''}
+          <button type="button" class="remover" data-remover="${i}">tirar do pedido</button>
+        </div>
+        ${painelExtras}
+      </div>`;
+    }).join('');
+
+    area.querySelectorAll('[data-qtd]').forEach(b => b.addEventListener('click', () => {
+      const [i, delta] = b.dataset.qtd.split(':').map(Number);
+      carrinho[i].quantidade += delta;
+      if (carrinho[i].quantidade < 1) carrinho.splice(i, 1);
+      renderLista();
+    }));
+    area.querySelectorAll('[data-remover]').forEach(b => b.addEventListener('click', () => {
+      carrinho.splice(Number(b.dataset.remover), 1);
+      renderLista();
+    }));
+    area.querySelectorAll('[data-abrir]').forEach(b => b.addEventListener('click', () => {
+      const i = Number(b.dataset.abrir);
+      carrinho[i].aberto = !carrinho[i].aberto;
+      renderLista();
+    }));
+    area.querySelectorAll('[data-extra]').forEach(b => b.addEventListener('click', () => {
+      const [i, extraId] = b.dataset.extra.split(':').map(Number);
+      const lista = carrinho[i].adicionais;
+      const pos = lista.indexOf(extraId);
+      if (pos >= 0) lista.splice(pos, 1); else lista.push(extraId);
+      renderLista();
+    }));
+    area.querySelectorAll('[data-obs]').forEach(campo => campo.addEventListener('input', () => {
+      carrinho[Number(campo.dataset.obs)].remocoes = campo.value;
+      atualizarTotal();
+    }));
+
+    atualizarTotal();
+  }
+
+  function atualizarTotal() {
+    el('comanda-total-valor').textContent = moeda(total());
+    el('comanda-enviar').disabled = carrinho.length === 0;
+  }
+
+  window.limparListaComanda = function () {
+    carrinho = [];
+    el('comanda-observacao').value = '';
+    renderLista();
+  };
+
+  // ------------------------------------------------------------- enviar ---
+  window.enviarComanda = async function () {
+    if (!carrinho.length) return;
+    const botao = el('comanda-enviar');
+    botao.disabled = true;
+    botao.textContent = 'ENVIANDO...';
+    try {
+      const resposta = await fetch(rota(URL_COMANDA, destino.numero), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: JSON.stringify({
+          observacao: el('comanda-observacao').value.trim(),
+          carrinho: carrinho.map(l => ({
+            produto_id: l.produto_id,
+            quantidade: l.quantidade,
+            adicionais: l.adicionais,
+            remocoes: l.remocoes,
+          })),
+        }),
+      });
+      const dados = await resposta.json().catch(() => ({}));
+      if (!resposta.ok) throw new Error(dados.mensagem || 'Não foi possível enviar o pedido.');
+      fecharModalComanda();
+      window.showToast(dados.mensagem || 'Pedido enviado.');
+      // Recarrega para o mapa refletir a mesa que acabou de abrir.
+      setTimeout(() => window.location.reload(), 700);
+    } catch (erro) {
+      window.showToast(erro.message);
+      botao.disabled = false;
+    } finally {
+      botao.textContent = 'ENVIAR PARA A COZINHA';
+    }
+  };
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    ['modal-acoes-mesa', 'modal-add-comanda', 'modal-fechar-comanda'].forEach(id => {
+      const alvo = el(id);
+      if (alvo) alvo.style.display = 'none';
+    });
+  });
+
+  // Clicar no fundo escuro fecha, como em qualquer modal.
+  ['modal-acoes-mesa', 'modal-add-comanda', 'modal-fechar-comanda'].forEach(id => {
+    el(id).addEventListener('click', e => { if (e.target.id === id) e.target.style.display = 'none'; });
+  });
+})();
+</script>
 {% endblock %}
