@@ -33,17 +33,19 @@
   window.closeNav = closeNav;
 
   // ---------------------------------------------------------------- tema ----
+  /* O escuro é o padrão — é a cara da página inicial do produto —, então
+     ausência de atributo significa escuro e o claro é que se declara. */
+  const estaClaro = () => document.documentElement.getAttribute('data-theme') === 'light';
+
   function aplicarRotuloTema() {
     const botao = el('theme-toggle');
     if (!botao) return;
-    const escuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    botao.textContent = escuro ? '☀ Claro' : '🌙 Escuro';
-    botao.setAttribute('aria-pressed', escuro ? 'true' : 'false');
+    botao.textContent = estaClaro() ? '🌙 Escuro' : '☀ Claro';
+    botao.setAttribute('aria-pressed', estaClaro() ? 'false' : 'true');
   }
 
   function toggleTheme() {
-    const escuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    const proximo = escuro ? 'light' : 'dark';
+    const proximo = estaClaro() ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', proximo);
     try { localStorage.setItem(CHAVE_TEMA, proximo); } catch (e) { /* sem localStorage: vale só nesta página */ }
     aplicarRotuloTema();

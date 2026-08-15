@@ -52,9 +52,10 @@
       --brand-bg: {{ tons.fundo }};
       --brand-border: {{ tons.borda }};
       --brand-contraste: {{ tons.contraste }};
-      --brand-texto: {{ tons.texto_claro }};
+      /* O escuro é o padrão, então ele fica no :root; o claro é a exceção. */
+      --brand-texto: {{ tons.texto_escuro }};
     }
-    :root[data-theme="dark"], body.vitrine { --brand-texto: {{ tons.texto_escuro }}; }
+    :root[data-theme="light"] { --brand-texto: {{ tons.texto_claro }}; }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -106,8 +107,10 @@
           </div>
         </div>
         <div class="v17-commandbar-actions">
+          {# Escuro é o padrão, então o botão nasce oferecendo o claro. O JS
+             corrige o rótulo se a pessoa já tiver escolhido outro tema. #}
           <button type="button" class="v17-quick-link" id="theme-toggle"
-                  title="Alternar tema claro/escuro">🌙 Escuro</button>
+                  title="Alternar tema claro/escuro">☀ Claro</button>
           {% if contexto == "admin" %}
             <a class="v17-quick-link hide-mobile" href="{{ url_for('public.index') }}"
                target="_blank" rel="noopener">Cardápio</a>

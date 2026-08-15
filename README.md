@@ -46,23 +46,32 @@ O que já existe aqui:
 
 ## Identidade visual de cada tenant
 
-O design system inteiro vive em `app/static/css/comanda.css`, **portado do
-`gestao_v18.css`** do Borba's Burguer: mesmas classes (`v17-app-shell`,
+O design system inteiro vive em `app/static/css/comanda.css` e usa **a mesma
+linguagem visual da página inicial** (`landing.css`): fundo quase preto, superfície
+em gradiente sutil com borda, raios de 8/10/14/18, tipografia com tracking
+negativo em título e realce em gradiente da cor da marca. A landing é uma vitrine
+para ler uma vez; o painel é ferramenta de oito horas por dia, então o que muda é
+a densidade — espaçamento mais apertado e tipografia menor.
+
+**Escuro é o padrão**, que é a cara do produto. O tema claro continua existindo em
+`[data-theme="light"]`, guardado no `localStorage` de quem opera — quem trabalha
+em cozinha clara precisa dele.
+
+Os nomes de classe vêm do `gestao_v18.css` do Borba's Burguer (`v17-app-shell`,
 `card-admin`, `admin-input`, `btn-add/save/secondary/delete`, `metric-grid`,
-`mesas-grid`, `v17-kanban`, `finance-*`), mesmas medidas e mesmas cores. São dois
-ambientes: o **painel** (admin do restaurante e área da plataforma), claro por
-padrão e com alternador para escuro guardado no `localStorage` de quem opera; e a
-**vitrine** (o cardápio público), sempre escura, com tokens do `v2.css`. Qual dos
-dois usar não é declarado por tela: `app/layout.py::contexto_layout()` decide pelo
+`mesas-grid`, `v17-kanban`, `finance-*`, `comanda-*`) e foram mantidos de
+propósito: a estrutura das ~30 telas continua valendo, só a pele mudou. Qual shell
+usar não é declarado por tela: `app/layout.py::contexto_layout()` decide pelo
 contexto da requisição.
 
 Os gráficos do Financeiro são desenhados à mão em `<canvas>` (`static/js/painel.js`,
 portado do `gestao_v18.js`) — sem biblioteca externa e sem CDN, e as cores saem das
 variáveis CSS, então acompanham o tema e a marca do tenant.
 
-A **vitrine** também veio do original (`index.html` + `v2.css`): banner da loja,
+A **estrutura** da vitrine veio do original (`index.html`): banner da loja,
 busca fixa, navegação por categoria, cards em lista com miniatura à direita e
-botão `+`, modal de produto com stepper de quantidade e sacola flutuante. A
+botão `+`, modal de produto com stepper de quantidade e sacola flutuante — hoje
+vestida com a linguagem visual da página inicial, como o resto do sistema. A
 diferença: lá o carrinho vivia só no navegador e o total ia junto no POST; aqui
 ele continua na sessão do servidor, que é quem calcula preço — a tela só manda
 ids e quantidade, então um preço adulterado no navegador não vira desconto. O
