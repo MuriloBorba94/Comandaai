@@ -14,6 +14,9 @@ O que já existe aqui:
   plataforma abre numa página inicial com receita recorrente, o que está vencido,
   trials terminando e quais restaurantes pararam de receber pedidos.
 - Rate limit por IP nas rotas de login, contando somente tentativas que falham.
+- **Sessão que não fica salva**: o cookie de login não tem validade, então o
+  navegador o descarta ao fechar; e o servidor derruba a sessão sozinha depois
+  de `SESSION_IDLE_MINUTES` sem uso (padrão 4 h). Ver `app/sessao.py`.
 - **Cardápio completo por tenant** (Fase 1): `Categoria` ordenável, `Adicional`
   vinculado por produto, `Produto` com foto, e vitrine pública agrupada na
   ordem que cada tenant define.

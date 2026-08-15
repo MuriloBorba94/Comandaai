@@ -15,6 +15,7 @@ from flask import (
 
 from ..extensions import limiter
 from ..models.usuario import Usuario
+from ..sessao import marcar_acesso
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -43,11 +44,22 @@ def login():
         password = request.form.get("password", "")
         usuario = Usuario.query.filter_by(tenant_id=g.tenant.id, username=username, ativo=True).first()
         if usuario and usuario.check_password(password):
+            # session.clear() antes de gravar: sem isso, um carrinho da vitrine
+            # (ou uma sessão anterior) sobreviveria dentro da sessão logada.
             session.clear()
             session["logged_in"] = True
-            session["user_id"] = usuario.id
+            session["usuario_id"] = usuario.id
+            # `username` alimenta o chip do painel e, mais importante, vira o
+            # autor das movimentações de estoque e dos itens lançados na
+            # comanda. Faltava aqui, então todo o histórico saía sem dono.
+            session["username"] = usuario.username
+            session["nome"] = usuario.nome
             session["tenant_id"] = g.tenant.id
             session["role"] = usuario.role
+            marcar_acesso()
+            current_app.logger.info(
+                "Login: tenant=%s username=%r", g.tenant.slug, usuario.username
+            )
             return redirect(url_for("admin.dashboard"))
         current_app.logger.warning(
             "Login de tenant falhou: tenant=%s username=%r ip=%s",

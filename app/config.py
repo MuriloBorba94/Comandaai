@@ -72,7 +72,18 @@ class Config:
     SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
     # Deliberadamente SEM SESSION_COOKIE_DOMAIN: cookies ficam "host-only",
     # então o cookie de um tenant nunca é enviado para outro subdomínio.
+    #
+    # O cookie de sessão NÃO leva validade (ver app/sessao.py): fechou o
+    # navegador, some. PERMANENT_SESSION_LIFETIME fica aqui só porque o Flask
+    # exige um valor; ele não vale enquanto `session.permanent` for False.
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 12
+
+    # Minutos de inatividade até a sessão de quem opera o sistema ser
+    # descartada. É o que cobre o navegador que restaura sessão ao reabrir e o
+    # painel esquecido aberto no balcão. Qualquer clique reinicia a contagem, e
+    # o painel da cozinha se atualiza sozinho, então ninguém cai no meio do
+    # turno por causa disso.
+    SESSION_IDLE_MINUTES = _to_int(os.getenv("SESSION_IDLE_MINUTES"), 240)
 
     # ----------------------- cobrança da própria SaaS ----------------------- #
     # Dias de teste grátis de um tenant novo. O prazo só passa a valer quando

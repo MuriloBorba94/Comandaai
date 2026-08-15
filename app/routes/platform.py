@@ -29,6 +29,7 @@ from ..models.assinatura import (
 )
 from ..models.pedido import Pedido
 from ..models.platform_admin import PlatformAdmin
+from ..sessao import marcar_acesso
 from ..models.tenant import STATUSES, Tenant
 from ..models.usuario import Usuario
 from ..utils import para_float, para_int
@@ -128,6 +129,8 @@ def login():
         if admin and admin.check_password(password):
             session.clear()
             session["platform_admin_id"] = admin.id
+            session["username"] = admin.username
+            marcar_acesso()
             return redirect(url_for("platform.inicio"))
         current_app.logger.warning(
             "Login de super-admin falhou: username=%r ip=%s", username, request.remote_addr
@@ -138,7 +141,9 @@ def login():
 
 @platform_bp.route("/logout")
 def logout():
-    session.pop("platform_admin_id", None)
+    # Limpa a sessão inteira, e não só a chave do admin: sobrar meia sessão é
+    # como um erro de autorização costuma nascer.
+    session.clear()
     return redirect(url_for("platform.login"))
 
 

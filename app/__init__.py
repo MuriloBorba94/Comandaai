@@ -84,6 +84,10 @@ def create_app(config_object=Config) -> Flask:
     register_tenancy(app)
     register_cli(app)
 
+    from .sessao import registrar as registrar_sessao
+
+    registrar_sessao(app)
+
     from .layout import registrar as registrar_layout
 
     registrar_layout(app)
