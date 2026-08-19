@@ -3,6 +3,11 @@
 Escrito para o servidor contratado: **Ubuntu 24.04 LTS, 2 GB de RAM, acesso por
 SSH**, domínio **comandaai.app.br**.
 
+> **Nunca usou SSH nem terminal Linux?** Comece pelo
+> [PRIMEIROS-PASSOS.md](PRIMEIROS-PASSOS.md): ele cobre conectar na VPS, o
+> básico de sobrevivência no terminal e a configuração do DNS. Depois volte para
+> cá no passo 1.
+
 O desenho é este:
 
     internet ──HTTPS──> Caddy (80/443) ──HTTP──> waitress (127.0.0.1:5000) ──> SQLite
