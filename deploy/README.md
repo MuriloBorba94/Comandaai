@@ -333,7 +333,19 @@ lugar errado ou o `daemon-reload` não rodou.
 ### 7.6 Colocar a configuração
 
     cp /opt/comandaai/deploy/Caddyfile /etc/caddy/Caddyfile
-    mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
+
+Prepare a pasta **e o arquivo** de log, já com o dono certo:
+
+    mkdir -p /var/log/caddy
+    touch /var/log/caddy/comandaai.log
+    chown -R caddy:caddy /var/log/caddy
+
+O `touch` parece desnecessário e não é. O `caddy validate` do fim desta etapa
+provisiona os módulos de verdade e cria o arquivo de log — e como você roda o
+`validate` como **root**, o arquivo nasce sendo do root. Depois o serviço, que
+roda como usuário `caddy`, não consegue escrever nele e morre com
+`permission denied`. Criando antes com o dono certo, o problema não existe.
+
     nano /etc/caddy/Caddyfile
 
 No nano, troque `SEU_EMAIL@exemplo.com` pelo seu e-mail de verdade (é onde a
@@ -344,9 +356,14 @@ Confira a sintaxe:
 
     caddy validate --config /etc/caddy/Caddyfile
 
-Tem que terminar com `Valid configuration`. Um aviso sobre a variável de ambiente
-estar vazia é normal aqui — o `validate` roda fora do serviço, então ele não vê o
-token. O que importa é não haver erro de sintaxe.
+Duas mensagens aqui são **esperadas** e não indicam problema:
+
+- `API token '' appears invalid` — o `validate` roda fora do serviço, então ele
+  não vê o token. Quem precisa dele é o serviço, e o 7.5 já entregou.
+- `Caddyfile input is not formatted` — só estética. Se incomodar:
+  `caddy fmt --overwrite /etc/caddy/Caddyfile`.
+
+O que importa é não haver erro de **sintaxe**.
 
 ### 7.7 Subir e acompanhar
 
@@ -370,12 +387,48 @@ Se aparecer erro, os três mais comuns:
 | `no such module`, `dns.providers.cloudflare` | O 7.4 não funcionou. Refaça e confirme com `caddy list-modules` |
 | `Invalid request headers`, `Authentication error` | Token errado ou sem as duas permissões. Volte ao 7.2 |
 | `timed out waiting for record to fully propagate` | Normal na primeira vez. O Caddy tenta de novo sozinho; espere mais 2 min |
+| `open /var/log/caddy/comandaai.log: permission denied` | O arquivo de log ficou do root. Conserto: `touch /var/log/caddy/comandaai.log && chown -R caddy:caddy /var/log/caddy && systemctl restart caddy` |
 
 E confirme que o serviço ficou de pé:
 
     systemctl is-active caddy
 
 Tem que responder `active`.
+
+### 7.8 Tirar o token do log do sistema
+
+O serviço do Caddy que vem no pacote sobe com `--environ`, que despeja **todas**
+as variáveis de ambiente no log — incluindo o token do Cloudflare, em texto puro,
+a cada reinício. Qualquer um que leia o log do sistema vê o token.
+
+Faça isto depois que o certificado tiver saído. Abra o editor:
+
+    nano /etc/systemd/system/caddy.service.d/sem-environ.conf
+
+Digite exatamente estas três linhas:
+
+    [Service]
+    ExecStart=
+    ExecStart=/usr/bin/caddy run --config /etc/caddy/Caddyfile
+
+Salve com **Ctrl+O**, **Enter**, **Ctrl+X**. Depois:
+
+    systemctl daemon-reload
+    systemctl restart caddy
+
+A primeira linha `ExecStart=` vazia é obrigatória: ela apaga o comando original
+antes de definir o novo. Sem ela, o systemd tenta rodar os dois.
+
+E limpe o log antigo, que já guardou o token:
+
+    journalctl --rotate
+    journalctl --vacuum-time=1s
+
+Confirme que o token não aparece mais:
+
+    journalctl -u caddy | grep -c CLOUDFLARE_API_TOKEN
+
+Tem que responder `0`.
 
 ---
 
