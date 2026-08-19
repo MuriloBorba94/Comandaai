@@ -77,20 +77,84 @@ atende é o Caddy.
 
 ## 2. Levar o código
 
-O jeito que facilita as atualizações é um repositório privado no GitHub (de
-graça). Este projeto ainda não tem remoto configurado, então na **sua máquina**:
+O código vive num repositório **privado** no GitHub:
+`https://github.com/MuriloBorba94/Comandaai`. Na sua máquina, o `git push` já
+funciona (o Git para Windows guarda a credencial). No servidor não — ele é uma
+máquina nova, que o GitHub nunca viu.
 
-    git remote add origin git@github.com:SEU_USUARIO/comandaai.git
-    git push -u origin main
+Um servidor não digita senha. Ele se identifica com uma **chave de deploy**: uma
+chave só de leitura, válida para este único repositório. Não expira, e se um dia
+o servidor for comprometido, ela não dá acesso a mais nada seu.
 
-E no servidor:
+### 2.1 Gerar a chave no servidor
 
-    cd /opt
-    git clone git@github.com:SEU_USUARIO/comandaai.git comandaai
-    chown -R comandaai:comandaai /opt/comandaai
+    install -d -m 700 -o comandaai -g comandaai /opt/comandaai/.ssh
+    sudo -u comandaai ssh-keygen -t ed25519 -C "vps-comandaai" -f /opt/comandaai/.ssh/id_ed25519 -N ""
+    cat /opt/comandaai/.ssh/id_ed25519.pub
 
-Sem GitHub, dá para mandar um `.tar.gz` por `scp` — mas aí cada atualização é
-manual e o `deploy/atualizar.sh` não serve.
+O `-N ""` cria a chave **sem senha**, de propósito: o servidor precisa usá-la
+sozinho, sem ninguém para digitar nada.
+
+O `cat` imprime uma linha começando com `ssh-ed25519 AAAA...`. **Copie essa linha
+inteira** — é a chave pública, pode ser mostrada sem risco. A privada
+(`id_ed25519`, sem `.pub`) nunca sai do servidor.
+
+### 2.2 Autorizar no GitHub
+
+1. Abra <https://github.com/MuriloBorba94/Comandaai/settings/keys>
+2. **Add deploy key**
+3. **Title**: `vps-locaweb`
+4. **Key**: cole a linha do passo anterior
+5. **Não marque** *Allow write access* — o servidor só precisa ler
+6. **Add key**
+
+### 2.3 Registrar a identidade do GitHub e testar
+
+Sem isto, o clone para no meio perguntando se você confia no github.com — e como
+ele roda por outro usuário, você não vê a pergunta.
+
+    ssh-keyscan github.com 2>/dev/null | sudo -u comandaai tee -a /opt/comandaai/.ssh/known_hosts >/dev/null
+    sudo -u comandaai ssh -T git@github.com
+
+A resposta esperada é:
+
+    Hi MuriloBorba94/Comandaai! You've successfully authenticated,
+    but GitHub does not provide shell access.
+
+Isso é **sucesso**, mesmo parecendo aviso: o GitHub não dá terminal a ninguém.
+
+### 2.4 Clonar
+
+A pasta `/opt/comandaai` já existe (é a casa do usuário, e agora tem o `.ssh`
+dentro), e o `git clone` se recusa a escrever em pasta que não está vazia. Então
+clona fora e copia para dentro:
+
+    sudo -u comandaai git clone git@github.com:MuriloBorba94/Comandaai.git /tmp/codigo
+    sudo -u comandaai cp -a /tmp/codigo/. /opt/comandaai/
+    rm -rf /tmp/codigo
+
+O `/.` no fim de `/tmp/codigo/.` é o que faz copiar **o conteúdo** da pasta,
+inclusive o `.git` — sem ele, você copiaria a pasta para dentro dela mesma.
+
+### 2.5 Amarrar a chave ao repositório
+
+    sudo -u comandaai git -C /opt/comandaai config core.sshCommand "ssh -i /opt/comandaai/.ssh/id_ed25519 -o IdentitiesOnly=yes"
+
+Isso grava no repositório qual chave usar. Sem essa linha, o `git pull` do
+`deploy/atualizar.sh` pode falhar depois — ele roda por outro usuário, e nem
+sempre o `ssh` acha a chave sozinho. É uma linha agora para não virar um deploy
+travado no futuro.
+
+Confirme:
+
+    sudo -u comandaai git -C /opt/comandaai pull --ff-only
+
+Tem que responder `Already up to date.`
+
+> **Alternativa sem chave:** dá para clonar por HTTPS usando um token de acesso
+> pessoal do GitHub. Funciona, mas o token vai escrito no `.git/config` e expira
+> — aí o deploy quebra num dia qualquer, sem aviso. A chave de deploy não tem
+> esse problema.
 
 ---
 
@@ -266,6 +330,16 @@ Navegador normal manda; extensão de privacidade agressiva ou proxy corporativo
 podem remover. Confirme no log do Caddy se o `Referer` está chegando. Se for esse
 o caso e você precisar aceitar esses clientes, dá para desligar a checagem — mas
 ela é uma defesa real, então só faça isso com o problema confirmado.
+
+**`git@github.com: Permission denied (publickey)` ao clonar.**
+O servidor não tem chave autorizada no repositório — é o passo 2 deste guia. Não
+significa que o repositório não existe: o GitHub responde essa mesma mensagem
+para repositório inexistente e para chave não autorizada, porque não conta a
+estranhos o que existe lá dentro. Refaça o 2.1 ao 2.5.
+
+Se o `ssh -T git@github.com` responder `Hi MuriloBorba94/Comandaai!`, a chave
+está certa e o problema é outro — provavelmente a URL do clone (confira as
+maiúsculas: `Comandaai`, não `comandaai`).
 
 **Certificado não emite; log do Caddy fala de DNS.**
 Na ordem: o token do Cloudflare tem `Zone → DNS → Edit` **e** `Zone → Zone →
