@@ -217,39 +217,152 @@ Teste local, antes de existir HTTPS. Tem que devolver o HTML da página inicial:
 
 ## 7. Caddy com o certificado curinga
 
+O passo mais difícil do guia. São sete etapas, cada uma com um jeito de conferir
+se deu certo antes de seguir. **Não pule as conferências** — errar aqui e só
+descobrir três etapas depois é o que faz perder a tarde.
+
+O que vai acontecer: o Caddy vai pedir à Let's Encrypt um certificado válido para
+`*.comandaai.app.br`. Para provar que o domínio é seu, ele cria um registro
+temporário no seu DNS do Cloudflare, espera propagar e apaga. É por isso que ele
+precisa do token.
+
+### 7.1 Conferir o DNS antes de tudo
+
+    dig +short comandaai.app.br
+    dig +short qualquercoisa.comandaai.app.br
+
+Os dois têm que devolver **o IP da sua VPS**. Se devolverem `1.1.1.1` (o valor
+temporário que você pode ter deixado) ou nada, pare aqui e corrija os registros
+no Cloudflare — o certificado vai até sair, mas o site não abre.
+
+Se o comando `dig` não existir:
+
+    apt install -y dnsutils
+
+### 7.2 Conferir o token do Cloudflare
+
+Vale gastar dez segundos aqui: token errado é a causa mais comum de o certificado
+não sair, e o erro do Caddy não diz isso com clareza.
+
+    curl -s -H "Authorization: Bearer COLE_SEU_TOKEN_AQUI" https://api.cloudflare.com/client/v4/user/tokens/verify
+
+Resposta boa contém `"status":"active"` e `"success":true`. Se vier
+`"success":false`, o token está errado ou expirado — gere outro
+(PRIMEIROS-PASSOS.md, item 1.5).
+
+### 7.3 Instalar o Caddy
+
+Quatro comandos. Cole **um por vez** e espere cada um terminar.
+
     apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+
     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+
     apt update && apt install -y caddy
 
-O Caddy padrão **não** traz os módulos de DNS. Este comando troca o binário por
-um com o módulo do Cloudflare:
+Confira:
+
+    caddy version
+
+Tem que imprimir algo como `v2.8.4`. Se disser `command not found`, algum dos
+quatro comandos falhou — role a tela para achar a mensagem de erro.
+
+### 7.4 Adicionar o módulo de DNS do Cloudflare
+
+O Caddy que vem do apt **não** sabe falar com o Cloudflare. Este comando baixa um
+binário novo, já com o módulo:
 
     caddy add-package github.com/caddy-dns/cloudflare
 
-O token vai no ambiente do serviço, não no `Caddyfile` (que vai para o git).
-Crie `/etc/systemd/system/caddy.service.d/cloudflare.conf` com:
+Demora de 30 s a 2 min e não imprime quase nada enquanto trabalha. Confira:
+
+    caddy list-modules | grep cloudflare
+
+Tem que aparecer `dns.providers.cloudflare`. **Se não aparecer, não siga** — o
+certificado não vai sair de jeito nenhum, e o erro no log vai parecer ser outra
+coisa.
+
+### 7.5 Dar o token ao serviço do Caddy
+
+O token não pode ir no `Caddyfile`, porque esse arquivo está no Git. Ele vai numa
+configuração extra do serviço, que só o root lê.
+
+Primeiro crie a pasta (ela ainda não existe):
+
+    mkdir -p /etc/systemd/system/caddy.service.d
+
+Agora abra o editor:
+
+    nano /etc/systemd/system/caddy.service.d/cloudflare.conf
+
+O nano abre uma tela vazia. Digite exatamente estas duas linhas, trocando pelo seu
+token:
 
     [Service]
-    Environment=CLOUDFLARE_API_TOKEN=cole_o_token_aqui
+    Environment=CLOUDFLARE_API_TOKEN=cole_seu_token_aqui
 
-Depois:
+Para salvar e sair: **Ctrl+O**, **Enter**, **Ctrl+X**.
+
+Proteja o arquivo e recarregue o systemd:
 
     chmod 600 /etc/systemd/system/caddy.service.d/cloudflare.conf
     systemctl daemon-reload
 
-Configuração:
+Confira que o Caddy vai receber o token (mostra a variável, sem o valor):
+
+    systemctl show caddy -p Environment | grep -o CLOUDFLARE_API_TOKEN
+
+Tem que imprimir `CLOUDFLARE_API_TOKEN`. Se não imprimir nada, o arquivo está no
+lugar errado ou o `daemon-reload` não rodou.
+
+### 7.6 Colocar a configuração
 
     cp /opt/comandaai/deploy/Caddyfile /etc/caddy/Caddyfile
-    nano /etc/caddy/Caddyfile
     mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
+    nano /etc/caddy/Caddyfile
+
+No nano, troque `SEU_EMAIL@exemplo.com` pelo seu e-mail de verdade (é onde a
+Let's Encrypt avisa se um certificado estiver perto de vencer). Salve com
+**Ctrl+O**, **Enter**, **Ctrl+X**.
+
+Confira a sintaxe:
+
     caddy validate --config /etc/caddy/Caddyfile
+
+Tem que terminar com `Valid configuration`. Um aviso sobre a variável de ambiente
+estar vazia é normal aqui — o `validate` roda fora do serviço, então ele não vê o
+token. O que importa é não haver erro de sintaxe.
+
+### 7.7 Subir e acompanhar
+
     systemctl restart caddy
     journalctl -u caddy -f
 
-Troque `SEU_EMAIL@exemplo.com` no `Caddyfile`. O primeiro certificado curinga
-leva de 30 s a 2 min — o Caddy cria um registro `_acme-challenge` no Cloudflare,
-espera a propagação e apaga depois.
+O `-f` deixa o log rolando ao vivo. Agora **espere de 30 s a 2 min**. Você quer
+ver linhas como:
+
+    obtaining certificate
+    ...
+    certificate obtained successfully
+
+Quando aparecer `certificate obtained successfully`, deu certo. Aperte **Ctrl+C**
+para sair do log.
+
+Se aparecer erro, os três mais comuns:
+
+| No log aparece | O que é |
+|---|---|
+| `no such module`, `dns.providers.cloudflare` | O 7.4 não funcionou. Refaça e confirme com `caddy list-modules` |
+| `Invalid request headers`, `Authentication error` | Token errado ou sem as duas permissões. Volte ao 7.2 |
+| `timed out waiting for record to fully propagate` | Normal na primeira vez. O Caddy tenta de novo sozinho; espere mais 2 min |
+
+E confirme que o serviço ficou de pé:
+
+    systemctl is-active caddy
+
+Tem que responder `active`.
 
 ---
 
