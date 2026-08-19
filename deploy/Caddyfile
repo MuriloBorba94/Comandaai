@@ -1,0 +1,62 @@
+# Caddy do Comanda ai — comandaai.app.br
+#
+# O Caddy resolve HTTPS sozinho, inclusive o certificado CURINGA que este
+# sistema exige: cada restaurante é um subdomínio, então precisa de
+# *.comandaai.app.br. Certificado curinga só sai por validação DNS, e é por
+# isso que o bloco `tls` fala com a API do Cloudflare.
+#
+# ATENÇÃO: o Caddy padrão NÃO vem com os módulos de DNS. Depois de instalar:
+#   sudo caddy add-package github.com/caddy-dns/cloudflare
+#   sudo systemctl restart caddy
+#
+# O token do Cloudflare vem do ambiente (ver deploy/README.md), nunca escrito
+# aqui: este arquivo vai para o git.
+
+{
+	# E-mail para os avisos da Let's Encrypt (certificado vencendo, etc.).
+	email SEU_EMAIL@exemplo.com
+}
+
+# ---------------------------------------------------------------------------
+# www → apex. Vem ANTES do curinga de propósito: o Caddy casa o bloco mais
+# específico, então este ganha de *.comandaai.app.br. Sem ele, "www" seria
+# tratado como se fosse o slug de um restaurante e devolveria 404.
+# ---------------------------------------------------------------------------
+www.comandaai.app.br {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	redir https://comandaai.app.br{uri} permanent
+}
+
+# ---------------------------------------------------------------------------
+# Apex (página inicial + área da plataforma) e todos os restaurantes.
+# ---------------------------------------------------------------------------
+comandaai.app.br, *.comandaai.app.br {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+
+	encode zstd gzip
+
+	# CSS, JS e as fotos dos produtos saem direto do disco, sem passar pela
+	# aplicação Python. É de graça em desempenho e tira carga do waitress.
+	handle_path /static/* {
+		root * /opt/comandaai/app/static
+		header Cache-Control "public, max-age=604800"
+		file_server
+	}
+
+	reverse_proxy 127.0.0.1:5000 {
+		# O Flask precisa saber o host e o esquema reais para montar URLs e
+		# para o TRUSTED_PROXIES=1 valer. O Caddy já manda X-Forwarded-*.
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output file /var/log/caddy/comandaai.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

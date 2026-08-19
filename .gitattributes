@@ -1,0 +1,27 @@
+# Fim de linha normalizado no repositório.
+#
+# O projeto nasceu no Windows com core.autocrlf=true, então cada commit
+# imprimia uma parede de avisos "LF will be replaced by CRLF" e um checkout no
+# Linux vinha com CRLF. Com `text=auto`, o git guarda LF no repositório e
+# entrega o fim de linha nativo em cada máquina — os avisos param e o mesmo
+# arquivo fica igual nos dois sistemas.
+* text=auto
+
+# Estes têm que sair com LF SEMPRE, inclusive num checkout no Windows: um
+# script de shell ou um serviço do systemd com CRLF não roda no Linux
+# ("bad interpreter: /usr/bin/env bash^M").
+*.sh          text eol=lf
+*.service     text eol=lf
+Caddyfile     text eol=lf
+*.py          text eol=lf
+*.html        text eol=lf
+*.css         text eol=lf
+*.js          text eol=lf
+
+# Binários: nunca converter.
+*.png         binary
+*.jpg         binary
+*.webp        binary
+*.ico         binary
+*.db          binary
+*.wav         binary

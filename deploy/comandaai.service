@@ -1,0 +1,43 @@
+# Serviço do Comanda ai. Instalar em /etc/systemd/system/comandaai.service
+#
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now comandaai
+#   sudo systemctl status comandaai
+#   sudo journalctl -u comandaai -f     # acompanhar o log ao vivo
+
+[Unit]
+Description=Comanda ai — sistema de pedidos multi-tenant
+# network-online, e não apenas network: o waitress precisa da interface pronta
+# para abrir a porta, senão o serviço morre no boot e sobe só no retry.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=comandaai
+Group=comandaai
+WorkingDirectory=/opt/comandaai
+
+# O .env é lido pelo próprio app (load_dotenv em app/config.py), então não
+# precisa de EnvironmentFile aqui.
+ExecStart=/opt/comandaai/.venv/bin/python run.py
+
+Restart=always
+RestartSec=3
+
+# --------------------------- endurecimento ---------------------------------
+# Se um dia um upload malicioso conseguir executar algo, estes limites reduzem
+# o que ele alcança. ProtectSystem=strict deixa o disco inteiro somente-leitura,
+# e ReadWritePaths reabre exatamente as três pastas que a aplicação escreve.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/opt/comandaai/instance /opt/comandaai/logs /opt/comandaai/app/static/uploads
+
+[Install]
+WantedBy=multi-user.target

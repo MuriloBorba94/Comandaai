@@ -45,9 +45,23 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    webhook que confirma pagamento automaticamente. Enquanto isso, o provedor
    `manual` opera: você recebe o PIX e marca a cobrança como paga.
 
-5. **Infra de produção (1ª passada).** Trocar SQLite por Postgres via
-   `DATABASE_URL`, DNS de subdomínio real + HTTPS, ambientes separados de
-   dev/staging/prod, logging e monitoramento básico.
+5. **Infra de produção (1ª passada).** *Em andamento.* VPS contratada
+   (Ubuntu 24.04, 2 GB) e domínio `comandaai.app.br`. O kit de publicação está
+   em `deploy/`: Caddyfile com certificado curinga por DNS do Cloudflare,
+   serviço do systemd com o disco em somente-leitura fora de três pastas,
+   `.env` de produção, script de atualização e de backup, mais o passo a passo
+   em `deploy/README.md`.
+
+   Decisões tomadas: o apex serve a página inicial e a área da plataforma
+   (`PLATFORM_HOSTNAME=comandaai.app.br`), cada restaurante fica num
+   subdomínio, e a aplicação escuta só em `127.0.0.1` — com `0.0.0.0` ela
+   ficaria acessível na porta 5000 sem HTTPS, e daria para forjar
+   `X-Forwarded-For` e escapar do rate limit de login.
+
+   **Falta:** executar o roteiro no servidor, mandar o backup para fora do
+   disco, e monitoramento de erros. Postgres fica para quando aparecer
+   `database is locked` — o SQLite dá conta dos primeiros restaurantes e
+   economiza a memória de um serviço a mais.
 
 6. **PIX por pedido, por tenant.** Portar o fluxo de pagamento do cliente
    final do repo atual, desta vez com uma abstração de provedor de fato
@@ -76,29 +90,54 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    dinheiro contado duas vezes. Aqui não existe categoria de despesa para
    insumo: a compra é entrada de estoque.
 
-10. **Hardening e operação.** Backup por tenant, audit log,
+10. **Hardening e operação.** Backup (o `deploy/backup.sh` já cobre banco e
+    fotos; falta mandar para fora do disco e separar por tenant), audit log,
     ~~feature-gating por plano~~ (**feito junto com a Fase 4**: cada plano marca
     quais recursos libera, e plano não configurado libera tudo para não tirar
     acesso de quem já usa), ferramenta de impersonation para suporte,
     monitoramento de erros (ex. Sentry).
 
-**Layout (fora da numeração, feito depois da Fase 9).** O design system do
-Borba's Burguer foi portado inteiro para `app/static/css/comanda.css`: painel
-claro com alternador para escuro (tokens de `css/gestao_v18.css`), sidebar de
-246px que vira gaveta no celular, commandbar, e a vitrine escura de `css/v2.css`
-para o cliente final. O `base.html` escolhe o shell pelo contexto da requisição
-(`app/layout.py::contexto_layout`), então nenhuma das ~30 telas declara em qual
-mundo vive.
+**Layout e produto (fora da numeração).** Feito depois da Fase 9, em várias
+rodadas:
 
-A diferença em relação ao original: lá era **uma página só** com abas. Aqui cada
-item do menu continua sendo uma rota, porque o bloqueio por plano é por rota — uma
-página única carregaria de uma vez os recursos que o plano do tenant não inclui.
+- **Importação do Borba's Burguer.** Estrutura, menu e telas da Gestão portadas
+  de `gestao_v18.css` / `gestao.html`: shell com sidebar de 246px e commandbar,
+  Monitor, Cozinha em kanban, Mesas com o PDV da comanda em modal, Estoque,
+  Custos, Financeiro 2.0 (KPIs, gráficos em canvas sem biblioteca externa,
+  fluxo de caixa) e o Relatório de Vendas Histórico com exportação CSV. A
+  vitrine veio do `index.html` original: banner da loja, busca, cards em lista
+  com miniatura e sacola flutuante.
 
-Identidade por tenant: `Tenant.logo` (upload, isolado na pasta do tenant como as
-fotos de produto) e `Tenant.cor_marca`, editáveis em `/admin/configuracoes`. A cor
-passa obrigatoriamente por `app/layout.py::cor_valida` antes de entrar no `<style>`
-do `base.html` — sem isso, texto livre ali seria injeção de CSS. Sem logo, a
-sidebar mostra a inicial do nome.
+- **Linguagem visual própria.** Depois disso o sistema inteiro foi revestido com
+  a linguagem da página inicial: fundo quase preto, superfície em gradiente com
+  borda, escuro por padrão e tema claro em `[data-theme="light"]`. Os nomes de
+  classe da Gestão foram mantidos, então a estrutura das ~30 telas continua
+  valendo — trocou só a pele.
+
+- **Página inicial do produto** (`public/landing.html` + `landing.css`): folha
+  própria, demonstração desenhada em CSS, calculadora de comissão, e a seção de
+  planos alimentada pelo catálogo real. Nada ali promete recurso que o sistema
+  não tem — há teste que falha se PIX automático, WhatsApp ou impressão
+  aparecerem no HTML.
+
+- **Identidade por tenant.** `Tenant.logo` e `Tenant.cor_marca`. A cor passa por
+  `app/layout.py::cor_valida` antes de entrar no `<style>` (texto livre ali
+  seria injeção de CSS), e as variantes de contraste saem derivadas garantindo
+  4,5:1 — o restaurante escolhe a cor, não escolhe se ela é legível.
+
+- **Sessão.** Cookie sem validade (morre ao fechar o navegador) e expiração por
+  inatividade no servidor, em `app/sessao.py` — é ela que cobre o navegador
+  configurado para restaurar sessão ao reabrir.
+
+- **Planos granulares.** 10 recursos e limites numéricos por plano
+  (`max_produtos`, `max_mesas`). Plano sem recursos configurados libera tudo, e
+  limite em branco significa sem teto: apertar a régua é sempre decisão
+  explícita.
+
+A diferença estrutural em relação ao original: lá a Gestão é **uma página só**
+com abas. Aqui cada item do menu continua sendo uma rota, porque o bloqueio por
+plano é por rota — uma página única carregaria de uma vez os recursos que o
+plano do tenant não inclui.
 
 11. **Migração do Borba's Burguer como "tenant zero".** Criar o `Tenant` do
     próprio Borba's Burguer, importar os dados reais (`Produto`, `Cupom`,
