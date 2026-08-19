@@ -276,13 +276,26 @@ binário novo, já com o módulo:
 
     caddy add-package github.com/caddy-dns/cloudflare
 
-Demora de 30 s a 2 min e não imprime quase nada enquanto trabalha. Confira:
+Demora de 30 s a 2 min e não imprime quase nada enquanto trabalha.
+
+> **`Error: package is already added`** não é erro: o módulo já está instalado,
+> provavelmente porque o comando foi rodado duas vezes. Siga para a conferência.
+
+Confira:
 
     caddy list-modules | grep cloudflare
 
 Tem que aparecer `dns.providers.cloudflare`. **Se não aparecer, não siga** — o
 certificado não vai sair de jeito nenhum, e o erro no log vai parecer ser outra
 coisa.
+
+Se o `add-package` disser que já está adicionado **mas** o `list-modules` não
+mostrar nada, o binário em uso ficou velho. Este comando o reconstrói com a lista
+atual de módulos:
+
+    caddy upgrade
+    systemctl restart caddy
+    caddy list-modules | grep cloudflare
 
 ### 7.5 Dar o token ao serviço do Caddy
 
