@@ -258,3 +258,57 @@ def register_cli(app: Flask) -> None:
             click.echo("Nada foi gravado. Rode de novo sem --simular para valer.")
         else:
             click.echo(f"Pronto. O restaurante ja responde em {slug}.<seu-dominio>.")
+
+    @app.cli.command("remover-tenant")
+    @click.option("--slug", required=True, help="Restaurante a remover.")
+    @click.option("--apagar-fotos", is_flag=True, help="Apaga tambem a pasta de imagens dele.")
+    @click.option("--sim", is_flag=True, help="Pula a confirmacao. Para script.")
+    def remover_tenant(slug, apagar_fotos, sim) -> None:
+        """Apaga um restaurante e TUDO que e dele. Nao tem desfazer.
+
+        Existe para a migracao poder ser refeita: importou, olhou, nao gostou,
+        remove e importa de novo. Fora disso, pense duas vezes — some pedido,
+        produto, estoque e historico financeiro junto.
+        """
+        import shutil
+        from pathlib import Path
+
+        tenant = Tenant.query.filter_by(slug=slug).first()
+        if tenant is None:
+            disponiveis = ", ".join(t.slug for t in Tenant.query.order_by(Tenant.slug))
+            click.echo(f"Nao existe restaurante '{slug}'. Existem: {disponiveis or 'nenhum'}")
+            raise SystemExit(1)
+
+        from .models.pedido import Pedido
+        from .models.produto import Produto
+
+        pedidos = Pedido.query.filter_by(tenant_id=tenant.id).count()
+        produtos = Produto.query.filter_by(tenant_id=tenant.id).count()
+        usuarios = len(tenant.usuarios)
+
+        click.echo(f"Restaurante : {tenant.nome_fantasia} ({tenant.slug})")
+        click.echo(f"Vao sumir   : {produtos} produto(s), {pedidos} pedido(s), {usuarios} usuario(s)")
+        if pedidos:
+            # Pedido e historico de venda: o financeiro e os relatorios saem
+            # junto. Merece um aviso separado, nao uma linha no meio.
+            click.echo("ATENCAO: este restaurante tem venda registrada. O historico vai junto.")
+
+        if not sim:
+            # Digitar o slug, e nao "s/n": confirmacao de uma tecla e o que faz
+            # alguem apagar o tenant errado no piloto automatico.
+            digitado = click.prompt(f"Digite '{slug}' para confirmar", default="", show_default=False)
+            if digitado.strip() != slug:
+                click.echo("Nao confere. Nada foi apagado.")
+                raise SystemExit(1)
+
+        pasta = Path(app.config["UPLOAD_FOLDER"]) / slug
+        db.session.delete(tenant)
+        db.session.commit()
+
+        if apagar_fotos and pasta.is_dir():
+            shutil.rmtree(pasta, ignore_errors=True)
+            click.echo(f"Pasta de imagens removida: {pasta}")
+        elif pasta.is_dir():
+            click.echo(f"As imagens continuam em {pasta} (use --apagar-fotos para remover).")
+
+        click.echo(f"Restaurante '{slug}' removido.")

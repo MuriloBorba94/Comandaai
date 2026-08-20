@@ -169,3 +169,123 @@ def test_ciclo_simulado_nao_grava(app, two_tenants):
     assert resultado.exit_code == 0
     assert "nada será gravado" in resultado.output
     assert Cobranca.query.count() == 0
+
+
+# --------------------------------------------------------------------------- #
+# Remover tenant
+#
+# Existe para a migração poder ser refeita. Como não tem desfazer, o que precisa
+# ser provado é que ele apaga TUDO do restaurante certo e NADA do vizinho.
+# --------------------------------------------------------------------------- #
+
+
+def _com_dados(tenant_id: int) -> None:
+    """Dá ao tenant um cardápio e um pedido, para o delete ter o que arrastar."""
+    from app.models.pedido import TIPO_RETIRADA
+    from app.models.produto import Produto
+    from app.services.pedidos import criar_pedido
+
+    produto = Produto.query.filter_by(tenant_id=tenant_id).first()
+    if produto is None:
+        produto = Produto(tenant_id=tenant_id, nome="X-Tudo", preco=25.0, disponivel=True)
+        db.session.add(produto)
+        db.session.commit()
+
+    criar_pedido(
+        db.session.get(Tenant, tenant_id),
+        {
+            "cliente": "Maria", "telefone": "81999998888", "tipo": TIPO_RETIRADA,
+            "pagamento": "Dinheiro",
+            "carrinho": [{"produto_id": produto.id, "quantidade": 2}],
+        },
+    )
+
+
+def test_remover_tenant_apaga_tudo_dele(app, two_tenants):
+    from app.models.pedido import Pedido
+    from app.models.produto import Produto
+
+    alvo = two_tenants["tenant_a"]
+    _com_dados(alvo)
+    assert Pedido.query.filter_by(tenant_id=alvo).count() == 1
+
+    resultado = app.test_cli_runner().invoke(args=["remover-tenant", "--slug", "tenant-a", "--sim"])
+
+    assert resultado.exit_code == 0, resultado.output
+    assert Tenant.query.filter_by(slug="tenant-a").first() is None
+    assert Produto.query.filter_by(tenant_id=alvo).count() == 0
+    assert Pedido.query.filter_by(tenant_id=alvo).count() == 0
+    assert Usuario.query.filter_by(tenant_id=alvo).count() == 0
+
+
+def test_remover_tenant_nao_encosta_no_vizinho(app, two_tenants):
+    """A garantia de sempre, e aqui ela vale mais: delete não tem desfazer."""
+    from app.models.pedido import Pedido
+    from app.models.produto import Produto
+
+    vizinho = two_tenants["tenant_b"]
+    _com_dados(two_tenants["tenant_a"])
+    _com_dados(vizinho)
+
+    app.test_cli_runner().invoke(args=["remover-tenant", "--slug", "tenant-a", "--sim"])
+
+    assert Tenant.query.filter_by(slug="tenant-b").first() is not None
+    assert Produto.query.filter_by(tenant_id=vizinho).count() == 1
+    assert Pedido.query.filter_by(tenant_id=vizinho).count() == 1
+    assert Usuario.query.filter_by(tenant_id=vizinho).count() == 1
+
+
+def test_remover_tenant_exige_digitar_o_slug(app, two_tenants):
+    """Confirmação de uma tecla é o que faz alguém apagar o tenant errado."""
+    resultado = app.test_cli_runner().invoke(
+        args=["remover-tenant", "--slug", "tenant-a"], input="sim\n"
+    )
+
+    assert resultado.exit_code == 1
+    assert "Nao confere" in resultado.output
+    assert Tenant.query.filter_by(slug="tenant-a").first() is not None
+
+
+def test_remover_tenant_avisa_quando_ha_venda(app, two_tenants):
+    _com_dados(two_tenants["tenant_a"])
+
+    resultado = app.test_cli_runner().invoke(
+        args=["remover-tenant", "--slug", "tenant-a"], input="nao-vou-confirmar\n"
+    )
+
+    assert "ATENCAO" in resultado.output
+    assert "1 pedido(s)" in resultado.output
+
+
+def test_remover_tenant_inexistente_lista_os_que_existem(app, two_tenants):
+    resultado = app.test_cli_runner().invoke(args=["remover-tenant", "--slug", "nao-existe", "--sim"])
+
+    assert resultado.exit_code == 1
+    assert "tenant-a" in resultado.output
+
+
+def test_remover_tenant_preserva_as_fotos_por_padrao(app, two_tenants, tmp_path):
+    """Apagar imagem é irreversível e não é o que se quer ao refazer import."""
+    from pathlib import Path
+
+    pasta = Path(app.config["UPLOAD_FOLDER"]) / "tenant-a"
+    pasta.mkdir(parents=True, exist_ok=True)
+    (pasta / "foto.webp").write_bytes(b"x")
+
+    app.test_cli_runner().invoke(args=["remover-tenant", "--slug", "tenant-a", "--sim"])
+
+    assert (pasta / "foto.webp").is_file()
+
+
+def test_remover_tenant_com_apagar_fotos_limpa_a_pasta(app, two_tenants):
+    from pathlib import Path
+
+    pasta = Path(app.config["UPLOAD_FOLDER"]) / "tenant-a"
+    pasta.mkdir(parents=True, exist_ok=True)
+    (pasta / "foto.webp").write_bytes(b"x")
+
+    app.test_cli_runner().invoke(
+        args=["remover-tenant", "--slug", "tenant-a", "--sim", "--apagar-fotos"]
+    )
+
+    assert not pasta.exists()
