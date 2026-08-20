@@ -17,6 +17,35 @@ Você vai alternar entre duas janelas. Preste atenção no início da linha:
 
 ---
 
+## 0. Atualizar o servidor
+
+**No servidor.** O importador é código novo: se o servidor ainda não o baixou, o
+comando do passo 5 responde `Usage: python -m flask ...`, que é o jeito do Click
+dizer "esse comando não existe".
+
+```bash
+sudo -u comandaai git -C /opt/comandaai pull --ff-only
+```
+
+Puxe **como `comandaai`**, não como root: o repositório pertence àquele usuário e
+o git recusa operar num repositório de outro dono (`detected dubious ownership`).
+
+```bash
+sudo systemctl restart comandaai
+```
+
+Confirme que os comandos chegaram:
+
+```bash
+cd /opt/comandaai && sudo -u comandaai env FLASK_APP=run.py .venv/bin/python -m flask --help
+```
+
+A lista tem que incluir `importar-legado` e `remover-tenant`. Se não incluir, o
+`pull` não trouxe nada — confira se ele disse `Already up to date` (o que
+significa que o código novo ainda não foi publicado) ou se deu erro.
+
+---
+
 ## 1. Gerar uma cópia limpa do banco antigo
 
 **Na sua máquina.**
