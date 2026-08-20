@@ -205,3 +205,56 @@ def register_cli(app: Flask) -> None:
         db.session.commit()
         _avisar_se_senha_fraca(senha)
         click.echo(f"Senha de '{username}' atualizada em '{tenant.nome_fantasia}'.")
+
+    # ----------------------------------------------------------------- #
+    # Fase 11: trazer um restaurante do sistema single-tenant
+    # ----------------------------------------------------------------- #
+
+    @app.cli.command("importar-legado")
+    @click.option("--banco", required=True, help="Caminho do .db do sistema antigo.")
+    @click.option("--slug", required=True, help="Endereço do restaurante (vira o subdomínio).")
+    @click.option("--email", required=True, help="E-mail de contato do restaurante.")
+    @click.option("--nome", default=None, help="Nome fantasia. Padrão: o nome da loja no banco antigo.")
+    @click.option("--plano", default="trial", show_default=True, help="Slug do plano.")
+    @click.option("--mesas", default=0, show_default=True, help="Quantidade de mesas do salão.")
+    @click.option("--fotos", default=None, help="Pasta de uploads do sistema antigo, para copiar as fotos.")
+    @click.option("--simular", is_flag=True, help="Roda tudo e desfaz no fim, só para ver o relatório.")
+    def importar_legado(banco, slug, email, nome, plano, mesas, fotos, simular) -> None:
+        """Importa um restaurante do sistema single-tenant para dentro do Comanda ai.
+
+        Traz configuração da loja, cardápio com fotos, adicionais, bairros,
+        cupons, insumos, fichas técnicas e usuários (com a senha atual). O
+        histórico de pedidos NÃO vem — o porquê está em app/services/importacao.py.
+
+        Rode primeiro com --simular: ele executa a importação de verdade e
+        desfaz no fim, então o relatório mostra o que aconteceria sem gravar nada.
+        """
+        from .models.assinatura import Plano
+        from .services.importacao import ErroDeImportacao, importar
+
+        if plano and not Plano.query.filter_by(slug=plano).first():
+            click.echo(f"Aviso: nao existe plano '{plano}' no catalogo; o tenant libera tudo.")
+
+        try:
+            relatorio = importar(
+                banco,
+                slug=slug.strip().lower(),
+                email_contato=email.strip(),
+                nome_fantasia=nome,
+                plano=plano,
+                qtd_mesas=mesas,
+                pasta_fotos=fotos,
+                simular=simular,
+            )
+        except ErroDeImportacao as erro:
+            click.echo(f"Importacao nao comecou: {erro}")
+            raise SystemExit(1)
+
+        for linha in relatorio.linhas():
+            click.echo(linha)
+
+        click.echo("")
+        if simular:
+            click.echo("Nada foi gravado. Rode de novo sem --simular para valer.")
+        else:
+            click.echo(f"Pronto. O restaurante ja responde em {slug}.<seu-dominio>.")
