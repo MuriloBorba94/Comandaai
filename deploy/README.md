@@ -387,6 +387,7 @@ Se aparecer erro, os três mais comuns:
 | `no such module`, `dns.providers.cloudflare` | O 7.4 não funcionou. Refaça e confirme com `caddy list-modules` |
 | `Invalid request headers`, `Authentication error` | Token errado ou sem as duas permissões. Volte ao 7.2 |
 | `timed out waiting for record to fully propagate` | Normal na primeira vez. O Caddy tenta de novo sozinho; espere mais 2 min |
+| `checking DNS propagation ... dial tcp ...:53: i/o timeout`, repetindo sem parar | O provedor bloqueia saida na porta 53. Ver "DNS bloqueado" logo abaixo |
 | `open /var/log/caddy/comandaai.log: permission denied` | O arquivo de log ficou do root. Conserto: `touch /var/log/caddy/comandaai.log && chown -R caddy:caddy /var/log/caddy && systemctl restart caddy` |
 
 E confirme que o serviço ficou de pé:
@@ -394,6 +395,40 @@ E confirme que o serviço ficou de pé:
     systemctl is-active caddy
 
 Tem que responder `active`.
+
+### DNS bloqueado pelo provedor
+
+Se o log repetir, de minuto em minuto:
+
+    checking DNS propagation of "_acme-challenge.comandaai.app.br."
+    ... querying authoritative nameservers: dial tcp 108.162.192.54:53: i/o timeout
+
+o token esta certo (o registro chegou a ser criado) e o problema e outro: a VPS
+nao consegue consultar servidores DNS externos. Varios provedores bloqueiam
+saida na porta 53 para conter abuso — a Locaweb bloqueia.
+
+Confirme:
+
+    dig +short comandaai.app.br
+    dig +short +time=3 @1.1.1.1 comandaai.app.br
+
+Se o primeiro responder e o segundo vier vazio, e isso.
+
+O conserto ja esta no `deploy/Caddyfile` deste repositorio: as linhas
+`propagation_delay 30s` e `propagation_timeout -1` dentro de cada bloco `tls`.
+Elas desligam a checagem que o Caddy faz por conta propria e a substituem por uma
+espera fixa.
+
+Nao se perde seguranca: quem valida o desafio de verdade e a Let's Encrypt, do
+lado dela, e ela nao tem esse bloqueio. A checagem do Caddy e so uma cortesia
+para falhar mais cedo.
+
+Se o seu `/etc/caddy/Caddyfile` foi copiado antes desta correcao, acrescente as
+duas linhas nos **dois** blocos `tls` e reinicie:
+
+    nano /etc/caddy/Caddyfile
+    caddy validate --config /etc/caddy/Caddyfile
+    systemctl restart caddy
 
 ### 7.8 Tirar o token do log do sistema
 

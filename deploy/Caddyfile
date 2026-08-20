@@ -25,6 +25,16 @@
 www.comandaai.app.br {
 	tls {
 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+		# O Caddy checa por conta propria se o registro _acme-challenge ja
+		# propagou, consultando os nameservers do Cloudflare DIRETO na porta 53.
+		# Muito provedor de VPS bloqueia saida na 53 (a Locaweb bloqueia), e ai
+		# essa checagem estoura em timeout e o certificado nunca sai.
+		#
+		# propagation_timeout -1 desliga a checagem; propagation_delay espera um
+		# tempo fixo no lugar dela. Nao perde seguranca: quem valida de verdade e
+		# a Let's Encrypt, do lado dela, e o Cloudflare propaga em segundos.
+		propagation_delay 30s
+		propagation_timeout -1
 	}
 	redir https://comandaai.app.br{uri} permanent
 }
@@ -35,6 +45,16 @@ www.comandaai.app.br {
 comandaai.app.br, *.comandaai.app.br {
 	tls {
 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+		# O Caddy checa por conta propria se o registro _acme-challenge ja
+		# propagou, consultando os nameservers do Cloudflare DIRETO na porta 53.
+		# Muito provedor de VPS bloqueia saida na 53 (a Locaweb bloqueia), e ai
+		# essa checagem estoura em timeout e o certificado nunca sai.
+		#
+		# propagation_timeout -1 desliga a checagem; propagation_delay espera um
+		# tempo fixo no lugar dela. Nao perde seguranca: quem valida de verdade e
+		# a Let's Encrypt, do lado dela, e o Cloudflare propaga em segundos.
+		propagation_delay 30s
+		propagation_timeout -1
 	}
 
 	encode zstd gzip
