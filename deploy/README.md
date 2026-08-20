@@ -501,13 +501,43 @@ Google Drive, ou `scp` para a sua máquina) assim que possível.
 
 ## 10. Atualizar depois
 
-Na sua máquina, `git push`. No servidor:
+Na sua máquina, `git push`. No servidor, **um comando só**:
 
-    sudo -u comandaai /opt/comandaai/deploy/atualizar.sh
+    sudo /opt/comandaai/deploy/atualizar.sh
 
-Faz backup, baixa o código, instala dependências, roda as migrations e reinicia —
-nessa ordem. Se a migration falhar, o serviço continua na versão antiga em vez de
-subir código novo contra banco velho.
+Roda como root e desce para o usuário `comandaai` nas partes que mexem no código.
+O contrário não funciona: `comandaai` é usuário de sistema, sem direito a `sudo`,
+e não consegue reiniciar o serviço.
+
+O que ele faz, nesta ordem:
+
+1. **Backup** do banco e das fotos — antes de qualquer coisa.
+2. **`git pull`** do GitHub. Se não veio nada novo, para aqui sem reiniciar.
+3. **Dependências**, caso o `requirements.txt` tenha mudado.
+4. **Migrations** (`flask db upgrade`), que alteram a estrutura do banco sem
+   apagar dado nenhum.
+5. **Reinicia** o serviço e confere se subiu.
+
+Se qualquer etapa falhar, o script aborta ali. Falhando antes do passo 5, o
+serviço continua rodando a versão **antiga** — melhor do que código novo contra
+banco velho.
+
+O que **não** é tocado, porque nada disso está no Git: o `.env`, o banco em
+`instance/`, as fotos em `app/static/uploads/` e os backups.
+
+A parada é de 1 a 2 segundos, no reinício.
+
+### Se a versão nova quebrar
+
+O próprio script imprime o comando de volta. É este, trocando pelo código que ele
+mostrou como versão anterior:
+
+    sudo -u comandaai git -C /opt/comandaai reset --hard COMMIT_ANTIGO
+    sudo systemctl restart comandaai
+
+> Isso volta o **código**. Se a atualização tiver rodado uma migration que mudou
+> a estrutura do banco, voltar o código sozinho pode não bastar — aí o caminho é
+> restaurar o backup de `/opt/comandaai/backups`, que o passo 1 acabou de gerar.
 
 ---
 
