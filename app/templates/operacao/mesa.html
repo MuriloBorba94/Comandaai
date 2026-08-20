@@ -19,6 +19,16 @@
       {% endfor %}
       <p class="total-linha"><strong>Total: R$ {{ pedido.total|brl }}</strong></p>
 
+      {% if libera('impressao') %}
+        <form method="post" action="{{ url_for('operacao.mesa_conta', numero=numero) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-secondary">Imprimir a conta</button>
+        </form>
+        <p class="muted">
+          Sai a conferência de consumo para levar à mesa. Não é documento fiscal.
+        </p>
+      {% endif %}
+
       <form method="post" action="{{ url_for('operacao.mesa_fechar', numero=numero) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="pagamento">Fechar comanda — forma de pagamento</label>

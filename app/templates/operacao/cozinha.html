@@ -64,6 +64,12 @@
                     <button type="submit" class="{{ 'btn-delete' if proximo == 'Cancelado' else 'btn-save' }}">{{ proximo }}</button>
                   </form>
                 {% endfor %}
+                {% if libera('impressao') %}
+                  <form method="post" action="{{ url_for('operacao.pedido_imprimir', pedido_id=pedido.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-secondary" title="Manda a comanda para a impressora de novo">Imprimir</button>
+                  </form>
+                {% endif %}
               </div>
             </div>
           {% else %}

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Impressão — {{ tenant.nome_fantasia }}{% endblock %}
+{% block secao %}Impressão{% endblock %}
+{% block intro_titulo %}Impressão na cozinha{% endblock %}
+{% block intro_texto %}A comanda sai no papel pela impressora do seu balcão.{% endblock %}
+{% block content %}
+
+  {% if token_novo %}
+    <div class="card-admin destaque-token">
+      <h1>Código de ativação</h1>
+      <p>
+        Copie agora e cole no configurador do agente, no computador do balcão.
+        <strong>Ele não será mostrado outra vez</strong> — se perder, gere outro.
+      </p>
+      <code class="token-gerado">{{ token_novo }}</code>
+      <p class="muted">
+        Endereço do servidor, que o configurador também pede:
+        <code>{{ url_do_tenant(tenant.slug) }}</code>
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="card-admin">
+    <h1>Computador pareado</h1>
+
+    {% if situacao.pareado %}
+      <p class="agente-linha">
+        <span class="v17-status-dot {{ 'online' if situacao.online else 'offline' }}"></span>
+        <strong>{{ "Conectado" if situacao.online else "Desconectado" }}</strong>
+      </p>
+
+      <div class="v17-table-wrap">
+        <table>
+          <tbody>
+            <tr>
+              <td>Computador</td>
+              <td>{{ situacao.agente.nome or "ainda não informado" }}</td>
+            </tr>
+            <tr>
+              <td>Impressora</td>
+              <td>{{ situacao.agente.impressora or "ainda não informada" }}</td>
+            </tr>
+            <tr>
+              <td>Versão do agente</td>
+              <td>{{ situacao.agente.versao or "—" }}</td>
+            </tr>
+            <tr>
+              <td>Último contato</td>
+              <td>
+                {% if situacao.agente.ultimo_contato %}
+                  {{ situacao.agente.ultimo_contato.strftime('%d/%m/%Y %H:%M:%S') }}
+                {% else %}
+                  nunca
+                {% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {% if situacao.aviso %}
+        <p class="aviso-impressao">{{ situacao.aviso }}</p>
+      {% endif %}
+
+      <div class="linha-botoes">
+        <form method="post" action="{{ url_for('admin.impressao_teste') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-primary">Imprimir página de teste</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.impressao_parear') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-secondary">Gerar código novo</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.impressao_desligar') }}"
+              onsubmit="return confirm('Desligar a impressão? O agente instalado para de receber comandas.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-delete">Desligar impressão</button>
+        </form>
+      </div>
+      <p class="muted">
+        Gerar um código novo <strong>invalida o anterior</strong>. É assim que se
+        tira o acesso de um computador que saiu do restaurante.
+      </p>
+
+    {% else %}
+      <p>{{ situacao.aviso }}</p>
+      <form method="post" action="{{ url_for('admin.impressao_parear') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-primary">Gerar código de ativação</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <div class="card-admin">
+    <h1>Como instalar</h1>
+    <p>
+      <a class="btn-primary botao-baixar" href="{{ url_for('admin.impressao_agente_zip') }}">
+        Baixar o agente (.zip)
+      </a>
+    </p>
+    <ol class="passos-agente">
+      <li>Leve o arquivo para o <strong>computador do balcão</strong> — o que tem
+        a impressora ligada nele — e descompacte.</li>
+      <li>Rode <code>instalar_agente.bat</code> uma vez. Ele instala o que falta.</li>
+      <li>Rode <code>configurar_agente.bat</code>, cole o endereço e o código de
+        ativação, e escolha a impressora na lista.</li>
+      <li>Rode <code>iniciar_agente.bat</code>. A tela desta página passa a
+        mostrar <strong>Conectado</strong> em alguns segundos.</li>
+      <li>Use <code>ativar_inicio_automatico.bat</code> para o agente subir
+        sozinho quando o computador ligar.</li>
+    </ol>
+    <p class="muted">
+      O agente <strong>procura</strong> o servidor de tempos em tempos. Sua rede
+      não recebe conexão de fora, e você não precisa de IP fixo nem de mexer no
+      roteador.
+    </p>
+  </div>
+
+  <div class="card-admin">
+    <h1>Últimas comandas</h1>
+    {% if fila %}
+      <div class="v17-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Quando</th><th>O quê</th><th>Situação</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for job in fila %}
+              <tr>
+                <td>{{ job.criado_em.strftime('%d/%m %H:%M') }}</td>
+                <td>
+                  <strong>{{ job.titulo }}</strong>
+                  <small>{{ job.rotulo }}</small>
+                </td>
+                <td>
+                  {% if job.status == "impresso" %}
+                    <span class="badge badge-success">Impresso</span>
+                  {% elif job.status == "erro" %}
+                    <span class="badge badge-danger">Falhou</span>
+                    <small>{{ job.erro }}</small>
+                  {% elif job.status == "imprimindo" %}
+                    <span class="badge badge-warning">Imprimindo</span>
+                  {% elif job.status == "cancelado" %}
+                    <span class="badge">Cancelado</span>
+                  {% else %}
+                    <span class="badge badge-warning">Na fila</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if job.status in ("pendente", "erro", "imprimindo") %}
+                    <form method="post" action="{{ url_for('admin.impressao_cancelar', job_id=job.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit" class="btn-delete">Tirar da fila</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">Nenhuma comanda foi enviada para a impressora ainda.</p>
+    {% endif %}
+  </div>
+{% endblock %}

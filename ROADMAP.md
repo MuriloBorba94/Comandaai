@@ -76,10 +76,29 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    repo atual, que não escalam nem são seguros para múltiplos clientes
    simultâneos.
 
-8. **Agente de impressão multi-tenant.** Reaproveitar o padrão de
-   `agente_impressao/` do repo atual quase sem mudanças (ele já funciona por
-   polling, sem precisar de acesso de entrada à rede do restaurante) —
-   adicionar `tenant_id` ao token de pareamento, heartbeat e claim.
+8. ~~**Agente de impressão multi-tenant.**~~ **CONCLUÍDA.** `AgenteImpressao`
+   por tenant (token pareado, guardado só como hash, com heartbeat) e
+   `ImpressaoJob` como fila. O agente em `agente/` continua funcionando por
+   consulta — a rede do restaurante nunca recebe conexão de fora — e agora fala
+   com o subdomínio do próprio restaurante: o código precisa bater com o tenant
+   daquele endereço, então são duas travas, não uma.
+
+   Duas mudanças em relação ao original, e as duas por defeito dele:
+
+   - **Não existe modo local.** Lá o Flask rodava na mesma máquina da
+     impressora; aqui o servidor está num datacenter. Um seletor "local ou
+     remoto" só ofereceria uma opção que nunca funciona.
+   - **A fila é uma tabela, não campos no `Pedido`.** Com `print_status` no
+     pedido só cabe uma impressão por pedido: quando a mesa pedia mais uma
+     porção, reimprimir mandava o pedido inteiro e o cozinheiro repetia o que
+     já tinha entregado. Cada trabalho congela o texto do momento em que foi
+     criado, então a comanda de acréscimo leva só o que entrou.
+
+   Quando o papel sai: no primeiro avanço do pedido do site (imprimir na
+   chegada gastaria bobina com pedido que o atendente ainda vai recusar), na
+   abertura da comanda de mesa, a cada item lançado na mesa, e no botão
+   Imprimir do painel da cozinha. Cancelar o pedido tira da fila o que ainda
+   não saiu, e não mexe no que já saiu.
 
 9. ~~**Estoque/ficha técnica/financeiro.**~~ **CONCLUÍDA.** `Insumo` com custo
    derivado do pacote de compra, `FichaTecnica` por produto,

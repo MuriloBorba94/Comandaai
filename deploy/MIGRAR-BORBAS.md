@@ -255,10 +255,13 @@ Não desligue o sistema antigo ainda. A recomendação é:
    endereço novo.
 3. Só então desligue o antigo.
 
+Para a **impressão na cozinha** funcionar como no sistema antigo, instale o
+agente no computador do balcão: painel > menu **Impressão**, onde ficam o
+*Gerar código de ativação* e o *Baixar o agente (.zip)*. O passo a passo vai
+dentro do próprio pacote, em `LEIA-ME.md`.
+
 O que ainda falta para não sentir falta do sistema antigo:
 
-- **Impressão na cozinha** (Fase 8) — hoje o pedido aparece na tela, não sai na
-  impressora
 - **PIX no pedido** (Fase 6) e **WhatsApp** (Fase 7)
 
 ---

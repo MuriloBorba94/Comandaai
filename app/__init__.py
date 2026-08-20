@@ -70,6 +70,7 @@ def create_app(config_object=Config) -> Flask:
     from . import models  # noqa: F401
     from .cli import register_cli
     from .routes.admin import admin_bp
+    from .routes.api import api_bp
     from .routes.auth import auth_bp
     from .routes.operacao import operacao_bp
     from .routes.platform import platform_bp
@@ -78,6 +79,7 @@ def create_app(config_object=Config) -> Flask:
     app.register_blueprint(public_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(api_bp)
     app.register_blueprint(operacao_bp)
     app.register_blueprint(platform_bp)
 
@@ -128,6 +130,24 @@ def create_app(config_object=Config) -> Flask:
         from .services.estoque import insumos_em_alerta
 
         return len(insumos_em_alerta(tenant.id))
+
+    @app.template_global()
+    def comandas_na_fila() -> int:
+        """Comandas esperando a impressora, para o contador da sidebar.
+
+        Mesma guarda do contador de estoque: sem ela a consulta rodaria em toda
+        página de quem não tem o recurso no plano.
+        """
+        from flask import g
+
+        from .services.recursos import tenant_libera
+
+        tenant = g.get("tenant")
+        if tenant is None or not tenant_libera(tenant, "impressao"):
+            return 0
+        from .services.impressao import pendentes
+
+        return pendentes(tenant.id)
 
     @app.template_global()
     def resumo_do_dia() -> dict:

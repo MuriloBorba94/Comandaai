@@ -1021,6 +1021,30 @@ body.vitrine { --price: var(--ambar); }
   .v17-main { grid-column: 2; }
   .v17-fab-menu, .v17-sidebar-backdrop { display: none !important; }
 }
+/* ===================== impressão na cozinha ===================== */
+/* O código de ativação é a peça delicada desta tela: aparece uma vez só e
+   precisa ser copiado sem erro. Por isso fonte monoespaçada, quebra em
+   qualquer ponto (ele não tem espaços) e a área toda selecionável. */
+.destaque-token { border-color: var(--success-border); }
+.token-gerado {
+  display: block; margin: 14px 0; padding: 14px 16px;
+  border: 1px solid var(--border-2); border-radius: var(--raio-sm);
+  background: var(--panel); color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  font-size: .9rem; line-height: 1.6; word-break: break-all; user-select: all;
+}
+.botao-baixar { display: inline-block; text-decoration: none; }
+.agente-linha { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; }
+.linha-botoes { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; margin: 16px 0 8px; }
+.linha-botoes form { margin: 0; }
+.aviso-impressao {
+  margin: 14px 0 0; padding: 10px 13px; border-radius: var(--raio-sm);
+  background: var(--warning-bg); border: 1px solid var(--warning-border);
+  color: var(--warning); font-size: .85rem; font-weight: 600;
+}
+.passos-agente { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 8px; }
+.passos-agente li { color: var(--text-2); font-size: .88rem; line-height: 1.6; }
+
 @media (max-width: 1350px) {
   .finance-kpis { grid-template-columns: repeat(3, 1fr); }
   .finance-insights-grid { grid-template-columns: 1fr 1fr; }

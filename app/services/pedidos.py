@@ -44,11 +44,13 @@ from ..models.pedido import (
     PedidoItemAdicional,
 )
 from ..models.cupom import BairroEntrega
+from ..models.impressao import TIPO_ADICAO
 from ..models.produto import Produto
 from .cupons import consumir as consumir_cupom
 from .cupons import liberar as liberar_cupom
 from .cupons import reservar_para_pedido
 from .estoque import aplicar_baixa, estornar_baixa, sincronizar_baixa
+from .impressao import cancelar_pendentes_do_pedido, enfileirar, garantir_comanda, tentar
 from .recursos import tenant_libera
 
 MAX_ITENS_CARRINHO = 50
@@ -333,6 +335,12 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
             pedido.recalcular_total()
 
         db.session.commit()
+
+        # A comanda de mesa já nasce valendo: quem lançou foi o atendente, com o
+        # cliente na frente. Ninguém vai "confirmar" depois, então o papel sai
+        # agora. Pedido do site espera a confirmação — ver transicionar().
+        if pedido.tipo == TIPO_MESA:
+            tentar(garantir_comanda, pedido)
         return pedido
 
     raise ValueError("Não foi possível registrar o pedido. Tente novamente.")
@@ -382,6 +390,18 @@ def transicionar(pedido: Pedido, novo_status: str, actor: str | None = None) -> 
         aplicar_baixa(pedido, usuario=actor)
 
     db.session.commit()
+
+    if novo_status == STATUS_CANCELADO:
+        # O que ainda não saiu no papel não deve sair. O que já saiu fica: aquele
+        # papel está na cozinha, e o registro precisa contar isso.
+        tentar(cancelar_pendentes_do_pedido, pedido)
+        db.session.commit()
+    elif atual == STATUS_NOVO:
+        # Primeiro avanço do pedido do site: é aqui que alguém do restaurante
+        # aceitou o pedido, e é aqui que a cozinha deve receber o papel. Imprimir
+        # na chegada gastaria bobina com pedido que o atendente ainda vai recusar.
+        tentar(garantir_comanda, pedido)
+
     return pedido
 
 
@@ -410,6 +430,10 @@ def adicionar_itens_comanda(pedido: Pedido, carrinho, actor: str | None = None) 
     # cresce e só a diferença sai do saldo.
     sincronizar_baixa(pedido, usuario=actor)
     db.session.commit()
+
+    # Só o que entrou agora vai para a cozinha. Reimprimir a comanda inteira
+    # faria o cozinheiro repetir o que já entregou.
+    tentar(enfileirar, pedido, TIPO_ADICAO, novos)
     return pedido
 
 

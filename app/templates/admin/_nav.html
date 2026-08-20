@@ -75,6 +75,13 @@
       <span>▤</span> Financeiro
     </a>
   {% endif %}
+  {% if libera('impressao') %}
+    <a class="tab-btn {{ 'active' if atual.startswith('admin.impressao') }}" href="{{ url_for('admin.impressao') }}">
+      <span>⎙</span> Impressão
+      {% set na_fila = comandas_na_fila() %}
+      {% if na_fila %}<b class="v17-nav-count" title="Comandas esperando a impressora">{{ na_fila }}</b>{% endif %}
+    </a>
+  {% endif %}
   <a class="tab-btn {{ 'active' if atual == 'admin.configuracoes' }}" href="{{ url_for('admin.configuracoes') }}">
     <span>◎</span> Loja e identidade
   </a>

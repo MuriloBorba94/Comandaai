@@ -134,6 +134,35 @@ def pedido_status(pedido_id: int):
     return redirect(url_for("operacao.cozinha"))
 
 
+@operacao_bp.route("/cozinha/pedidos/<int:pedido_id>/imprimir", methods=["POST"])
+@login_required
+@requer_recurso("impressao")
+def pedido_imprimir(pedido_id: int):
+    """Manda a comanda para a impressora de novo.
+
+    Existe porque papel amassa, acaba e some. Aqui o pedido de impressão partiu
+    de uma pessoa, então ele entra na fila mesmo sem agente pareado — e a tela
+    avisa que ninguém vai buscá-lo, em vez de fingir que deu certo.
+    """
+    from ..services.impressao import agente_do_tenant, enfileirar
+
+    pedido = Pedido.query.filter_by(id=pedido_id, tenant_id=g.tenant.id).first()
+    if pedido is None:
+        flash("Pedido não encontrado.", "erro")
+    elif enfileirar(pedido, forcar=True) is None:
+        flash("Não foi possível colocar a comanda na fila.", "erro")
+    elif agente_do_tenant(g.tenant.id) is None:
+        flash(
+            f"Comanda do pedido #{pedido.numero} na fila, mas nenhum computador está "
+            "pareado para imprimir. Configure no menu Impressão.",
+            "erro",
+        )
+    else:
+        flash(f"Comanda do pedido #{pedido.numero} enviada para a impressora.", "sucesso")
+
+    return redirect(request.referrer or url_for("operacao.cozinha"))
+
+
 # --------------------------------------------------------------------------- #
 # Salão (mesas)
 # --------------------------------------------------------------------------- #
@@ -322,6 +351,38 @@ def mesa_lancar_item(numero: int):
             flash("Item lançado na comanda.", "sucesso")
     except ValueError as exc:
         flash(str(exc), "erro")
+
+    return redirect(url_for("operacao.mesa_detalhe", numero=numero))
+
+
+@operacao_bp.route("/mesas/<int:numero>/conta", methods=["POST"])
+@login_required
+@requer_recurso("impressao")
+def mesa_conta(numero: int):
+    """Imprime a conferência de consumo que vai para a mesa antes de fechar.
+
+    Sai separada da comanda de produção de propósito: uma vai para a cozinha
+    com o que fazer, a outra vai para o cliente com o que ele deve. Misturar as
+    duas é como o pedido acaba saindo duas vezes na chapa.
+    """
+    from ..models.impressao import TIPO_FECHAMENTO
+    from ..services.impressao import agente_do_tenant, enfileirar
+
+    pedido = mesas_ativas(g.tenant.id).get(numero)
+    if pedido is None:
+        flash(f"A mesa {numero} não tem comanda aberta.", "erro")
+        return redirect(url_for("operacao.mesas"))
+
+    if enfileirar(pedido, TIPO_FECHAMENTO, forcar=True) is None:
+        flash("Não foi possível colocar a conta na fila.", "erro")
+    elif agente_do_tenant(g.tenant.id) is None:
+        flash(
+            "Conta na fila, mas nenhum computador está pareado para imprimir. "
+            "Configure no menu Impressão.",
+            "erro",
+        )
+    else:
+        flash(f"Conta da mesa {numero:02d} enviada para a impressora.", "sucesso")
 
     return redirect(url_for("operacao.mesa_detalhe", numero=numero))
 

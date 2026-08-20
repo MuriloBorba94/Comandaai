@@ -1133,3 +1133,137 @@ def receita_criar():
         db.session.commit()
         flash("Receita lançada.", "sucesso")
     return redirect(url_for("admin.financeiro"))
+
+
+# --------------------------------------------------------------------------- #
+# Impressão na cozinha
+# --------------------------------------------------------------------------- #
+
+
+@admin_bp.route("/impressao")
+@admin_required
+@requer_recurso("impressao")
+def impressao():
+    """Pareamento do computador do balcão e as últimas comandas da fila."""
+    from ..services import impressao as servico
+
+    return render_template(
+        "admin/impressao.html",
+        tenant=g.tenant,
+        situacao=servico.situacao(g.tenant),
+        fila=servico.fila(g.tenant.id),
+        # O código só existe em texto no instante em que é gerado. Fica na
+        # sessão para sobreviver ao redirect e some na primeira exibição: uma
+        # senha que continua na tela é uma senha que alguém fotografa.
+        token_novo=session.pop("impressao_token", None),
+    )
+
+
+@admin_bp.route("/impressao/agente.zip")
+@admin_required
+@requer_recurso("impressao")
+def impressao_agente_zip():
+    """Entrega o agente pronto para levar ao computador do balcão.
+
+    Sem isto a instrução "baixe a pasta agente/" não teria como ser cumprida
+    por quem não tem o código do sistema na mão — que é todo mundo menos eu.
+
+    O que fica de fora do pacote é tão importante quanto o que entra: nada de
+    `agente_config.json` (contém o código de ativação de alguém),
+    `impressoes_confirmadas.json`, log ou `.venv`. Por isso a lista de arquivos
+    é explícita, e não um "compacte a pasta inteira" que um dia levaria junto o
+    que apareceu ali no meio.
+    """
+    import io
+    import zipfile
+    from pathlib import Path
+
+    from flask import send_file
+
+    ARQUIVOS = (
+        "agente_impressao.py",
+        "configurar_agente.py",
+        "instalar_agente.bat",
+        "configurar_agente.bat",
+        "iniciar_agente.bat",
+        "ativar_inicio_automatico.bat",
+        "requirements.txt",
+        "LEIA-ME.md",
+    )
+
+    origem = Path(current_app.root_path).parent / "agente"
+    pacote = io.BytesIO()
+    incluidos = 0
+    with zipfile.ZipFile(pacote, "w", zipfile.ZIP_DEFLATED) as zip_saida:
+        for nome in ARQUIVOS:
+            caminho = origem / nome
+            if caminho.is_file():
+                zip_saida.write(caminho, f"agente/{nome}")
+                incluidos += 1
+
+    if incluidos < len(ARQUIVOS):
+        # Um zip pela metade instalaria um agente quebrado no restaurante, e o
+        # erro só apareceria lá. Melhor não entregar nada e dizer o motivo.
+        current_app.logger.error("Pacote do agente incompleto em %s", origem)
+        flash("O pacote do agente não está disponível neste servidor. Avise o suporte.", "erro")
+        return redirect(url_for("admin.impressao"))
+
+    pacote.seek(0)
+
+    return send_file(
+        pacote,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name="comanda-ai-agente-de-impressao.zip",
+    )
+
+
+@admin_bp.route("/impressao/parear", methods=["POST"])
+@admin_required
+@requer_recurso("impressao")
+def impressao_parear():
+    from ..services import impressao as servico
+
+    session["impressao_token"] = servico.parear(g.tenant)
+    flash("Código de ativação gerado. Copie agora: ele não será mostrado de novo.", "sucesso")
+    return redirect(url_for("admin.impressao"))
+
+
+@admin_bp.route("/impressao/desligar", methods=["POST"])
+@admin_required
+@requer_recurso("impressao")
+def impressao_desligar():
+    from ..services import impressao as servico
+
+    if servico.desparear(g.tenant):
+        flash("Impressão remota desligada. O agente instalado parou de receber comandas.", "sucesso")
+    else:
+        flash("Não havia computador pareado.", "erro")
+    return redirect(url_for("admin.impressao"))
+
+
+@admin_bp.route("/impressao/teste", methods=["POST"])
+@admin_required
+@requer_recurso("impressao")
+def impressao_teste():
+    from ..services import impressao as servico
+
+    if servico.agente_do_tenant(g.tenant.id) is None:
+        flash("Pareie um computador antes de mandar o teste.", "erro")
+    else:
+        servico.enfileirar_teste(g.tenant)
+        flash("Teste enviado. O papel deve sair em alguns segundos.", "sucesso")
+    return redirect(url_for("admin.impressao"))
+
+
+@admin_bp.route("/impressao/<int:job_id>/cancelar", methods=["POST"])
+@admin_required
+@requer_recurso("impressao")
+def impressao_cancelar(job_id: int):
+    from ..services import impressao as servico
+
+    if servico.cancelar(g.tenant, job_id):
+        flash("Trabalho tirado da fila.", "sucesso")
+    else:
+        flash("Este trabalho já foi impresso ou não existe mais.", "erro")
+    return redirect(url_for("admin.impressao"))

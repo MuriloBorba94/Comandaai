@@ -4,6 +4,7 @@ from .categoria import Categoria
 from .cupom import BairroEntrega, Cupom, CupomUso
 from .estoque import FichaTecnica, Insumo, MovimentacaoEstoque
 from .financeiro import Despesa, ReceitaAvulsa
+from .impressao import AgenteImpressao, ImpressaoJob
 from .pedido import Pedido, PedidoItem, PedidoItemAdicional
 from .platform_admin import PlatformAdmin
 from .produto import Produto
@@ -12,6 +13,7 @@ from .usuario import Usuario
 
 __all__ = [
     "Adicional",
+    "AgenteImpressao",
     "BairroEntrega",
     "Categoria",
     "Cobranca",
@@ -19,6 +21,7 @@ __all__ = [
     "CupomUso",
     "Despesa",
     "FichaTecnica",
+    "ImpressaoJob",
     "Insumo",
     "MovimentacaoEstoque",
     "Pedido",
