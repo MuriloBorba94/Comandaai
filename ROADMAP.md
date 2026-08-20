@@ -45,23 +45,26 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    webhook que confirma pagamento automaticamente. Enquanto isso, o provedor
    `manual` opera: você recebe o PIX e marca a cobrança como paga.
 
-5. **Infra de produção (1ª passada).** *Em andamento.* VPS contratada
-   (Ubuntu 24.04, 2 GB) e domínio `comandaai.app.br`. O kit de publicação está
-   em `deploy/`: Caddyfile com certificado curinga por DNS do Cloudflare,
-   serviço do systemd com o disco em somente-leitura fora de três pastas,
-   `.env` de produção, script de atualização e de backup, mais o passo a passo
-   em `deploy/README.md`.
+5. ~~**Infra de produção (1ª passada).**~~ **NO AR desde 20/08/2026.**
+   `https://comandaai.app.br` publicado numa VPS da Locaweb (Ubuntu 24.04, 2 GB),
+   com Caddy servindo HTTPS e certificado curinga `*.comandaai.app.br` emitido por
+   validação DNS no Cloudflare. Kit de publicação em `deploy/`, com passo a passo
+   testado numa instalação real.
 
-   Decisões tomadas: o apex serve a página inicial e a área da plataforma
-   (`PLATFORM_HOSTNAME=comandaai.app.br`), cada restaurante fica num
-   subdomínio, e a aplicação escuta só em `127.0.0.1` — com `0.0.0.0` ela
-   ficaria acessível na porta 5000 sem HTTPS, e daria para forjar
-   `X-Forwarded-For` e escapar do rate limit de login.
+   Decisões: o apex serve a página inicial e a área da plataforma, cada
+   restaurante fica num subdomínio, a aplicação escuta só em `127.0.0.1` (com
+   `0.0.0.0` ela ficaria acessível na porta 5000 sem HTTPS, e daria para forjar
+   `X-Forwarded-For` e escapar do rate limit de login), e o banco segue em SQLite —
+   o sinal para migrar é `database is locked` no log.
 
-   **Falta:** executar o roteiro no servidor, mandar o backup para fora do
-   disco, e monitoramento de erros. Postgres fica para quando aparecer
-   `database is locked` — o SQLite dá conta dos primeiros restaurantes e
-   economiza a memória de um serviço a mais.
+   Duas armadilhas que só apareceram na instalação real, e ficaram documentadas:
+   o `caddy validate` rodado como root cria o arquivo de log como root e depois o
+   serviço não consegue escrever nele; e a Locaweb bloqueia saída na porta 53, o
+   que trava a checagem de propagação que o Caddy faz por conta própria (resolvido
+   com `propagation_timeout -1`).
+
+   **Falta:** mandar o backup para fora do disco (hoje ele fica na mesma máquina
+   que ele deveria proteger), e monitoramento de erros.
 
 6. **PIX por pedido, por tenant.** Portar o fluxo de pagamento do cliente
    final do repo atual, desta vez com uma abstração de provedor de fato
