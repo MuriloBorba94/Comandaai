@@ -49,12 +49,13 @@ RECURSOS_SLUGS = tuple(slug for slug, _, _ in RECURSOS)
 # quem já usava o sistema antes de existir limite — o mesmo princípio do
 # `recursos` NULL: apertar a régua é uma decisão explícita, nunca um efeito
 # colateral de uma migration.
-# Só entram aqui limites que o código de fato aplica. "Usuários" ficou de fora
-# de propósito: não existe tela de equipe ainda, então um teto de usuários seria
-# um limite que não limita — pior do que não ter.
+# Só entram aqui limites que o código de fato aplica. "Usuários" entrou quando a
+# tela de equipe passou a existir — antes dela seria um limite que não limita,
+# pior do que não ter.
 LIMITES = (
     ("max_produtos", "Produtos no cardápio", "Quantos itens o restaurante pode cadastrar."),
     ("max_mesas", "Mesas do salão", "Teto para a quantidade de mesas configurada."),
+    ("max_usuarios", "Pessoas na equipe", "Quantos acessos ativos o restaurante pode ter."),
 )
 
 LIMITES_CHAVES = tuple(chave for chave, _, _ in LIMITES)

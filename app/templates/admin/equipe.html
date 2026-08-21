@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Equipe — {{ tenant.nome_fantasia }}{% endblock %}
+{% block secao %}Equipe{% endblock %}
+{% block intro_titulo %}Quem trabalha no restaurante{% endblock %}
+{% block intro_texto %}Cada pessoa com o próprio acesso, e o alcance que a função pede.{% endblock %}
+{% block content %}
+
+  <div class="card-admin">
+    <h1>Dar acesso a alguém</h1>
+    <p class="muted">
+      Cada pessoa com o próprio usuário, e não um compartilhado: é isso que faz
+      o histórico dizer quem lançou o item na comanda e quem deu baixa no
+      estoque. Com login único, tudo fica no nome de todo mundo.
+    </p>
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="grid-2">
+        <div>
+          <label for="nome">Nome</label>
+          <input id="nome" name="nome" maxlength="100" required placeholder="Ana Paula">
+        </div>
+        <div>
+          <label for="username">Usuário</label>
+          <input id="username" name="username" maxlength="50" required placeholder="ana"
+                 autocomplete="off">
+        </div>
+      </div>
+
+      <label for="senha">Senha</label>
+      <input id="senha" name="senha" type="password" minlength="8" required autocomplete="new-password">
+      <p class="muted">Pelo menos 8 caracteres. A pessoa pode trocar depois com você.</p>
+
+      <label>Função</label>
+      <div class="radio-cards">
+        {% for slug, rotulo, explicacao in papeis %}
+          <label class="check-inline">
+            <input type="radio" name="role" value="{{ slug }}" {{ 'checked' if slug == 'atendente' }}>
+            <span><strong>{{ rotulo }}</strong><small>{{ explicacao }}</small></span>
+          </label>
+        {% endfor %}
+      </div>
+
+      <button type="submit">Dar acesso</button>
+    </form>
+
+    {% set teto = limites | selectattr('chave', 'equalto', 'max_usuarios') | first %}
+    {% if teto and teto.teto %}
+      <p class="muted">
+        Seu plano permite {{ teto.teto }} acesso(s) ativo(s); {{ teto.usado }} em uso.
+        Desativar alguém devolve a vaga.
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="card-admin">
+    <h1>Acessos</h1>
+    {% if usuarios %}
+      {% for usuario in usuarios %}
+        <form method="post" action="{{ url_for('admin.equipe_salvar', usuario_id=usuario.id) }}"
+              class="linha-equipe {{ 'inativo' if not usuario.ativo }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="equipe-quem">
+            <input name="nome" value="{{ usuario.nome }}" maxlength="100" aria-label="Nome">
+            <small><code>{{ usuario.username }}</code>{% if usuario.id == eu %} · é você{% endif %}</small>
+          </div>
+
+          <select name="role" aria-label="Função de {{ usuario.nome }}">
+            {% for slug, rotulo, _ in papeis %}
+              <option value="{{ slug }}" {{ 'selected' if usuario.role == slug }}>{{ rotulo }}</option>
+            {% endfor %}
+          </select>
+
+          <input name="senha" type="password" placeholder="nova senha (opcional)"
+                 minlength="8" autocomplete="new-password" aria-label="Nova senha">
+
+          <label class="check-inline">
+            <input type="checkbox" name="ativo" {{ 'checked' if usuario.ativo }}> Ativo
+          </label>
+
+          <button type="submit" class="btn-save">Salvar</button>
+        </form>
+      {% endfor %}
+      <p class="muted">
+        Ninguém é excluído, só desativado — o nome de quem lançou item na comanda
+        e mexeu no estoque está espalhado pelo histórico, e apagar a conta
+        deixaria esse histórico órfão.
+      </p>
+    {% else %}
+      <p class="muted">Só você por enquanto.</p>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -81,9 +81,14 @@ def uso_do_tenant(tenant) -> list[dict]:
 
     from ..models.produto import Produto
 
+    from ..models.usuario import Usuario
+
     contagem = {
         "max_produtos": Produto.query.filter_by(tenant_id=tenant.id).count(),
         "max_mesas": tenant.qtd_mesas or 0,
+        # Só os ativos: quem foi desativado não ocupa vaga, senão desligar
+        # alguém não devolveria o espaço que o plano paga.
+        "max_usuarios": Usuario.query.filter_by(tenant_id=tenant.id, ativo=True).count(),
     }
     return [
         {

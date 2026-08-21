@@ -1425,3 +1425,141 @@ def impressao_cancelar(job_id: int):
     else:
         flash("Este trabalho já foi impresso ou não existe mais.", "erro")
     return redirect(url_for("admin.impressao"))
+
+
+# --------------------------------------------------------------------------- #
+# Equipe
+# --------------------------------------------------------------------------- #
+
+
+def _usuarios_do_tenant():
+    from ..models.usuario import Usuario
+
+    return (
+        Usuario.query.filter_by(tenant_id=g.tenant.id)
+        .order_by(Usuario.ativo.desc(), Usuario.nome)
+        .all()
+    )
+
+
+@admin_bp.route("/equipe", methods=["GET", "POST"])
+@admin_required
+def equipe():
+    """Quem trabalha no restaurante, e o que cada um alcança.
+
+    Só admin: quem pode criar usuário pode criar um admin, então esta tela é a
+    porta de entrada do sistema inteiro.
+    """
+    from ..models.usuario import ROLES, ROLES_VALIDOS, ROLE_ATENDENTE, Usuario
+    from ..services.recursos import dentro_do_limite, mensagem_de_limite, uso_do_tenant
+
+    if request.method == "POST":
+        nome = (request.form.get("nome") or "").strip()[:100]
+        username = (request.form.get("username") or "").strip().lower()[:50]
+        senha = request.form.get("senha") or ""
+        role = request.form.get("role") or ROLE_ATENDENTE
+
+        if not nome or not username:
+            flash("Informe o nome e o usuário.", "erro")
+        elif len(senha) < 8:
+            # O mesmo piso do resto do sistema. Senha curta num painel que mexe
+            # em dinheiro é o buraco mais barato de abrir e o mais caro de tapar.
+            flash("A senha precisa ter pelo menos 8 caracteres.", "erro")
+        elif role not in ROLES_VALIDOS:
+            flash("Função inválida.", "erro")
+        elif Usuario.query.filter_by(tenant_id=g.tenant.id, username=username).first():
+            flash(f"Já existe alguém com o usuário “{username}”.", "erro")
+        elif not dentro_do_limite(
+            g.tenant, "max_usuarios", Usuario.query.filter_by(tenant_id=g.tenant.id, ativo=True).count()
+        ):
+            flash(mensagem_de_limite(g.tenant, "max_usuarios"), "erro")
+        else:
+            usuario = Usuario(tenant_id=g.tenant.id, nome=nome, username=username, role=role)
+            usuario.set_password(senha)
+            db.session.add(usuario)
+            db.session.commit()
+
+            from ..models.auditoria import ACAO_USUARIO_CRIADO
+            from ..services.auditoria import registrar
+
+            registrar(ACAO_USUARIO_CRIADO, alvo=username, detalhes=f"função: {role}")
+            flash(f"{nome} agora tem acesso como {role}.", "sucesso")
+        return redirect(url_for("admin.equipe"))
+
+    return render_template(
+        "admin/equipe.html",
+        tenant=g.tenant,
+        usuarios=_usuarios_do_tenant(),
+        papeis=ROLES,
+        limites=uso_do_tenant(g.tenant),
+        eu=session.get("usuario_id"),
+    )
+
+
+@admin_bp.route("/equipe/<int:usuario_id>/salvar", methods=["POST"])
+@admin_required
+def equipe_salvar(usuario_id: int):
+    """Muda função, ativa/desativa e troca senha.
+
+    Desativar em vez de excluir: o nome de quem lançou um item na comanda e quem
+    movimentou o estoque está espalhado pelo histórico, e apagar o usuário
+    deixaria esse histórico órfão.
+    """
+    from ..models.usuario import ROLES_VALIDOS, Usuario
+
+    usuario = Usuario.query.filter_by(id=usuario_id, tenant_id=g.tenant.id).first()
+    if usuario is None:
+        flash("Usuário não encontrado.", "erro")
+        return redirect(url_for("admin.equipe"))
+
+    virou_inativo = request.form.get("ativo") != "on"
+    novo_papel = request.form.get("role") or usuario.role
+
+    # As duas travas que impedem alguém de se trancar para fora: o último admin
+    # ativo não pode virar outra coisa nem ser desativado. Sem isso, o
+    # restaurante fica sem ninguém capaz de mexer nas configurações — e a saída
+    # seria eu entrar no servidor.
+    from ..models.usuario import ROLE_ADMIN
+
+    if usuario.role == ROLE_ADMIN and usuario.ativo and (virou_inativo or novo_papel != ROLE_ADMIN):
+        outros_admins = Usuario.query.filter(
+            Usuario.tenant_id == g.tenant.id,
+            Usuario.role == ROLE_ADMIN,
+            Usuario.ativo.is_(True),
+            Usuario.id != usuario.id,
+        ).count()
+        if not outros_admins:
+            flash(
+                "Este é o único administrador ativo. Promova outra pessoa antes de "
+                "mudar a função ou desativar esta conta.",
+                "erro",
+            )
+            return redirect(url_for("admin.equipe"))
+
+    nome = (request.form.get("nome") or "").strip()[:100]
+    if nome:
+        usuario.nome = nome
+    if novo_papel in ROLES_VALIDOS:
+        usuario.role = novo_papel
+    usuario.ativo = not virou_inativo
+
+    senha = request.form.get("senha") or ""
+    if senha:
+        if len(senha) < 8:
+            flash("A senha precisa ter pelo menos 8 caracteres.", "erro")
+            return redirect(url_for("admin.equipe"))
+        usuario.set_password(senha)
+
+    db.session.commit()
+
+    from ..models.auditoria import ACAO_USUARIO_ALTERADO
+    from ..services.auditoria import registrar
+
+    registrar(
+        ACAO_USUARIO_ALTERADO,
+        alvo=usuario.username,
+        detalhes=f"função: {usuario.role} · {'ativo' if usuario.ativo else 'desativado'}"
+        + (" · senha trocada" if senha else ""),
+    )
+    flash(f"Acesso de {usuario.nome} atualizado.", "sucesso")
+    return redirect(url_for("admin.equipe"))

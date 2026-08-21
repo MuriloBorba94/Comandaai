@@ -4,6 +4,14 @@
 {% block header_actions %}
   <a class="btn btn-muted" href="{{ url_for('public.index') }}">Cardápio</a>
 {% endblock %}
+{% block head_extra %}
+  {% if pedido.status == "Saiu para entrega" %}
+    {# Servido do próprio domínio, e não de CDN: esta página é aberta no 3G da
+       rua, e um terceiro fora do ar deixaria o cliente sem mapa — além de ver
+       quem acompanha qual pedido. #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet.css') }}">
+  {% endif %}
+{% endblock %}
 {% block content %}
 {# Acompanhamento do pedido, portado do pedido_status.html do original: número
    em destaque, ícone e frase do estado atual, previsão, e a régua de etapas com
@@ -90,6 +98,17 @@
       </div>
     {% endif %}
 
+    {# O mapa só aparece a caminho. Antes disso não há o que mostrar, e depois
+       da entrega mostrar onde o entregador está seria rastrear a pessoa, não o
+       pedido. #}
+    {% if pedido.status == "Saiu para entrega" %}
+      <div class="panel mapa-panel">
+        <h2>Onde seu pedido está</h2>
+        <div id="mapa-entrega" class="mapa-entrega"></div>
+        <p class="muted" id="mapa-aviso">Procurando a posição do entregador...</p>
+      </div>
+    {% endif %}
+
     {% if not cancelado %}
       <div class="panel tracking-progress-panel">
         <h2>Acompanhe seu pedido</h2>
@@ -148,6 +167,76 @@
 {% endblock %}
 
 {% block scripts %}
+{% if pedido.status == "Saiu para entrega" %}
+<script src="{{ url_for('static', filename='vendor/leaflet.js') }}"></script>
+<script>
+  "use strict";
+
+  /* Mapa da entrega. Consulta a cada 15 segundos — o suficiente para o ponto
+     andar na tela sem transformar a página numa consulta por segundo no 3G do
+     cliente. */
+  (function () {
+    var caixa = document.getElementById("mapa-entrega");
+    var aviso = document.getElementById("mapa-aviso");
+    if (!caixa || typeof L === "undefined") { return; }
+
+    var mapa = null, marcador = null;
+
+    /* Marcador desenhado em CSS, sem imagem: o Leaflet procuraria os PNGs dele
+       num caminho relativo à folha de estilo, e seria mais um arquivo para
+       servir e manter. */
+    var icone = L.divIcon({
+      className: "",
+      html: '<div class="pino-entrega"></div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+
+    function desenhar(lat, lng) {
+      caixa.style.display = "block";
+      aviso.textContent = "A posição se atualiza sozinha enquanto o pedido está a caminho.";
+      if (!mapa) {
+        mapa = L.map(caixa, { zoomControl: true, attributionControl: true }).setView([lat, lng], 16);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap",
+          maxZoom: 19
+        }).addTo(mapa);
+        marcador = L.marker([lat, lng], { icon: icone }).addTo(mapa);
+      } else {
+        marcador.setLatLng([lat, lng]);
+        mapa.panTo([lat, lng]);
+      }
+      setTimeout(function () { mapa.invalidateSize(); }, 60);
+    }
+
+    var url = "{{ url_for('public.pedido_rastreio_json', token=pedido.public_token) }}";
+    var timer = null;
+
+    function consultar() {
+      fetch(url, { cache: "no-store" })
+        .then(function (r) { return r.json(); })
+        .then(function (dados) {
+          if (dados.status !== "Saiu para entrega") {
+            clearInterval(timer);
+            window.location.reload();
+            return;
+          }
+          if (dados.lat == null) {
+            caixa.style.display = "none";
+            aviso.textContent =
+              "O entregador ainda não está enviando a posição. Seu pedido está a caminho do mesmo jeito.";
+            return;
+          }
+          desenhar(dados.lat, dados.lng);
+        })
+        .catch(function () { /* rede do cliente oscila; a próxima consulta tenta */ });
+    }
+
+    consultar();
+    timer = setInterval(consultar, 15000);
+  })();
+</script>
+{% endif %}
 <script>
   "use strict";
 

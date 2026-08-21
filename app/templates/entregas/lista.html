@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Entregas — {{ tenant.nome_fantasia }}{% endblock %}
+{% block secao %}Entregas{% endblock %}
+{% block intro_titulo %}Suas entregas{% endblock %}
+{% block intro_texto %}Endereço, rota e baixa. Deixe esta tela aberta enquanto estiver na rua.{% endblock %}
+{% block content %}
+
+  <div class="card-admin">
+    <p class="muted" id="aviso-gps">
+      Enquanto esta tela estiver aberta, o cliente vê no mapa onde o pedido dele
+      está. Você pode fechar quando terminar.
+    </p>
+
+    {% if pedidos %}
+      {% for pedido in pedidos %}
+        <div class="entrega-card {{ 'comigo' if pedido.status == 'Saiu para entrega' }}">
+          <div class="entrega-topo">
+            <strong>#{{ pedido.numero }}</strong>
+            <span>{{ pedido.cliente }}</span>
+            <span class="entrega-valor">R$ {{ pedido.total|brl }}</span>
+          </div>
+
+          <p class="entrega-endereco">
+            {{ pedido.endereco }}{% if pedido.bairro_nome %} — {{ pedido.bairro_nome }}{% endif %}
+          </p>
+          {% if pedido.observacao %}<p class="muted">Obs.: {{ pedido.observacao }}</p>{% endif %}
+          <p class="muted">
+            Pagamento: <strong>{{ pedido.pagamento }}</strong>
+            {% if pedido.pagamento_online and pedido.pagamento_online.pago %} · já pago{% endif %}
+          </p>
+
+          <div class="entrega-acoes">
+            {% if rotas[pedido.id] %}
+              <a class="btn-primary" href="{{ rotas[pedido.id] }}" target="_blank" rel="noopener">
+                Abrir rota
+              </a>
+            {% endif %}
+
+            {% if pedido.telefone %}
+              <a class="btn-secondary" href="tel:{{ pedido.telefone }}">Ligar</a>
+            {% endif %}
+
+            {% if pedido.status == "Pronto" %}
+              <form method="post" action="{{ url_for('entregas.assumir', pedido_id=pedido.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-save">Vou levar</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('entregas.entregue', pedido_id=pedido.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-save">Entreguei</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">Nenhuma entrega esperando agora.</p>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  "use strict";
+
+  /* Manda a posição enquanto houver entrega em mãos.
+     Duas decisões que vieram de o rastreio antigo ter sido abandonado:
+
+     1. Só liga quando há entrega COM esta pessoa. Pedir GPS para quem só está
+        olhando a lista gasta bateria à toa e faz o navegador perguntar
+        permissão sem motivo — e quem nega uma vez costuma negar para sempre.
+     2. Envia no máximo de 25 em 25 segundos. `watchPosition` dispara a cada
+        poucos metros; mandar tudo isso ao servidor não deixa o mapa do cliente
+        melhor e derruba a bateria, que é a causa mais provável de alguém
+        fechar a tela. */
+  (function () {
+    var temEntregaComigo = {{ 'true' if pedidos | selectattr('status', 'equalto', 'Saiu para entrega') | list else 'false' }};
+    var aviso = document.getElementById("aviso-gps");
+    if (!temEntregaComigo) { return; }
+
+    if (!navigator.geolocation) {
+      aviso.textContent = "Este navegador não informa localização; o cliente não verá o mapa.";
+      return;
+    }
+
+    var INTERVALO = 25000;
+    var ultimoEnvio = 0;
+
+    function enviar(posicao) {
+      var agora = Date.now();
+      if (agora - ultimoEnvio < INTERVALO) { return; }
+      ultimoEnvio = agora;
+      fetch("{{ url_for('entregas.posicao') }}", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({
+          lat: posicao.coords.latitude,
+          lng: posicao.coords.longitude
+        })
+      }).catch(function () { /* rede de rua cai; a próxima leitura tenta de novo */ });
+    }
+
+    navigator.geolocation.watchPosition(
+      enviar,
+      function (erro) {
+        aviso.textContent =
+          erro.code === erro.PERMISSION_DENIED
+            ? "Localização bloqueada neste navegador. As entregas funcionam igual; só o mapa do cliente fica sem posição."
+            : "Não foi possível pegar a localização agora.";
+      },
+      { enableHighAccuracy: true, maximumAge: 20000, timeout: 30000 }
+    );
+  })();
+</script>
+{% endblock %}

@@ -128,9 +128,13 @@
         nosso. Em branco, usa o nome do restaurante.
       </p>
 
-      <label for="pix_cidade">Cidade do recebedor</label>
+      <label for="pix_cidade">Cidade do restaurante</label>
       <input id="pix_cidade" name="pix_cidade" maxlength="15"
              value="{{ tenant.pix_cidade or '' }}" placeholder="Vicência">
+      <p class="muted">
+        Vai no código PIX e também completa o endereço quando o entregador abre
+        a rota no mapa. Até 15 caracteres, limite do padrão do Banco Central.
+      </p>
 
       <button type="submit">Salvar chave PIX</button>
     </form>

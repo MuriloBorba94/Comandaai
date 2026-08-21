@@ -1117,6 +1117,57 @@ body.vitrine { --price: var(--ambar); }
 .faixa-suporte form { margin: 0; }
 .faixa-suporte button { padding: 6px 12px; font-size: .78rem; }
 
+/* ===================== equipe ===================== */
+.linha-equipe {
+  display: grid; grid-template-columns: 1.6fr 1fr 1.2fr auto auto;
+  gap: 10px; align-items: center; margin: 0 0 10px;
+  padding: 11px 13px; border: 1px solid var(--border); border-radius: var(--raio-sm);
+  background: var(--panel);
+}
+.linha-equipe.inativo { opacity: .55; }
+.linha-equipe input, .linha-equipe select { margin: 0; }
+.equipe-quem { display: grid; gap: 3px; min-width: 0; }
+.equipe-quem small { color: var(--muted); font-size: .72rem; }
+/* ===================== entrega: rota e mapa ===================== */
+.entrega-card {
+  border: 1px solid var(--border); border-radius: var(--raio-sm);
+  padding: 14px 15px; margin: 0 0 12px; background: var(--panel);
+}
+/* A entrega que já está com esta pessoa se destaca das que estão esperando
+   alguém pegar: na rua, olhando de relance, a diferença precisa ser óbvia. */
+.entrega-card.comigo { border-color: var(--brand); }
+.entrega-topo { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.entrega-topo strong { font-size: 1.05rem; }
+.entrega-valor { margin-left: auto; font-weight: 700; }
+.entrega-endereco { margin: 8px 0 4px; font-size: 1rem; line-height: 1.5; }
+.entrega-acoes { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.entrega-acoes form { margin: 0; }
+/* Alvo grande: quem usa isto está de capacete, no sol, com uma das mãos. */
+.entrega-acoes .btn-primary,
+.entrega-acoes .btn-secondary,
+.entrega-acoes button { min-height: 44px; padding: 11px 18px; text-decoration: none; }
+
+.mapa-entrega {
+  height: 300px; width: 100%; display: none;
+  border-radius: var(--raio-sm); overflow: hidden; border: 1px solid var(--border);
+  /* O Leaflet desenha sobre o que estiver atrás; sem fundo próprio, o tema
+     escuro vaza entre os ladrilhos enquanto eles carregam. */
+  background: #e9e6df;
+}
+.pino-entrega {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--brand); border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, .25);
+}
+/* Os ladrilhos vêm do OpenStreetMap e são claros. Escurecê-los para combinar
+   com o tema deixaria o mapa ilegível na rua, que é onde ele é usado. */
+.mapa-panel h2 { margin-top: 0; }
+
+@media (max-width: 860px) {
+  .linha-equipe { grid-template-columns: 1fr 1fr; }
+  .linha-equipe button { grid-column: 1/-1; }
+}
+
 @media (max-width: 640px) {
   .pix-conteudo { grid-template-columns: 1fr; justify-items: center; }
   .pix-copia { width: 100%; }

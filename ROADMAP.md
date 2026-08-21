@@ -260,6 +260,40 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
 
     **Falta:** backup separado por tenant.
 
+**Equipe e entregas (fora da numeração).** Feito em 21/08/2026, depois da
+pergunta "não dá para mapear uma rota de entrega a partir de uma
+geolocalização?".
+
+- **Tela de equipe.** Antes dela todo usuário nascia `admin` e só pela criação
+  do tenant — não havia como cadastrar um entregador sem SSH. Três papéis
+  (admin, atendente, entregador) e duas travas que impedem alguém de se trancar
+  para fora: o último admin ativo não pode se rebaixar nem se desativar.
+  Ninguém é excluído, só desativado, porque o nome de quem lançou item na
+  comanda está espalhado pelo histórico. Isso também destravou o limite
+  `max_usuarios`, que estava no catálogo sem limitar nada.
+
+- **Entregas.** Tela do entregador com endereço, botão de rota, telefone e
+  baixa. A rota **não usa geocodificação nossa**: o endereço digitado é
+  entregue ao aplicativo de mapa do próprio celular. Testei os cinco bairros
+  que o Borba's atende num geocodificador gratuito e nenhum foi encontrado —
+  endereço de cidade pequena é descrito por referência, não por rua e número
+  mapeáveis. Quem sabe ler "perto da igreja" é uma pessoa.
+
+- **Rastreio.** O mapa voltou, com uma correção de desenho vinda do dado: no
+  sistema antigo, de 774 entregas só 37 registraram posição, e nenhuma depois
+  de 16/08. A causa provável é que a tela do entregador só servia ao cliente —
+  alguém tinha que manter o celular aberto em benefício de outra pessoa. Aqui
+  ela é a ferramenta de trabalho dele, e a posição vai junto porque a tela já
+  está aberta. Se ainda assim morrer, a resposta é tirar o rastreio, não
+  insistir.
+
+  A posição é do PEDIDO, não da pessoa: cada envio sobrescreve o anterior (não
+  há trajeto guardado), some quando a entrega termina, e o mapa só aparece com
+  leitura de menos de 5 minutos — ponto parado por celular sem sinal faria o
+  cliente concluir que o entregador empacou. O Leaflet é servido do próprio
+  domínio: a página é aberta no 3G da rua, e CDN fora do ar deixaria o cliente
+  sem mapa, além de mostrar a um terceiro quem acompanha qual pedido.
+
 **Layout e produto (fora da numeração).** Feito depois da Fase 9, em várias
 rodadas:
 

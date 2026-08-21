@@ -40,6 +40,8 @@ ACAO_PAGAMENTO_CONFIRMADO = "pagamento_confirmado"
 ACAO_PIX_ALTERADO = "pix_alterado"
 ACAO_WHATSAPP_ALTERADO = "whatsapp_alterado"
 ACAO_AGENTE_PAREADO = "agente_pareado"
+ACAO_USUARIO_CRIADO = "usuario_criado"
+ACAO_USUARIO_ALTERADO = "usuario_alterado"
 ACAO_TENANT_CRIADO = "tenant_criado"
 ACAO_TENANT_REMOVIDO = "tenant_removido"
 ACAO_PLANO_ALTERADO = "plano_alterado"
@@ -55,6 +57,8 @@ ROTULO_DA_ACAO = {
     ACAO_PIX_ALTERADO: "Alterou a chave PIX",
     ACAO_WHATSAPP_ALTERADO: "Alterou o envio de WhatsApp",
     ACAO_AGENTE_PAREADO: "Gerou código do agente de impressão",
+    ACAO_USUARIO_CRIADO: "Deu acesso a alguém",
+    ACAO_USUARIO_ALTERADO: "Mudou o acesso de alguém",
     ACAO_TENANT_CRIADO: "Criou um restaurante",
     ACAO_TENANT_REMOVIDO: "Removeu um restaurante",
     ACAO_PLANO_ALTERADO: "Alterou o plano de um restaurante",

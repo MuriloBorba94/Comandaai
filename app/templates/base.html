@@ -58,6 +58,9 @@
     :root[data-theme="light"] { --brand-texto: {{ tons.texto_claro }}; }
   </style>
   {% block head %}{% endblock %}
+  {# Folhas de estilo que só uma tela precisa. Carregar o Leaflet em todas as
+     páginas custaria 15 KB a quem nunca vai ver um mapa. #}
+  {% block head_extra %}{% endblock %}
 </head>
 <body class="{{ 'painel' if painel else 'vitrine' }}">
 

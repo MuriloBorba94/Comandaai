@@ -68,6 +68,10 @@ O que já existe aqui:
   está corrompido ou vazio), cópia para fora do disco via rclone, diário de
   auditoria do que mexe em dinheiro e acesso, `/saude` para monitor externo, e
   modo suporte com passe de uso único, faixa visível e rastro no diário.
+- **Equipe e entregas**: usuários com papel (admin, atendente, entregador) e a
+  tela do entregador — endereço, rota no mapa do próprio celular, telefone e
+  baixa. Enquanto a entrega está com alguém, o cliente vê a posição no mapa da
+  página de acompanhamento; ela some quando a entrega acaba.
 - Migrations versionadas com Flask-Migrate/Alembic desde o início.
 
 ## Identidade visual de cada tenant
@@ -193,8 +197,8 @@ clientes. A restrição de um plano começa a valer no momento em que você salv
 configuração dele.
 
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):
-backup separado por restaurante, e uma tela de equipe — que é o que destrava
-um limite de usuários por plano. No PIX do cliente final, a confirmação do
+backup separado por restaurante e auto-cadastro (hoje só o super-admin cria
+restaurante). No PIX do cliente final, a confirmação do
 recebimento continua sendo feita por uma pessoa, de propósito: é o que
 dispensa gateway e taxa. A lógica de negócio é portada de
 `C:\borbas_burguer_v17` fase por fase.

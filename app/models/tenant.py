@@ -44,6 +44,12 @@ class Tenant(TimestampMixin, db.Model):
     #
     # Nome e cidade vão impressos no código e aparecem na tela do banco do
     # cliente. Quando vazios, caem para o nome fantasia do restaurante.
+    #
+    # `pix_cidade` guarda a cidade DO RESTAURANTE, não só a do recebedor: ela
+    # também completa o endereço quando o entregador abre a rota no mapa. O nome
+    # do campo é herança de quando o PIX era o único uso — o rótulo na tela já
+    # diz "cidade do restaurante". Renomear a coluna custaria uma migration para
+    # ganhar nada que o comentário não resolva.
     pix_chave = db.Column(db.String(80))
     pix_recebedor = db.Column(db.String(60))
     pix_cidade = db.Column(db.String(40))

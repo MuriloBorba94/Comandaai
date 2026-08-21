@@ -454,6 +454,31 @@ def pedido_acompanhar(token: str):
     )
 
 
+@public_bp.route("/pedido/<token>/rastreio.json")
+def pedido_rastreio_json(token: str):
+    """Onde o pedido está agora, para o mapa da tela de acompanhamento.
+
+    Devolve posição só enquanto o pedido está a caminho E a leitura é recente
+    (ver `Pedido.rastreavel`). Ponto parado por causa de celular que perdeu
+    sinal faz o cliente concluir que o entregador empacou — melhor dizer que
+    não há posição do que mostrar uma velha.
+    """
+    if g.tenant is None:
+        abort(404)
+
+    pedido = Pedido.query.filter_by(public_token=token, tenant_id=g.tenant.id).first()
+    if pedido is None:
+        abort(404)
+
+    if not pedido.rastreavel:
+        return jsonify(status=pedido.status, lat=None, lng=None)
+    return jsonify(
+        status=pedido.status,
+        lat=pedido.entrega_lat,
+        lng=pedido.entrega_lng,
+    )
+
+
 @public_bp.route("/pedido/<token>/pagamento.json")
 def pedido_pagamento_json(token: str):
     """Diz se o pagamento já foi confirmado, para a tela se atualizar sozinha.

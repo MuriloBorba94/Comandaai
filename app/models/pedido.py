@@ -129,6 +129,25 @@ class Pedido(TimestampMixin, db.Model):
     tempo_estimado_min = db.Column(db.Integer)
     tempo_estimado_max = db.Column(db.Integer)
 
+    # Quem está levando, e onde essa pessoa estava da última vez que o celular
+    # dela contou. A posição fica no PEDIDO, e não numa tabela de rastro: o
+    # cliente precisa saber onde o pedido dele está agora, não o caminho
+    # percorrido — e guardar o trajeto inteiro de um entregador é vigiar
+    # funcionário, coisa que o sistema não tem por que fazer.
+    # A chave estrangeira leva NOME de propósito. Sem ele, o autogenerate do
+    # Alembic produz `create_foreign_key(None, ...)`, e no SQLite — onde alterar
+    # tabela significa recriá-la — a migration morre com "Constraint must have a
+    # name". O erro não aparece ao gerar; aparece ao aplicar, que no servidor é
+    # no meio da publicação.
+    entregador_id = db.Column(
+        db.Integer,
+        db.ForeignKey("usuario.id", ondelete="SET NULL", name="fk_pedido_entregador"),
+        index=True,
+    )
+    entrega_lat = db.Column(db.Float)
+    entrega_lng = db.Column(db.Float)
+    entrega_atualizado_em = db.Column(db.DateTime)
+
     confirmado_em = db.Column(db.DateTime)
     em_preparo_em = db.Column(db.DateTime)
     pronto_em = db.Column(db.DateTime)
@@ -137,6 +156,7 @@ class Pedido(TimestampMixin, db.Model):
     cancelado_em = db.Column(db.DateTime)
 
     tenant = db.relationship("Tenant", back_populates="pedidos")
+    entregador = db.relationship("Usuario", foreign_keys=[entregador_id])
     pagamento_online = db.relationship(
         "Pagamento", back_populates="pedido", uselist=False, cascade="all, delete-orphan"
     )
@@ -163,6 +183,22 @@ class Pedido(TimestampMixin, db.Model):
         if self.bairro_nome:
             partes.append(self.bairro_nome)
         return " — ".join(partes)
+
+    @property
+    def rastreavel(self) -> bool:
+        """Vale mostrar o mapa? Só a caminho, e só com posição recente.
+
+        Posição velha é pior do que nenhuma: o cliente olha um ponto parado e
+        conclui que o entregador empacou, quando na verdade foi o celular que
+        parou de contar.
+        """
+        from datetime import timedelta
+
+        if self.status != STATUS_SAIU_ENTREGA:
+            return False
+        if self.entrega_lat is None or self.entrega_atualizado_em is None:
+            return False
+        return datetime.now() - self.entrega_atualizado_em < timedelta(minutes=5)
 
     def recalcular_total(self) -> None:
         """Soma os itens e aplica taxa e desconto.
