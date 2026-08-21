@@ -9,3 +9,7 @@ logs/
 app/static/uploads/
 *.db
 *.db-*
+
+# Marca de qual commit está de fato no ar. Gravada pelo deploy/atualizar.sh no
+# servidor, depois de o serviço subir; é estado daquela máquina, não código.
+.versao-publicada

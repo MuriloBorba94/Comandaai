@@ -521,6 +521,26 @@ Na sua máquina, `git push`. No servidor, **um comando só**:
 > Depois disso o comando acima funciona sempre. O repositório já grava a
 > permissão certa, então em servidor novo isso não acontece.
 
+O script sempre confere dependências e migrations, mesmo quando o `git pull` não
+traz commit novo — porque o pull pode ter sido feito na mão antes, e aí "nada
+novo no código" não significa "servidor em dia". Ele reinicia quando alguma
+destas for verdade:
+
+- o commit no disco é diferente do que está no ar;
+- alguma migration foi aplicada agora;
+- o serviço não está ativo.
+
+Quando nada disso vale, ele diz `Já estava tudo publicado` e não reinicia — não
+faz sentido derrubar o site no meio do jantar por nada.
+
+Qual versão está de fato no ar fica em `/opt/comandaai/.versao-publicada`,
+gravada só **depois** de o serviço subir. Para conferir a qualquer momento:
+
+    cat /opt/comandaai/.versao-publicada && sudo -u comandaai git -C /opt/comandaai rev-parse --short HEAD
+
+Os dois têm que ser iguais. Diferentes significa que o disco está adiante do que
+está rodando — rode o `atualizar.sh`.
+
 Roda como root e desce para o usuário `comandaai` nas partes que mexem no código.
 O contrário não funciona: `comandaai` é usuário de sistema, sem direito a `sudo`,
 e não consegue reiniciar o serviço.
