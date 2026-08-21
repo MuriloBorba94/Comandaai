@@ -22,6 +22,15 @@ fi
 
 cd "$RAIZ"
 
+# O backup roda como o usuário da aplicação e é o primeiro passo. Se ele não
+# puder ser executado, o set -e aborta aqui — e é o que se quer: publicar versão
+# nova sem ter conseguido salvar a anterior é o pior dos dois mundos.
+if [ ! -x "$RAIZ/deploy/backup.sh" ]; then
+	echo "O backup.sh existe mas não tem permissão de execução." >&2
+	echo "Rode uma vez:  sudo chmod +x $RAIZ/deploy/*.sh" >&2
+	exit 1
+fi
+
 echo "==> Backup antes de mexer"
 # Como o usuário da aplicação, para os arquivos não ficarem do root e o backup
 # agendado (que roda como comandaai) continuar conseguindo escrever na pasta.

@@ -493,6 +493,13 @@ Adicione:
 
     30 4 * * * /opt/comandaai/deploy/backup.sh >> /opt/comandaai/logs/backup.log 2>&1
 
+Confira que o script pode ser executado antes de confiar no agendamento — cron
+que falha não avisa ninguém, e um backup que nunca rodou só é descoberto no dia
+em que ele faz falta:
+
+    sudo chmod +x /opt/comandaai/deploy/*.sh
+    sudo -u comandaai /opt/comandaai/deploy/backup.sh
+
 O script guarda 14 dias em `/opt/comandaai/backups`. **Isso ainda não é backup de
 verdade**, porque mora no mesmo disco: mande a pasta para fora (rclone para um
 Google Drive, ou `scp` para a sua máquina) assim que possível.
@@ -504,6 +511,15 @@ Google Drive, ou `scp` para a sua máquina) assim que possível.
 Na sua máquina, `git push`. No servidor, **um comando só**:
 
     sudo /opt/comandaai/deploy/atualizar.sh
+
+> **Se responder `command not found`**, o arquivo está lá mas sem permissão de
+> execução — os scripts foram criados no Windows, que não tem esse conceito, e
+> as primeiras versões subiram sem a permissão. Uma vez só:
+>
+>     sudo chmod +x /opt/comandaai/deploy/*.sh
+>
+> Depois disso o comando acima funciona sempre. O repositório já grava a
+> permissão certa, então em servidor novo isso não acontece.
 
 Roda como root e desce para o usuário `comandaai` nas partes que mexem no código.
 O contrário não funciona: `comandaai` é usuário de sistema, sem direito a `sudo`,
