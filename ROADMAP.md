@@ -183,6 +183,23 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    Imprimir do painel da cozinha. Cancelar o pedido tira da fila o que ainda
    não saiu, e não mexe no que já saiu.
 
+   **Por que não imprimir direto na impressora padrão do Windows** (pergunta que
+   volta): porque o sistema do tenant não roda em máquina nenhuma do
+   restaurante — roda na VPS, em Linux, num datacenter. Não existe caminho entre
+   um servidor em outra cidade e uma impressora USB num balcão; as alternativas
+   seriam abrir porta no roteador do cliente e exigir IP fixo, que é caro,
+   frágil e inseguro. No sistema antigo o modo local existia porque o Flask
+   rodava na mesma máquina Windows da impressora — e, mesmo lá, o
+   `impressao_modo` do Borba's estava em `remoto`: ele já usava o agente.
+
+   **Por que não imprimir pelo navegador**, que está no computador certo:
+   funciona, e foi considerado como alternativa sem instalação para restaurante
+   novo. O que derruba é o modo de falhar: exige a tela da cozinha aberta
+   naquele computador e um clique por pedido, e se a aba fechar ou a máquina
+   dormir os pedidos param de sair **em silêncio**. O agente fica rodando atrás
+   e o painel mostra "Conectado". Decisão de 21/08/2026 — reabrir se aparecer
+   um restaurante que não consiga instalar o agente.
+
 9. ~~**Estoque/ficha técnica/financeiro.**~~ **CONCLUÍDA.** `Insumo` com custo
    derivado do pacote de compra, `FichaTecnica` por produto,
    `MovimentacaoEstoque` como razão, baixa automática ao confirmar o pedido com
