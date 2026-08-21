@@ -88,7 +88,51 @@ def login():
     return render_template("auth/login.html", tenant=g.tenant)
 
 
+@auth_bp.route("/suporte/<token>")
+def suporte_entrar(token: str):
+    """Troca o passe da plataforma por uma sessão neste restaurante.
+
+    Sem `@login_required`: quem chega aqui ainda não tem sessão — o passe É a
+    credencial. Ele vale 2 minutos, serve uma vez só e é preso a este
+    restaurante (ver app/models/suporte.py).
+    """
+    from ..services.suporte import PasseInvalido, consumir
+
+    if g.tenant is None:
+        abort(404)
+
+    try:
+        consumir(g.tenant, token)
+    except PasseInvalido as exc:
+        current_app.logger.warning(
+            "Passe de suporte recusado: tenant=%s motivo=%s ip=%s",
+            g.tenant.slug,
+            exc,
+            request.remote_addr,
+        )
+        flash(str(exc), "erro")
+        return redirect(url_for("auth.login"))
+
+    flash(f"Modo suporte em {g.tenant.nome_fantasia}. Tudo o que você fizer fica registrado.", "sucesso")
+    return redirect(url_for("admin.dashboard"))
+
+
+@auth_bp.route("/suporte/sair", methods=["POST"])
+def suporte_sair():
+    from ..services.suporte import encerrar
+
+    encerrar()
+    flash("Você saiu do modo suporte.", "sucesso")
+    return redirect(url_for("auth.login"))
+
+
 @auth_bp.route("/logout")
 def logout():
+    from ..services.suporte import encerrar, em_suporte
+
+    # Sair pelo botão comum, estando em suporte, precisa registrar a saída do
+    # mesmo jeito: senão o diário mostra uma entrada sem fim correspondente.
+    if em_suporte():
+        encerrar()
     session.clear()
     return redirect(url_for("auth.login"))

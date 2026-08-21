@@ -1101,6 +1101,22 @@ body.vitrine { --price: var(--ambar); }
 .btn-pagar:hover { filter: brightness(1.08); }
 .btn-pagar.grande { padding: 13px 26px; font-size: 1rem; margin-top: 6px; }
 
+/* ===================== faixa do modo suporte ===================== */
+/* Âmbar e larga, no topo de tudo. Não é decoração: é o aviso de que quem está
+   mexendo naquela tela não é o dono do restaurante. Discrição aqui seria um
+   defeito. */
+.faixa-suporte {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px;
+  margin: 0 0 14px; padding: 11px 16px; border-radius: var(--raio-sm);
+  background: var(--warning-bg); border: 1px solid var(--warning-border);
+  color: var(--warning); font-size: .85rem;
+}
+.faixa-suporte strong { font-weight: 800; }
+.faixa-suporte span { color: var(--text-2); }
+.faixa-suporte .suporte-prazo { margin-left: auto; font-weight: 700; color: var(--warning); white-space: nowrap; }
+.faixa-suporte form { margin: 0; }
+.faixa-suporte button { padding: 6px 12px; font-size: .78rem; }
+
 @media (max-width: 640px) {
   .pix-conteudo { grid-template-columns: 1fr; justify-items: center; }
   .pix-copia { width: 100%; }

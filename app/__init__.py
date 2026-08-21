@@ -96,6 +96,10 @@ def create_app(config_object=Config) -> Flask:
 
     registrar_layout(app)
 
+    from .services.suporte import registrar_expiracao
+
+    registrar_expiracao(app)
+
     @app.template_global()
     def aviso_assinatura():
         """Aviso de mensalidade para quem administra o restaurante.
@@ -114,6 +118,19 @@ def create_app(config_object=Config) -> Flask:
         if session.get("tenant_id") != tenant.id:
             return None
         return aviso_de_assinatura(tenant)
+
+    @app.template_global()
+    def em_suporte() -> bool:
+        """Alguém da plataforma está dentro deste restaurante agora?"""
+        from .services.suporte import em_suporte as _em_suporte
+
+        return _em_suporte()
+
+    @app.template_global()
+    def minutos_de_suporte() -> int:
+        from .services.suporte import minutos_restantes
+
+        return minutos_restantes()
 
     @app.template_global()
     def insumos_para_repor() -> int:

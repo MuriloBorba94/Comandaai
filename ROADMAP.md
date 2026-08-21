@@ -223,8 +223,24 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
     e fila parada são avisos, porque alarme que dispara por qualquer coisa é
     alarme que se aprende a ignorar.
 
-    **Falta:** ferramenta de impersonation para suporte, e backup separado por
-    tenant.
+    ~~**Impersonation para suporte.**~~ O cookie de sessão é por host, e é isso
+    que impede uma sessão de valer em outro restaurante — então a plataforma
+    não consegue simplesmente criar sessão no subdomínio do cliente.
+    Compartilhar o cookie entre subdomínios resolveria e seria muito pior:
+    derrubaria a separação que protege um restaurante do outro em todo o resto
+    do sistema. A ponte é um `PasseSuporte` de uso único, válido por 2 minutos
+    e preso a um restaurante.
+
+    Ele não fica seguro por ser restrito, e sim por ser curto, visível e
+    registrado: faixa âmbar em TODA página enquanto durar, sessão que termina
+    sozinha em 30 minutos (o relógio não para enquanto a pessoa mexe), e tudo o
+    que for feito lá dentro sai no diário com o nome de quem da plataforma
+    entrou — não com o do dono do restaurante. Não há restrição de ação de
+    propósito: suporte que só enxerga e não conserta não resolve o problema de
+    ninguém, e uma lista de "o que o suporte não pode" daria uma sensação de
+    proteção que a primeira exceção derrubaria.
+
+    **Falta:** backup separado por tenant.
 
 **Layout e produto (fora da numeração).** Feito depois da Fase 9, em várias
 rodadas:

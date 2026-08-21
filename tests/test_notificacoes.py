@@ -447,6 +447,11 @@ def test_erro_da_meta_chega_inteiro_ate_o_painel(loja, monkeypatch):
 
     class Recusa(BaseHTTPRequestHandler):
         def do_POST(self):
+            # Ler o corpo ANTES de responder não é formalidade: responder e
+            # fechar com dados ainda no buffer faz o Windows abortar a conexão,
+            # e o cliente recebe WinError 10053 em vez da resposta. Foi o que
+            # deixou este teste instável.
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
             corpo = _json.dumps(
                 {"error": {"message": "Template name does not exist in the translation"}}
             ).encode()

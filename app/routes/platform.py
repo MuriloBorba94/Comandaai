@@ -235,6 +235,31 @@ def inicio():
     )
 
 
+@platform_bp.route("/tenants/<int:tenant_id>/suporte", methods=["POST"])
+@platform_admin_required
+def tenant_suporte(tenant_id: int):
+    """Entra no painel do restaurante para dar suporte.
+
+    O redirecionamento sai daqui para o endereço DO RESTAURANTE porque o cookie
+    de sessão é por host — é essa separação que impede uma sessão de valer em
+    outro restaurante, e ela não vai ser afrouxada para o suporte funcionar.
+    Ver `app/models/suporte.py`.
+    """
+    from ..services.suporte import emitir
+
+    tenant = db.session.get(Tenant, tenant_id)
+    if tenant is None:
+        flash("Restaurante não encontrado.", "erro")
+        return redirect(url_for("platform.tenants_list"))
+
+    token = emitir(tenant, session.get("username") or "super-admin")
+    base = (current_app.config.get("TENANT_BASE_DOMAINS") or ["localhost"])[0]
+    porta = str(current_app.config.get("PORT", "5000"))
+    esquema = "https" if current_app.config.get("SESSION_COOKIE_SECURE") else "http"
+    sufixo = "" if porta in ("80", "443") else f":{porta}"
+    return redirect(f"{esquema}://{tenant.slug}.{base}{sufixo}/suporte/{token}")
+
+
 @platform_bp.route("/operacao")
 @platform_admin_required
 def operacao():

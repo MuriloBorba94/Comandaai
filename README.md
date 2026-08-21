@@ -63,6 +63,11 @@ O que já existe aqui:
   commandbar, vitrine escura para o cliente final, e identidade por tenant —
   cada restaurante envia a sua logo e escolhe a cor da marca em
   `/admin/configuracoes`, sem interferir no vizinho.
+- **Operação** (Fase 10): backup com conferência de verdade (`flask
+  verificar-backup` prova que o arquivo abre e tem conteúdo, e reprova o que
+  está corrompido ou vazio), cópia para fora do disco via rclone, diário de
+  auditoria do que mexe em dinheiro e acesso, `/saude` para monitor externo, e
+  modo suporte com passe de uso único, faixa visível e rastro no diário.
 - Migrations versionadas com Flask-Migrate/Alembic desde o início.
 
 ## Identidade visual de cada tenant
@@ -188,10 +193,11 @@ clientes. A restrição de um plano começa a valer no momento em que você salv
 configuração dele.
 
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):
-log de auditoria, monitoramento e backup fora do disco do servidor (Fase
-10). No PIX do cliente final, a confirmação do recebimento continua sendo
-feita por uma pessoa, de propósito: é o que dispensa gateway e taxa. A
-lógica de negócio é portada de `C:\borbas_burguer_v17` fase por fase.
+backup separado por restaurante, e uma tela de equipe — que é o que destrava
+um limite de usuários por plano. No PIX do cliente final, a confirmação do
+recebimento continua sendo feita por uma pessoa, de propósito: é o que
+dispensa gateway e taxa. A lógica de negócio é portada de
+`C:\borbas_burguer_v17` fase por fase.
 
 ### Fotos de produto
 

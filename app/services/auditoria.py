@@ -28,8 +28,11 @@ def _quem() -> tuple[str, str]:
     if not has_request_context():
         return "sistema", ATOR_SISTEMA
 
-    if session.get("plataforma_logada"):
-        return str(session.get("plataforma_username") or "super-admin")[:80], ATOR_PLATAFORMA
+    # `platform_admin_id` é a chave que o login da plataforma grava (ver
+    # routes/platform.py). Conferir outra faria toda ação de super-admin
+    # aparecer no diário como se fosse de um usuário de restaurante.
+    if session.get("platform_admin_id"):
+        return str(session.get("username") or "super-admin")[:80], ATOR_PLATAFORMA
 
     # Sessão de suporte: quem age é a pessoa da plataforma, mesmo estando
     # dentro do restaurante. Registrar o usuário do restaurante aqui seria

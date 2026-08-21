@@ -11,6 +11,7 @@ from .pagamento import Pagamento
 from .pedido import Pedido, PedidoItem, PedidoItemAdicional
 from .platform_admin import PlatformAdmin
 from .produto import Produto
+from .suporte import PasseSuporte
 from .tenant import Tenant
 from .usuario import Usuario
 
@@ -33,6 +34,7 @@ __all__ = [
     "Pedido",
     "PedidoItem",
     "PedidoItemAdicional",
+    "PasseSuporte",
     "Plano",
     "PlatformAdmin",
     "Produto",

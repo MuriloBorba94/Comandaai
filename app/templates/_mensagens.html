@@ -1,4 +1,23 @@
 {# Mensagens da requisição e aviso de mensalidade, nos dois shells. #}
+
+{# Faixa do modo suporte. Vem antes de tudo porque é a informação mais
+   importante da tela: quem está mexendo aqui não é o dono do restaurante. Fica
+   em TODA página enquanto durar — esconder isso atrás de um ícone discreto é
+   como alguém esquece onde está e mexe no que não devia. #}
+{% if em_suporte() %}
+  <div class="faixa-suporte">
+    <strong>Modo suporte</strong>
+    <span>
+      Você está dentro de <strong>{{ g.tenant.nome_fantasia if g.tenant else "um restaurante" }}</strong>
+      como equipe da plataforma. Tudo o que fizer fica registrado no diário.
+    </span>
+    <span class="suporte-prazo">termina em {{ minutos_de_suporte() }} min</span>
+    <form method="post" action="{{ url_for('auth.suporte_sair') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">Sair do modo suporte</button>
+    </form>
+  </div>
+{% endif %}
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
     {% for categoria, mensagem in messages %}
