@@ -86,8 +86,9 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    que trava a checagem de propagação que o Caddy faz por conta própria (resolvido
    com `propagation_timeout -1`).
 
-   **Falta:** mandar o backup para fora do disco (hoje ele fica na mesma máquina
-   que ele deveria proteger), e monitoramento de erros.
+   O mecanismo de backup para fora do disco e o monitoramento entraram na Fase
+   10. **Falta a configuração**, que só pode ser feita no servidor:
+   `BACKUP_REMOTO` no `.env` e um monitor externo apontado para `/saude`.
 
 6. ~~**PIX por pedido, por tenant.**~~ **CONCLUÍDA.** A chave PIX é do
    restaurante e fica no `Tenant`: o dinheiro cai direto na conta dele e a
@@ -284,8 +285,22 @@ com abas. Aqui cada item do menu continua sendo uma rota, porque o bloqueio por
 plano é por rota — uma página única carregaria de uma vez os recursos que o
 plano do tenant não inclui.
 
-11. **Migração do Borba's Burguer como "tenant zero".** Criar o `Tenant` do
-    próprio Borba's Burguer, importar os dados reais (`Produto`, `Cupom`,
-    `BairroEntrega`, `LojaConfig`) do banco atual, cortar DNS/agente de
-    impressão/WhatsApp para o novo sistema, rodar em paralelo por um
-    período de transição, e então desativar `C:\borbas_burguer_v17`.
+11. ~~**Migração do Borba's Burguer como "tenant zero".**~~ **NO AR desde
+    21/08/2026**, em `borbas.comandaai.app.br`. `flask importar-legado` trouxe
+    loja, cardápio com fotos, adicionais, bairros, cupons, insumos, fichas
+    técnicas e usuários **com a senha de sempre** — o hash de senha é o mesmo
+    formato nos dois sistemas, então ninguém precisou trocar nada.
+
+    O histórico de pedidos ficou de fora de propósito: no sistema antigo os
+    itens de um pedido são um texto solto no registro, não linhas de uma
+    tabela. Importar os 1101 pedidos criaria mil registros sem item, sem
+    custo e sem lucro — exatamente o que alimenta o CMV, o "mais vendidos" e
+    a margem. Um financeiro cheio de números errados, parecendo certo. O
+    histórico continua disponível no sistema antigo para consulta.
+
+    Junto veio o `flask remover-tenant`, porque migração sem desfazer não é
+    migração: a importação recusa slug repetido, então um erro na primeira
+    tentativa deixaria o restaurante torto e sem volta.
+
+    **Falta:** rodar em paralelo pelo tempo que você achar necessário e então
+    desativar `C:\borbas_burguer_v17`. É decisão sua, não técnica.
