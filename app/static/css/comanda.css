@@ -1045,6 +1045,44 @@ body.vitrine { --price: var(--ambar); }
 .passos-agente { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 8px; }
 .passos-agente li { color: var(--text-2); font-size: .88rem; line-height: 1.6; }
 
+/* ===================== PIX na tela do cliente ===================== */
+/* O painel de pagamento é a única coisa que importa nessa tela enquanto o
+   dinheiro não entrou, então ele fica antes de tudo e com a borda de destaque.
+   Depois de pago vira um aviso calmo, sem o código à vista — código de
+   pagamento visível num pedido quitado é convite para pagar duas vezes. */
+.pix-panel { border-color: var(--warning-border); }
+.pix-panel h2 { margin-top: 0; }
+.pix-valor { font-size: 1.9rem; font-weight: 800; letter-spacing: -.02em; margin: 2px 0 16px; }
+.pix-conteudo { display: grid; grid-template-columns: 200px 1fr; gap: 20px; align-items: start; }
+.pix-qr {
+  width: 200px; padding: 10px; border-radius: var(--raio-sm);
+  /* Fundo branco fixo, e não a cor do tema: leitor de QR precisa de contraste
+     entre módulo escuro e fundo claro. No tema escuro, um QR "escuro sobre
+     escuro" simplesmente não é lido. */
+  background: #ffffff;
+}
+.pix-qr svg { display: block; width: 100%; height: auto; }
+.pix-qr path { fill: #000000; }
+.pix-copia { display: grid; gap: 8px; min-width: 0; }
+.pix-copia textarea {
+  width: 100%; resize: vertical; word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  font-size: .78rem; line-height: 1.5;
+}
+.pix-aviso { margin: 16px 0 0; color: var(--muted); font-size: .85rem; }
+.pix-pago { border-color: var(--success-border); }
+.pix-pago h2 { color: var(--success); }
+/* Na cozinha: o pedido que ainda não foi pago não pode se parecer com os outros. */
+.aviso-pagamento {
+  margin: 8px 0 0; padding: 7px 10px; border-radius: var(--raio-xs);
+  background: var(--warning-bg); border: 1px solid var(--warning-border);
+  color: var(--warning); font-size: .78rem; font-weight: 700;
+}
+@media (max-width: 640px) {
+  .pix-conteudo { grid-template-columns: 1fr; justify-items: center; }
+  .pix-copia { width: 100%; }
+}
+
 @media (max-width: 1350px) {
   .finance-kpis { grid-template-columns: repeat(3, 1fr); }
   .finance-insights-grid { grid-template-columns: 1fr 1fr; }

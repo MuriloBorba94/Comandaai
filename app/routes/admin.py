@@ -141,8 +141,37 @@ def configuracoes():
     from ..services.recursos import recursos_do_tenant
 
     liberados = recursos_do_tenant(g.tenant)
+
+    # Prévia do PIX com um pedido de R$ 1,00. Existe porque os campos do BR Code
+    # são cortados e limpos (25 caracteres, sem acento, sem símbolo) e o dono do
+    # restaurante não tem como adivinhar o resultado — melhor ele ver aqui do que
+    # descobrir pelo cliente que o nome saiu picado na tela do banco.
+    exemplo_pix = None
+    erro_pix = None
+    if "pix" in liberados and (g.tenant.pix_chave or "").strip():
+        from ..services.pagamentos.brcode import _texto_seguro, montar
+
+        try:
+            exemplo_pix = {
+                "codigo": montar(
+                    chave=g.tenant.pix_chave,
+                    valor=1.00,
+                    recebedor=g.tenant.pix_recebedor or g.tenant.nome_fantasia,
+                    cidade=g.tenant.pix_cidade or "",
+                    txid="EXEMPLO",
+                ),
+                "recebedor": _texto_seguro(
+                    g.tenant.pix_recebedor or g.tenant.nome_fantasia, 25, "RESTAURANTE"
+                ),
+                "cidade": _texto_seguro(g.tenant.pix_cidade or "", 15, "BRASIL"),
+            }
+        except ValueError as exc:
+            erro_pix = str(exc)
+
     return render_template(
         "admin/configuracoes.html",
+        exemplo_pix=exemplo_pix,
+        erro_pix=erro_pix,
         tenant=g.tenant,
         plano=Plano.query.filter_by(slug=g.tenant.plano).first(),
         # Mostra o catálogo inteiro marcando o que está incluído: o dono precisa
@@ -194,6 +223,46 @@ def identidade():
 
     db.session.commit()
     flash("Identidade visual salva.", "sucesso")
+    return redirect(url_for("admin.configuracoes"))
+
+
+@admin_bp.route("/configuracoes/pix", methods=["POST"])
+@admin_required
+@requer_recurso("pix")
+def pix():
+    """Chave PIX do restaurante, para receber pelo site.
+
+    Formulário separado do resto das configurações pelo mesmo motivo da
+    identidade visual: um erro aqui não pode desfazer o salvamento de mesas e
+    tempos, que é outro formulário.
+
+    A chave é gravada como o dono digitou, sem inventar formato: PIX aceita
+    e-mail, telefone, CPF, CNPJ e chave aleatória, e "ajudar" normalizando
+    quebraria pelo menos um desses casos. O que se valida é o que de fato
+    impede o código de funcionar — comprimento e caracteres que o BR Code não
+    transporta.
+    """
+    chave = (request.form.get("pix_chave") or "").strip()
+
+    if chave and len(chave) > 77:
+        flash("Esta chave PIX é longa demais para caber no código de pagamento.", "erro")
+        return redirect(url_for("admin.configuracoes"))
+    # Quebra de linha e tabulação vindas de um copiar-e-colar tortos: o BR
+    # Code não transporta esses caracteres, e o código sairia inválido sem
+    # ninguém entender por quê.
+    if any(caractere in chave for caractere in ("\r", "\n", "\t")):
+        flash("A chave PIX não pode ter quebra de linha.", "erro")
+        return redirect(url_for("admin.configuracoes"))
+
+    g.tenant.pix_chave = chave or None
+    g.tenant.pix_recebedor = (request.form.get("pix_recebedor") or "").strip()[:60] or None
+    g.tenant.pix_cidade = (request.form.get("pix_cidade") or "").strip()[:40] or None
+    db.session.commit()
+
+    if chave:
+        flash("Chave PIX salva. Agora “PIX online” aparece no cardápio.", "sucesso")
+    else:
+        flash("Chave PIX removida. O cardápio deixa de oferecer pagamento pelo site.", "sucesso")
     return redirect(url_for("admin.configuracoes"))
 
 

@@ -23,6 +23,7 @@ from ..services.cupons import validar_cupom
 from ..services.recursos import tenant_libera
 from ..services.pedidos import (
     FORMAS_PAGAMENTO,
+    formas_de_pagamento,
     bairros_ativos,
     calcular_carrinho,
     criar_pedido,
@@ -207,7 +208,7 @@ def carrinho():
         aviso_cupom=aviso_cupom,
         usa_cupons=usa_cupons,
         bairros=bairros_ativos(g.tenant.id) if tenant_libera(g.tenant, "bairros") else [],
-        formas_pagamento=FORMAS_PAGAMENTO,
+        formas_pagamento=formas_de_pagamento(g.tenant),
         tipos=(TIPO_ENTREGA, TIPO_RETIRADA),
         # Identificador do envio: se o cliente clicar duas vezes em "Finalizar",
         # o segundo POST reencontra o mesmo pedido em vez de criar outro.
@@ -414,4 +415,43 @@ def pedido_acompanhar(token: str):
     pedido = Pedido.query.filter_by(public_token=token, tenant_id=g.tenant.id).first()
     if pedido is None:
         abort(404)
-    return render_template("public/pedido.html", tenant=g.tenant, pedido=pedido)
+
+    pagamento = pedido.pagamento_online
+    # O QR só é desenhado enquanto há o que pagar. Depois de pago ele some da
+    # tela: código de pagamento visível num pedido já quitado é convite para o
+    # cliente pagar duas vezes.
+    qr = None
+    if pagamento is not None and pagamento.status == "aguardando" and pagamento.brcode:
+        from ..services.pagamentos.qr import svg
+
+        qr = svg(pagamento.brcode)
+
+    return render_template(
+        "public/pedido.html", tenant=g.tenant, pedido=pedido, pagamento=pagamento, qr=qr
+    )
+
+
+@public_bp.route("/pedido/<token>/pagamento.json")
+def pedido_pagamento_json(token: str):
+    """Diz se o pagamento já foi confirmado, para a tela se atualizar sozinha.
+
+    Resposta minúscula de propósito: enquanto espera o PIX, a página pergunta de
+    poucos em poucos segundos, e recarregar tudo a cada consulta seria desperdício
+    do lado do cliente e do servidor.
+    """
+    if g.tenant is None:
+        abort(404)
+
+    pedido = Pedido.query.filter_by(public_token=token, tenant_id=g.tenant.id).first()
+    if pedido is None:
+        abort(404)
+
+    pagamento = pedido.pagamento_online
+    if pagamento is None:
+        return jsonify(pago=False, status=None, pedido_status=pedido.status)
+
+    return jsonify(
+        pago=pagamento.status == "pago",
+        status=pagamento.status,
+        pedido_status=pedido.status,
+    )

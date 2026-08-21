@@ -6,8 +6,13 @@ from datetime import datetime
 from ..extensions import db
 from .mixins import TimestampMixin
 
-# Fluxo de status. "Aguardando PIX" do sistema original fica de fora: pagamento
-# é a Fase 6, e um status que nada movimenta só confundiria a cozinha.
+# Fluxo de status.
+#
+# "Aguardando PIX" é o único que existe antes de o restaurante saber do pedido:
+# o cliente escolheu pagar pelo site e o dinheiro ainda não entrou. Ele não
+# desce para a cozinha e não baixa estoque — sai daqui só quando alguém confirma
+# o recebimento (ver services/pagamentos/__init__.py) ou quando é cancelado.
+STATUS_AGUARDANDO_PIX = "Aguardando PIX"
 STATUS_NOVO = "Novo"
 STATUS_CONFIRMADO = "Confirmado"
 STATUS_EM_PREPARO = "Em preparo"
@@ -17,6 +22,7 @@ STATUS_ENTREGUE = "Entregue"
 STATUS_CANCELADO = "Cancelado"
 
 STATUS_TODOS = (
+    STATUS_AGUARDANDO_PIX,
     STATUS_NOVO,
     STATUS_CONFIRMADO,
     STATUS_EM_PREPARO,
@@ -27,7 +33,13 @@ STATUS_TODOS = (
 )
 
 # Status que ainda exigem ação de alguém — o que a cozinha precisa ver.
+#
+# "Aguardando PIX" entra: quem está no balcão precisa enxergar que existe um
+# pedido a caminho do pagamento, e é dali que ele confirma o recebimento. O que
+# NÃO pode é a comida começar a ser feita, e disso cuida o fluxo de transições:
+# de "Aguardando PIX" só se sai pagando ou cancelando.
 STATUS_ATIVOS = (
+    STATUS_AGUARDANDO_PIX,
     STATUS_NOVO,
     STATUS_CONFIRMADO,
     STATUS_EM_PREPARO,
@@ -125,6 +137,9 @@ class Pedido(TimestampMixin, db.Model):
     cancelado_em = db.Column(db.DateTime)
 
     tenant = db.relationship("Tenant", back_populates="pedidos")
+    pagamento_online = db.relationship(
+        "Pagamento", back_populates="pedido", uselist=False, cascade="all, delete-orphan"
+    )
     itens = db.relationship(
         "PedidoItem", back_populates="pedido", cascade="all, delete-orphan", order_by="PedidoItem.id"
     )

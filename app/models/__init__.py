@@ -5,6 +5,7 @@ from .cupom import BairroEntrega, Cupom, CupomUso
 from .estoque import FichaTecnica, Insumo, MovimentacaoEstoque
 from .financeiro import Despesa, ReceitaAvulsa
 from .impressao import AgenteImpressao, ImpressaoJob
+from .pagamento import Pagamento
 from .pedido import Pedido, PedidoItem, PedidoItemAdicional
 from .platform_admin import PlatformAdmin
 from .produto import Produto
@@ -24,6 +25,7 @@ __all__ = [
     "ImpressaoJob",
     "Insumo",
     "MovimentacaoEstoque",
+    "Pagamento",
     "Pedido",
     "PedidoItem",
     "PedidoItemAdicional",

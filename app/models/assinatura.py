@@ -30,6 +30,7 @@ STATUS_COBRANCA = (COBRANCA_PENDENTE, COBRANCA_PAGA, COBRANCA_CANCELADA)
 RECURSOS = (
     ("cozinha", "Painel da cozinha", "Fila de pedidos por status, com atualização automática."),
     ("impressao", "Impressão na cozinha", "Comanda no papel pela impressora do balcão, via agente."),
+    ("pix", "PIX pelo site", "Cliente paga no ato do pedido; o dinheiro cai direto na conta do restaurante."),
     ("mesas", "Salão e comanda de mesa", "Mapa de mesas, PDV da comanda e fechamento."),
     ("cupons", "Cupons de desconto", "Cupom com limite de usos e pedido mínimo."),
     ("bairros", "Taxa de entrega por bairro", "Taxa e prazo próprios por região."),

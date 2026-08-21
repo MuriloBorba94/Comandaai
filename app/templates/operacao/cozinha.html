@@ -53,10 +53,26 @@
               </ul>
               {% if pedido.observacao %}<p class="muted">Pedido: {{ pedido.observacao }}</p>{% endif %}
               <p class="muted">R$ {{ pedido.total|brl }} · {{ pedido.pagamento }}</p>
+              {% if pedido.pagamento_online %}
+                {% if pedido.pagamento_online.status == "aguardando" %}
+                  <p class="aviso-pagamento">Ainda não pago — não comece a produzir.</p>
+                {% elif pedido.pagamento_online.status == "revisao" %}
+                  <p class="aviso-pagamento">Pagamento em conferência: {{ pedido.pagamento_online.erro }}</p>
+                {% endif %}
+              {% endif %}
 
               {# Só as transições válidas para este pedido aparecem, então a tela
                  nunca oferece um botão que o serviço vai recusar. #}
               <div class="order-actions">
+                {% if pedido.pagamento_online and pedido.pagamento_online.status == "aguardando" %}
+                  {# Vem antes dos botões de status de propósito: é a ação que
+                     este pedido está esperando, e a única que o tira daqui. #}
+                  <form method="post" action="{{ url_for('operacao.pedido_confirmar_pagamento', pedido_id=pedido.id) }}"
+                        onsubmit="return confirm('Confirma que o PIX de R$ {{ pedido.total|brl }} entrou na conta?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-save">Recebi o PIX</button>
+                  </form>
+                {% endif %}
                 {% for proximo in proximos_status(pedido) %}
                   <form method="post" action="{{ url_for('operacao.pedido_status', pedido_id=pedido.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

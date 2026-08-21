@@ -32,6 +32,18 @@ class Tenant(TimestampMixin, db.Model):
     logo = db.Column(db.String(200))
     cor_marca = db.Column(db.String(7))
 
+    # Recebimento por PIX. A chave é do RESTAURANTE: o dinheiro cai direto na
+    # conta dele e a plataforma não é intermediária de pagamento em momento
+    # nenhum. Chave PIX não é segredo (é um e-mail, um telefone, um CNPJ ou uma
+    # chave aleatória — feita para ser divulgada), então fica em coluna comum;
+    # o que exige cuidado é só não deixar ninguém editar a de outro tenant.
+    #
+    # Nome e cidade vão impressos no código e aparecem na tela do banco do
+    # cliente. Quando vazios, caem para o nome fantasia do restaurante.
+    pix_chave = db.Column(db.String(80))
+    pix_recebedor = db.Column(db.String(60))
+    pix_cidade = db.Column(db.String(40))
+
     # Meta de margem sobre o PREÇO DE VENDA, como no sistema original: o preço
     # sugerido é custo / (1 - margem/100). Não é markup sobre o custo — 60 aqui
     # significa "quero que 60% do preço seja lucro", não "somar 60% ao custo".

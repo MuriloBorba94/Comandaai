@@ -11,10 +11,12 @@
 {% set cancelado = pedido.status == "Cancelado" %}
 {% set entrega = pedido.tipo == "Entrega" %}
 {% set icones = {
+     "Aguardando PIX": "⏳",
      "Novo": "🧾", "Confirmado": "✅", "Em preparo": "👨‍🍳", "Pronto": "🛎️",
      "Saiu para entrega": "🛵", "Entregue": "🎉", "Cancelado": "✖"
    } %}
 {% set frases = {
+     "Aguardando PIX": "Falta o pagamento. Assim que ele entrar, o pedido vai para a cozinha.",
      "Novo": "Recebemos seu pedido e ele já está na fila.",
      "Confirmado": "Pedido confirmado pela cozinha.",
      "Em preparo": "Estamos preparando seu pedido agora.",
@@ -49,6 +51,44 @@
         </div>
       {% endif %}
     </div>
+
+    {% if pagamento and pagamento.status == "aguardando" and not cancelado %}
+      <div class="panel pix-panel">
+        <h2>Pague com PIX para o pedido ir para a cozinha</h2>
+        <p class="pix-valor">R$ {{ pedido.total|brl }}</p>
+
+        <div class="pix-conteudo">
+          {% if qr %}
+            <div class="pix-qr">{{ qr|safe }}</div>
+          {% endif %}
+          <div class="pix-copia">
+            <label for="pix-codigo">PIX copia e cola</label>
+            {# readonly, não disabled: o cliente precisa conseguir selecionar o
+               texto na mão caso o botão de copiar não funcione no navegador
+               dele — o que acontece em conexão sem HTTPS. #}
+            <textarea id="pix-codigo" readonly rows="3">{{ pagamento.brcode }}</textarea>
+            <button type="button" id="pix-copiar" class="btn">Copiar código</button>
+            <p class="muted">
+              Abra o aplicativo do seu banco, escolha PIX e use "copia e cola"
+              ou aponte a câmera para o código acima.
+            </p>
+          </div>
+        </div>
+
+        <p class="pix-aviso">
+          Esta tela avisa sozinha quando o restaurante confirmar o recebimento.
+          Pode deixá-la aberta.
+        </p>
+      </div>
+    {% elif pagamento and pagamento.pago %}
+      <div class="panel pix-panel pix-pago">
+        <h2>✅ Pagamento confirmado</h2>
+        <p>
+          O restaurante confirmou o recebimento de R$ {{ pagamento.valor|brl }}{% if pagamento.pago_em %}
+          em {{ pagamento.pago_em.strftime('%d/%m às %H:%M') }}{% endif %}.
+        </p>
+      </div>
+    {% endif %}
 
     {% if not cancelado %}
       <div class="panel tracking-progress-panel">
@@ -109,11 +149,69 @@
 
 {% block scripts %}
 <script>
+  "use strict";
+
   /* O estado muda na cozinha, não aqui. Recarregar de tempos em tempos é o que
      faz a página acompanhar sem o cliente ficar apertando F5. Para em pedido
      encerrado, senão a aba fica recarregando para sempre. */
-  {% if not cancelado and pedido.status != "Entregue" %}
-    setTimeout(() => window.location.reload(), 45000);
+  {% if not cancelado and pedido.status != "Entregue" and not (pagamento and pagamento.status == "aguardando") %}
+    setTimeout(function () { window.location.reload(); }, 45000);
+  {% endif %}
+
+  {% if pagamento and pagamento.status == "aguardando" and not cancelado %}
+  /* Enquanto espera o PIX o cliente está OLHANDO a tela, então 45 segundos é
+     tempo demais. Aqui a pergunta é uma resposta minúscula a cada 6 segundos,
+     e a página só recarrega quando o pagamento de fato entra. */
+  (function () {
+    var url = "{{ url_for('public.pedido_pagamento_json', token=pedido.public_token) }}";
+    var tentativasSeguidasComErro = 0;
+
+    var timer = setInterval(function () {
+      fetch(url, { headers: { "Accept": "application/json" } })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (dados) {
+          tentativasSeguidasComErro = 0;
+          if (dados.pago || dados.pedido_status !== "Aguardando PIX") {
+            clearInterval(timer);
+            window.location.reload();
+          }
+        })
+        .catch(function () {
+          /* Rede instável no celular é o normal, não a exceção. Desiste só
+             depois de muitas falhas seguidas, para a aba não ficar consultando
+             para sempre um servidor que não responde. */
+          tentativasSeguidasComErro += 1;
+          if (tentativasSeguidasComErro >= 20) { clearInterval(timer); }
+        });
+    }, 6000);
+  })();
+
+  /* Copiar o código. O clipboard do navegador só existe em HTTPS; o caminho de
+     baixo (selecionar o texto) funciona em qualquer lugar e é o que salva o
+     cliente quando o de cima não está disponível. */
+  (function () {
+    var botao = document.getElementById("pix-copiar");
+    var campo = document.getElementById("pix-codigo");
+    if (!botao || !campo) { return; }
+
+    botao.addEventListener("click", function () {
+      function avisar(texto) {
+        var original = botao.textContent;
+        botao.textContent = texto;
+        setTimeout(function () { botao.textContent = original; }, 2500);
+      }
+      campo.select();
+      campo.setSelectionRange(0, campo.value.length);
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(campo.value).then(
+          function () { avisar("Copiado!"); },
+          function () { avisar("Selecione e copie"); }
+        );
+        return;
+      }
+      avisar("Selecione e copie");
+    });
+  })();
   {% endif %}
 </script>
 {% endblock %}

@@ -34,13 +34,19 @@ O que já existe aqui:
 - **Relatórios de venda** e **estoque com ficha técnica** (Fase 9): custo e lucro
   por pedido, baixa automática de insumo ao vender, despesas a pagar e resultado
   do período.
+- **PIX pelo site** (Fase 6): o cliente escolhe “PIX online” no checkout e
+  recebe o código e o QR na própria tela de acompanhamento. A chave é **do
+  restaurante** — o dinheiro cai direto na conta dele e a plataforma não é
+  intermediária de pagamento. O pedido fica em *Aguardando PIX* e só desce para
+  a cozinha quando alguém aperta “Recebi o PIX”: pagamento e status mudam na
+  mesma operação, então não têm como divergir.
 - **Impressão na cozinha** (Fase 8): comanda no papel pela térmica do balcão. O
   agente em `agente/` roda no computador do restaurante e **consulta** o
   servidor — a rede dele nunca recebe conexão de fora, então não precisa de IP
   fixo nem de porta aberta no roteador. Pareamento por código (guardado só como
   hash), fila com reserva para a comanda não sair duas vezes, e comanda de
   acréscimo que leva só o item que acabou de ser lançado na mesa.
-- **Planos versáteis**: cada plano marca quais dos 11 recursos libera e pode
+- **Planos versáteis**: cada plano marca quais dos 12 recursos libera e pode
   impor limites numéricos (produtos no cardápio, mesas do salão). Plano sem
   recursos configurados libera tudo; limite em branco ou zero significa sem
   teto — apertar a régua é sempre uma decisão explícita.
@@ -173,8 +179,9 @@ clientes. A restrição de um plano começa a valer no momento em que você salv
 configuração dele.
 
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):
-PIX no pedido, WhatsApp e integração com gateway de cobrança. A lógica de
-negócio é portada de `C:\borbas_burguer_v17` fase por fase.
+WhatsApp e integração com gateway (tanto da assinatura quanto do PIX — hoje
+a confirmação do recebimento é feita por uma pessoa). A lógica de negócio é
+portada de `C:\borbas_burguer_v17` fase por fase.
 
 ### Fotos de produto
 

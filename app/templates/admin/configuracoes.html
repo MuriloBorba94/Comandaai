@@ -93,6 +93,69 @@
   </div>
   {% endif %}
 
+  {% if libera('pix') %}
+  <div class="card-admin">
+    <h1>Receber PIX pelo site</h1>
+    <p class="muted">
+      Com a chave cadastrada, o cardápio passa a oferecer <strong>“PIX online”</strong>
+      no checkout. O cliente paga na hora e o dinheiro cai
+      <strong>direto na sua conta</strong> — a plataforma não fica no meio e não
+      cobra taxa por pagamento.
+    </p>
+    <p class="muted">
+      O pedido fica em <strong>Aguardando PIX</strong> até alguém do restaurante
+      apertar <strong>“Recebi o PIX”</strong> no painel da cozinha. É você quem
+      olha o aplicativo do banco e confirma — não existe aviso automático, e é
+      isso que dispensa contrato com maquininha ou gateway.
+    </p>
+
+    <form method="post" action="{{ url_for('admin.pix') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label for="pix_chave">Chave PIX</label>
+      <input id="pix_chave" name="pix_chave" maxlength="77" value="{{ tenant.pix_chave or '' }}"
+             placeholder="e-mail, telefone, CPF/CNPJ ou chave aleatória">
+      <p class="muted">
+        Do jeito que aparece no seu banco. Deixe em branco para parar de receber
+        pelo site.
+      </p>
+
+      <label for="pix_recebedor">Nome que aparece para o cliente</label>
+      <input id="pix_recebedor" name="pix_recebedor" maxlength="25"
+             value="{{ tenant.pix_recebedor or '' }}" placeholder="{{ tenant.nome_fantasia }}">
+      <p class="muted">
+        Até 25 caracteres, sem acento — é limite do padrão do Banco Central, não
+        nosso. Em branco, usa o nome do restaurante.
+      </p>
+
+      <label for="pix_cidade">Cidade do recebedor</label>
+      <input id="pix_cidade" name="pix_cidade" maxlength="15"
+             value="{{ tenant.pix_cidade or '' }}" placeholder="Vicência">
+
+      <button type="submit">Salvar chave PIX</button>
+    </form>
+
+    {% if exemplo_pix %}
+      <h4>Como o cliente vai ver</h4>
+      <p class="muted">
+        Conferência com um pedido de exemplo de R$ 1,00. Se o nome sair errado
+        aqui, sai errado no aplicativo do banco do cliente.
+      </p>
+      <div class="v17-table-wrap">
+        <table>
+          <tbody>
+            <tr><td>Recebedor</td><td><strong>{{ exemplo_pix.recebedor }}</strong></td></tr>
+            <tr><td>Cidade</td><td>{{ exemplo_pix.cidade }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <code class="token-gerado">{{ exemplo_pix.codigo }}</code>
+    {% elif erro_pix %}
+      <p class="aviso-impressao">{{ erro_pix }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <div class="card-admin">
     <h1>Configurações da loja</h1>
     <form method="post">

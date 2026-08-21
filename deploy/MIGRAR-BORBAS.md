@@ -260,9 +260,17 @@ agente no computador do balcão: painel > menu **Impressão**, onde ficam o
 *Gerar código de ativação* e o *Baixar o agente (.zip)*. O passo a passo vai
 dentro do próprio pacote, em `LEIA-ME.md`.
 
+Para **receber PIX pelo site** como no sistema antigo, cadastre a chave em
+*Loja e identidade → Receber PIX pelo site*. A tela mostra uma prévia de como o
+seu nome vai aparecer no aplicativo do banco do cliente — confira ali, porque o
+padrão do Banco Central corta em 25 caracteres e tira os acentos.
+
+A chave que está no sistema antigo é `murilo-borba@jim.com`, com recebedor
+"Borbas Burguer" e cidade "Vicência".
+
 O que ainda falta para não sentir falta do sistema antigo:
 
-- **PIX no pedido** (Fase 6) e **WhatsApp** (Fase 7)
+- **WhatsApp** (Fase 7)
 
 ---
 

@@ -66,10 +66,42 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    **Falta:** mandar o backup para fora do disco (hoje ele fica na mesma máquina
    que ele deveria proteger), e monitoramento de erros.
 
-6. **PIX por pedido, por tenant.** Portar o fluxo de pagamento do cliente
-   final do repo atual, desta vez com uma abstração de provedor de fato
-   (corrigindo o `PIX_PROVIDER` do repo atual, que hoje existe na env mas não
-   é usado por nenhuma fábrica de provedores).
+6. ~~**PIX por pedido, por tenant.**~~ **CONCLUÍDA.** A chave PIX é do
+   restaurante e fica no `Tenant`: o dinheiro cai direto na conta dele e a
+   plataforma não é intermediária de pagamento em momento nenhum. `Pagamento`
+   guarda o que foi cobrado, o BR Code congelado e quem confirmou o
+   recebimento.
+
+   A abstração de provedor que faltava agora existe de verdade
+   (`services/pagamentos/registro.py`): um provedor é uma classe com quatro
+   respostas, e quem cobra nunca sabe qual está atendendo. No repo antigo o
+   `PIX_PROVIDER` estava na env e nenhuma fábrica o lia — o código chamava a
+   InfinitePay direto, com `if provider == "infinitepay"` em três arquivos.
+
+   **Só um provedor entrou, e por decisão baseada em dado.** No banco em
+   produção do sistema antigo há 162 pagamentos online: **159 pelo PIX direto**
+   (uso contínuo, até a véspera desta fase) e **3 pelo gateway**, os três no
+   mesmo dia de julho e nunca repetidos. Portar o gateway seria carregar código
+   que ninguém usa e que eu não teria como testar de verdade, sem conta e sem
+   chave. A porta está aberta; o provedor entra quando houver restaurante que
+   precise.
+
+   Correções sobre o original:
+
+   - **O BR Code era gerado em dois lugares** (`pix_service.py` e dentro de
+     `routes/public.py`) e as duas cópias já tinham divergido. Agora é uma
+     função só, com o CRC conferido contra o valor de teste da especificação e
+     o código lido de volta campo a campo nos testes.
+   - **Pagamento e pedido podiam divergir.** Lá o atendente conseguia avançar
+     um pedido de "Aguardando PIX" sem marcar o pagamento, e o financeiro
+     continuava dizendo que ninguém pagou um pedido já entregue. Aqui existe um
+     caminho só para sair de "Aguardando PIX": confirmar o recebimento, que
+     marca o pagamento e move o pedido na mesma operação.
+   - **"Borba's Burguer" saía "BORBA S BURGUER"** na tela do banco, porque o
+     apóstrofo virava espaço.
+
+   Pedido esperando PIX não baixa estoque, não imprime comanda e não avança por
+   botão de status.
 
 7. **WhatsApp multi-tenant-seguro.** Usar exclusivamente a API oficial (Meta
    WhatsApp Cloud API) por tenant — abandonar os modos manual e Baileys do

@@ -134,6 +134,34 @@ def pedido_status(pedido_id: int):
     return redirect(url_for("operacao.cozinha"))
 
 
+@operacao_bp.route("/cozinha/pedidos/<int:pedido_id>/pagamento", methods=["POST"])
+@login_required
+@requer_recurso("pix")
+def pedido_confirmar_pagamento(pedido_id: int):
+    """"Recebi o PIX": marca o pagamento e libera o pedido, na mesma ação.
+
+    É o único caminho para sair de "Aguardando PIX". No sistema original dava
+    para avançar o pedido sem marcar o pagamento, e o financeiro ficava dizendo
+    que ninguém pagou um pedido que já tinha sido entregue.
+    """
+    from ..services.pagamentos import confirmar_recebimento
+
+    pedido = Pedido.query.filter_by(id=pedido_id, tenant_id=g.tenant.id).first()
+    if pedido is None or pedido.pagamento_online is None:
+        flash("Este pedido não tem cobrança pelo site.", "erro")
+        return redirect(url_for("operacao.cozinha"))
+
+    try:
+        if confirmar_recebimento(pedido.pagamento_online, actor=session.get("username")):
+            flash(f"Pedido #{pedido.numero}: pagamento confirmado e liberado para a cozinha.", "sucesso")
+        else:
+            flash(f"O pagamento do pedido #{pedido.numero} já estava confirmado.", "sucesso")
+    except ValueError as exc:
+        flash(str(exc), "erro")
+
+    return redirect(request.referrer or url_for("operacao.cozinha"))
+
+
 @operacao_bp.route("/cozinha/pedidos/<int:pedido_id>/imprimir", methods=["POST"])
 @login_required
 @requer_recurso("impressao")

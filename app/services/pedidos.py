@@ -26,6 +26,7 @@ from sqlalchemy.exc import IntegrityError
 from ..extensions import db
 from ..models.pedido import (
     CAMPO_TIMESTAMP,
+    STATUS_AGUARDANDO_PIX,
     STATUS_ATIVOS,
     STATUS_CANCELADO,
     STATUS_CONFIRMADO,
@@ -57,6 +58,12 @@ MAX_ITENS_CARRINHO = 50
 MAX_QUANTIDADE_ITEM = 30
 
 TRANSICOES_PERMITIDAS = {
+    # De "Aguardando PIX" o pedido não avança por decisão de tela: quem o move
+    # para "Confirmado" é confirmar_recebimento(), que marca o pagamento na
+    # mesma operação. No sistema original os dois caminhos eram separados, e o
+    # atendente conseguia mandar para a cozinha um pedido que o financeiro
+    # continuava contando como não pago.
+    STATUS_AGUARDANDO_PIX: {STATUS_CONFIRMADO, STATUS_CANCELADO},
     STATUS_NOVO: {STATUS_CONFIRMADO, STATUS_EM_PREPARO, STATUS_CANCELADO},
     STATUS_CONFIRMADO: {STATUS_EM_PREPARO, STATUS_CANCELADO},
     STATUS_EM_PREPARO: {STATUS_PRONTO, STATUS_CANCELADO},
@@ -67,7 +74,27 @@ TRANSICOES_PERMITIDAS = {
 }
 
 PAGAMENTO_COMANDA = "Comanda Aberta"
+
+# Pagar agora, pelo site. Diferente de "PIX na entrega", em que o cliente paga
+# na porta com o entregador: aqui o pedido só desce para a cozinha depois de o
+# restaurante confirmar que o dinheiro entrou.
+PAGAMENTO_PIX_ONLINE = "PIX online"
+
 FORMAS_PAGAMENTO = ("Dinheiro", "Cartão na entrega", "PIX na entrega")
+
+
+def formas_de_pagamento(tenant) -> tuple[str, ...]:
+    """As formas que ESTE restaurante oferece no cardápio.
+
+    "PIX online" só aparece quando o plano libera e a chave PIX está cadastrada.
+    Oferecer sem isso levaria o cliente a escolher e só então descobrir, no
+    envio, que o restaurante não recebe pelo site.
+    """
+    from .pagamentos import cobranca_disponivel
+
+    if cobranca_disponivel(tenant):
+        return (PAGAMENTO_PIX_ONLINE, *FORMAS_PAGAMENTO)
+    return FORMAS_PAGAMENTO
 
 
 def _dinheiro(valor) -> Decimal:
@@ -262,6 +289,14 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
             raise ValueError("Informe um WhatsApp válido com DDD.")
         if not pagamento:
             raise ValueError("Escolha a forma de pagamento.")
+        if pagamento == PAGAMENTO_PIX_ONLINE:
+            from .pagamentos import cobranca_disponivel, por_que_nao
+
+            # Checado aqui e não só na tela: a forma de pagamento chega por
+            # formulário, e um POST montado à mão não pode criar um pedido
+            # esperando um PIX que este restaurante não tem como receber.
+            if not cobranca_disponivel(tenant):
+                raise ValueError(por_que_nao(tenant) or "Este restaurante não recebe PIX pelo site.")
         if tipo == TIPO_ENTREGA:
             endereco = _texto(payload.get("endereco"), 350)
             if len(endereco) < 8:
@@ -296,7 +331,7 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
         observacao=observacao,
         taxa_entrega=float(taxa_entrega),
         desconto=0.0,  # só o cupom altera, e sempre calculado no servidor
-        status=STATUS_NOVO,
+        status=STATUS_AGUARDANDO_PIX if pagamento == PAGAMENTO_PIX_ONLINE else STATUS_NOVO,
         origem=_texto(payload.get("origem"), 20) or "site",
         tempo_estimado_min=estimado_min,
         tempo_estimado_max=estimado_max,
@@ -333,6 +368,19 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
                 db.session.rollback()
                 raise ValueError(resultado.mensagem)
             pedido.recalcular_total()
+
+        if pagamento == PAGAMENTO_PIX_ONLINE:
+            # Depois do cupom, porque a cobrança é do total JÁ com desconto; e
+            # antes do commit, porque pedido em "Aguardando PIX" sem código para
+            # copiar é um beco sem saída: o cliente vê a tela pedindo pagamento
+            # e não tem o que pagar.
+            from .pagamentos import criar_cobranca
+
+            try:
+                criar_cobranca(pedido)
+            except ValueError:
+                db.session.rollback()
+                raise
 
         db.session.commit()
 
@@ -392,14 +440,23 @@ def transicionar(pedido: Pedido, novo_status: str, actor: str | None = None) -> 
     db.session.commit()
 
     if novo_status == STATUS_CANCELADO:
+        # Cobrança de pedido cancelado não fica esperando pagamento para sempre.
+        # A que já foi paga (ou está em conferência) não é tocada: dinheiro que
+        # entrou é assunto de gente, não de troca de status.
+        if pedido.pagamento_online is not None:
+            from .pagamentos import cancelar_cobranca
+
+            tentar(cancelar_cobranca, pedido.pagamento_online)
+
         # O que ainda não saiu no papel não deve sair. O que já saiu fica: aquele
         # papel está na cozinha, e o registro precisa contar isso.
         tentar(cancelar_pendentes_do_pedido, pedido)
         db.session.commit()
-    elif atual == STATUS_NOVO:
+    elif atual in (STATUS_NOVO, STATUS_AGUARDANDO_PIX):
         # Primeiro avanço do pedido do site: é aqui que alguém do restaurante
-        # aceitou o pedido, e é aqui que a cozinha deve receber o papel. Imprimir
-        # na chegada gastaria bobina com pedido que o atendente ainda vai recusar.
+        # aceitou o pedido — ou confirmou o PIX —, e é aqui que a cozinha deve
+        # receber o papel. Imprimir na chegada gastaria bobina com pedido que o
+        # atendente ainda vai recusar, ou que o cliente nunca vai pagar.
         tentar(garantir_comanda, pedido)
 
     return pedido
@@ -507,7 +564,13 @@ def pedidos_ativos(tenant_id: int) -> list[Pedido]:
 
 def proximos_status(pedido: Pedido) -> list[str]:
     """Transições que a cozinha pode oferecer para este pedido, já filtradas."""
-    permitidos = TRANSICOES_PERMITIDAS.get(pedido.status or STATUS_NOVO, set())
+    permitidos = set(TRANSICOES_PERMITIDAS.get(pedido.status or STATUS_NOVO, set()))
+    if pedido.status == STATUS_AGUARDANDO_PIX:
+        # "Confirmado" existe na tabela de transições porque é para lá que o
+        # pedido vai quando o pagamento entra — mas por confirmar_recebimento(),
+        # não por um botão. Oferecer aqui seria oferecer o caminho que deixa o
+        # financeiro dizendo que ninguém pagou.
+        permitidos.discard(STATUS_CONFIRMADO)
     if pedido.tipo != TIPO_ENTREGA:
         permitidos = permitidos - {STATUS_SAIU_ENTREGA}
     # Mantém a ordem natural do fluxo, com Cancelado no fim.
