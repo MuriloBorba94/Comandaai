@@ -174,6 +174,29 @@ def index():
     )
 
 
+@public_bp.route("/saude")
+def saude():
+    """"Está de pé?" — para um monitor externo perguntar de minuto em minuto.
+
+    A resposta é curta de propósito. Um endereço aberto que contasse qual é o
+    banco, quanto disco resta e quantos clientes existem ajudaria quem quer
+    atacar e não ajudaria mais ninguém. O quadro completo fica na área da
+    plataforma, atrás de login.
+
+    503 significa "não adianta mandar cliente para cá": banco fora do ar ou
+    publicação pela metade. Fila de impressão parada e disco em 80% são avisos e
+    NÃO derrubam esta resposta — alarme que dispara por qualquer coisa é alarme
+    que as pessoas aprendem a ignorar.
+    """
+    from ..services.saude import checar
+
+    resultado = checar()
+    return (
+        jsonify(status="ok" if resultado["ok"] else "erro"),
+        200 if resultado["ok"] else 503,
+    )
+
+
 @public_bp.route("/carrinho")
 def carrinho():
     if g.tenant is None:

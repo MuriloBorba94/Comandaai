@@ -194,12 +194,37 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    dinheiro contado duas vezes. Aqui não existe categoria de despesa para
    insumo: a compra é entrada de estoque.
 
-10. **Hardening e operação.** Backup (o `deploy/backup.sh` já cobre banco e
-    fotos; falta mandar para fora do disco e separar por tenant), audit log,
-    ~~feature-gating por plano~~ (**feito junto com a Fase 4**: cada plano marca
-    quais recursos libera, e plano não configurado libera tudo para não tirar
-    acesso de quem já usa), ferramenta de impersonation para suporte,
-    monitoramento de erros (ex. Sentry).
+10. **Hardening e operação.** *Em andamento.*
+
+    ~~**Feature-gating por plano**~~ — feito junto com a Fase 4.
+
+    ~~**Backup.**~~ A parte delicada (copiar e CONFERIR) saiu do script de shell
+    e virou `flask fazer-backup` / `flask verificar-backup`, dentro da
+    aplicação: o caminho do banco vem da configuração em vez de escrito à mão, e
+    a suíte exercita a conferência — inclusive provando que ela REPROVA backup
+    corrompido e backup vazio. Descoberta pelo caminho: `integrity_check` do
+    SQLite confere a estrutura do banco, não o conteúdo byte a byte, então um
+    arquivo corrompido no disco passava nele; quem pega isso é a soma de
+    verificação gravada ao lado. Cópia para fora da máquina via `BACKUP_REMOTO`
+    (rclone), com falha barulhenta quando configurada e quebrada — ver
+    `deploy/BACKUP-FORA-DO-DISCO.md`. Separar por tenant continua em aberto.
+
+    ~~**Audit log.**~~ `Auditoria` grava pouco de propósito: dinheiro, acesso e
+    configuração que muda para onde o dinheiro vai. Cadastro de produto e
+    movimento de estoque ficam de fora — encher o diário do que é rotina é o
+    jeito mais eficiente de tornar inútil o registro do que é raro. Registrar
+    nunca derruba a operação registrada. Tela por restaurante e tela geral na
+    plataforma.
+
+    ~~**Monitoramento.**~~ `/saude` responde 200/503 e **nada mais** para quem
+    pergunta de fora — resposta detalhada em endereço aberto conta a estranhos
+    qual é o banco e quanto disco resta. O quadro completo fica na plataforma.
+    Só banco fora do ar e publicação pela metade contam como grave; disco cheio
+    e fila parada são avisos, porque alarme que dispara por qualquer coisa é
+    alarme que se aprende a ignorar.
+
+    **Falta:** ferramenta de impersonation para suporte, e backup separado por
+    tenant.
 
 **Layout e produto (fora da numeração).** Feito depois da Fase 9, em várias
 rodadas:

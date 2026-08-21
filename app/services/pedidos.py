@@ -473,6 +473,18 @@ def transicionar(pedido: Pedido, novo_status: str, actor: str | None = None) -> 
             tentar_aviso(despachar, aviso)
 
     if novo_status == STATUS_CANCELADO:
+        # Cancelar é o que alguém vai querer reconstituir depois — quem cancelou
+        # aquele pedido de R$ 180 na sexta-feira.
+        from ..models.auditoria import ACAO_PEDIDO_CANCELADO
+        from .auditoria import registrar as registrar_auditoria
+
+        registrar_auditoria(
+            ACAO_PEDIDO_CANCELADO,
+            tenant=pedido.tenant,
+            alvo=f"Pedido #{pedido.numero}",
+            detalhes=f"R$ {pedido.total:.2f}".replace(".", ",") + f" · vindo de {atual}",
+        )
+
         # Cobrança de pedido cancelado não fica esperando pagamento para sempre.
         # A que já foi paga (ou está em conferência) não é tocada: dinheiro que
         # entrou é assunto de gente, não de troca de status.

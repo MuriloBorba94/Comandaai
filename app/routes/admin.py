@@ -268,6 +268,18 @@ def pix():
     g.tenant.pix_cidade = (request.form.get("pix_cidade") or "").strip()[:40] or None
     db.session.commit()
 
+    from ..models.auditoria import ACAO_PIX_ALTERADO
+    from ..services.auditoria import registrar
+
+    registrar(
+        ACAO_PIX_ALTERADO,
+        alvo=g.tenant.nome_fantasia,
+        # A chave em si NÃO entra no diário: ela muda para onde o dinheiro vai,
+        # e um log é um lugar a mais de onde ela pode vazar. Registrar que
+        # mudou, quem mudou e quando é o que responde a pergunta.
+        detalhes="chave cadastrada" if chave else "chave removida",
+    )
+
     if chave:
         flash("Chave PIX salva. Agora “PIX online” aparece no cardápio.", "sucesso")
     else:
@@ -300,7 +312,16 @@ def whatsapp():
 
     db.session.commit()
 
+    from ..models.auditoria import ACAO_WHATSAPP_ALTERADO
+    from ..services.auditoria import registrar
     from ..services.notificacoes import caiu_para_o_link, provedor_do_tenant
+
+    registrar(
+        ACAO_WHATSAPP_ALTERADO,
+        alvo=g.tenant.nome_fantasia,
+        detalhes=f"provedor: {g.tenant.whatsapp_provedor}"
+        + (" · token trocado" if token else ""),
+    )
 
     if caiu_para_o_link(g.tenant):
         flash(
@@ -311,6 +332,21 @@ def whatsapp():
     else:
         flash(f"Avisos por WhatsApp: {provedor_do_tenant(g.tenant).nome}.", "sucesso")
     return redirect(url_for("admin.configuracoes"))
+
+
+@admin_bp.route("/atividade")
+@admin_required
+def atividade():
+    """O que foi feito neste restaurante, por quem e quando.
+
+    Só para quem administra: um atendente ver o registro de acesso dos colegas
+    não ajuda a operar e transforma o painel em ferramenta de vigilância.
+    """
+    from ..services.auditoria import do_tenant
+
+    return render_template(
+        "admin/atividade.html", tenant=g.tenant, registros=do_tenant(g.tenant.id, limite=200)
+    )
 
 
 @admin_bp.route("/relatorios")
@@ -1340,7 +1376,13 @@ def impressao_agente_zip():
 def impressao_parear():
     from ..services import impressao as servico
 
+    from ..models.auditoria import ACAO_AGENTE_PAREADO
+    from ..services.auditoria import registrar
+
     session["impressao_token"] = servico.parear(g.tenant)
+    # Gerar código novo invalida o anterior: é uma troca de acesso, e quem
+    # perdeu o acesso vai querer saber quando e por quem.
+    registrar(ACAO_AGENTE_PAREADO, alvo=g.tenant.nome_fantasia)
     flash("Código de ativação gerado. Copie agora: ele não será mostrado de novo.", "sucesso")
     return redirect(url_for("admin.impressao"))
 

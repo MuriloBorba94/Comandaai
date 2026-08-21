@@ -60,12 +60,28 @@ def login():
             current_app.logger.info(
                 "Login: tenant=%s username=%r", g.tenant.slug, usuario.username
             )
+            from ..services.auditoria import registrar
+            from ..models.auditoria import ACAO_LOGIN
+
+            registrar(ACAO_LOGIN, tenant=g.tenant, alvo=usuario.username)
             return redirect(url_for("admin.dashboard"))
         current_app.logger.warning(
             "Login de tenant falhou: tenant=%s username=%r ip=%s",
             g.tenant.slug,
             username,
             request.remote_addr,
+        )
+        from ..models.auditoria import ACAO_LOGIN_FALHOU
+        from ..services.auditoria import registrar
+
+        # O usuário tentado entra como alvo, e não como ator: quem tentou é
+        # desconhecido, e registrar o nome digitado como autor daria a
+        # entender que aquela pessoa fez algo.
+        registrar(
+            ACAO_LOGIN_FALHOU,
+            tenant=g.tenant,
+            alvo=username[:120] or "(sem usuário)",
+            ator="anônimo",
         )
         flash("Usuário ou senha inválidos.", "erro")
 

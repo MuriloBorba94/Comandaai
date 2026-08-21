@@ -492,6 +492,7 @@ Sem isso, um disco com problema leva os pedidos e as fotos de todos os clientes.
 Adicione:
 
     30 4 * * * /opt/comandaai/deploy/backup.sh >> /opt/comandaai/logs/backup.log 2>&1
+    45 4 * * * cd /opt/comandaai && FLASK_APP=run.py .venv/bin/python -m flask verificar-backup >> /opt/comandaai/logs/backup.log 2>&1
     * * * * * cd /opt/comandaai && FLASK_APP=run.py .venv/bin/python -m flask enviar-avisos >> /opt/comandaai/logs/avisos.log 2>&1
 
 A segunda linha é a rede de proteção dos avisos de WhatsApp: o envio normal
@@ -506,9 +507,15 @@ em que ele faz falta:
     sudo chmod +x /opt/comandaai/deploy/*.sh
     sudo -u comandaai /opt/comandaai/deploy/backup.sh
 
-O script guarda 14 dias em `/opt/comandaai/backups`. **Isso ainda não é backup de
-verdade**, porque mora no mesmo disco: mande a pasta para fora (rclone para um
-Google Drive, ou `scp` para a sua máquina) assim que possível.
+O script guarda 14 dias em `/opt/comandaai/backups` e, quando `BACKUP_REMOTO`
+está configurado no `.env`, manda uma cópia para fora da máquina. **Sem essa
+linha, o backup mora no mesmo disco que ele deveria proteger** — o script avisa
+em toda execução enquanto isso não estiver resolvido.
+
+O passo a passo (10 minutos, com Google Drive) está em
+[`BACKUP-FORA-DO-DISCO.md`](BACKUP-FORA-DO-DISCO.md). Ali também está como
+restaurar, e o comando que prova que o backup abre — backup nunca restaurado é
+um arquivo que você espera que funcione.
 
 ---
 

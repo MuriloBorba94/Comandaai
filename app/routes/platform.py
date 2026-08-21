@@ -235,6 +235,25 @@ def inicio():
     )
 
 
+@platform_bp.route("/operacao")
+@platform_admin_required
+def operacao():
+    """O estado do sistema numa tela, e o diário do que foi feito.
+
+    Existe para responder, antes do cliente ligar, as duas perguntas de quem
+    opera: "está tudo de pé?" e "quem mexeu nisso?".
+    """
+    from ..services.auditoria import tudo
+    from ..services.saude import checar
+
+    return render_template(
+        "platform/operacao.html",
+        saude=checar(),
+        registros=tudo(limite=200, acao=request.args.get("acao") or None),
+        filtro=request.args.get("acao") or "",
+    )
+
+
 @platform_bp.route("/tenants")
 @platform_admin_required
 def tenants_list():

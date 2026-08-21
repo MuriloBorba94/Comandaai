@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Saúde e atividade — Plataforma{% endblock %}
+{% block secao %}Operação{% endblock %}
+{% block intro_titulo %}Saúde e atividade{% endblock %}
+{% block intro_texto %}O estado do sistema e o diário do que foi feito.{% endblock %}
+{% block content %}
+
+  <div class="card-admin">
+    <h1>
+      {% if saude.ok %}
+        <span class="v17-status-dot online"></span> Sistema de pé
+      {% else %}
+        <span class="v17-status-dot offline"></span> Há algo grave
+      {% endif %}
+    </h1>
+    <p class="muted">
+      Só banco fora do ar e publicação pela metade contam como grave. Disco
+      cheio pela metade e fila parada são avisos — alarme que dispara por
+      qualquer coisa é alarme que a gente aprende a ignorar.
+    </p>
+
+    <div class="v17-table-wrap">
+      <table>
+        <tbody>
+          {% for nome, verificacao in saude.verificacoes.items() %}
+            <tr>
+              <td style="width: 130px">
+                {% if verificacao.ok %}
+                  <span class="badge badge-success">ok</span>
+                {% elif verificacao.aviso %}
+                  <span class="badge badge-warning">olhar</span>
+                {% else %}
+                  <span class="badge badge-danger">grave</span>
+                {% endif %}
+              </td>
+              <td><strong>{{ nome }}</strong></td>
+              <td class="muted">{{ verificacao.detalhe }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <p class="muted">
+      Para um monitor externo (o UptimeRobot é gratuito e serve) aponte para
+      <code>{{ url_for('public.saude', _external=True) }}</code>. Ele responde
+      503 quando há algo grave, e não conta detalhe nenhum a quem pergunta de
+      fora.
+    </p>
+  </div>
+
+  <div class="card-admin">
+    <h1>Diário de atividade</h1>
+    <p class="muted">
+      Dinheiro, acesso e configuração que muda para onde o dinheiro vai. Rotina
+      de cadastro fica de fora de propósito: encher o diário do que é comum é o
+      jeito mais eficiente de tornar inútil o registro do que é raro.
+    </p>
+
+    {% if registros %}
+      <div class="v17-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Quando</th><th>Restaurante</th><th>Quem</th><th>O quê</th><th>Detalhe</th></tr>
+          </thead>
+          <tbody>
+            {% for registro in registros %}
+              <tr>
+                <td>{{ registro.criado_em.strftime('%d/%m %H:%M') }}</td>
+                <td>{{ registro.tenant_slug or "—" }}</td>
+                <td>
+                  <strong>{{ registro.ator }}</strong>
+                  {% if registro.ator_tipo != "usuario" %}<small>{{ registro.ator_tipo }}</small>{% endif %}
+                </td>
+                <td>
+                  {{ registro.rotulo }}
+                  {% if registro.alvo %}<small>{{ registro.alvo }}</small>{% endif %}
+                </td>
+                <td class="muted">{{ registro.detalhes or "—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">Nada registrado ainda.</p>
+    {% endif %}
+  </div>
+{% endblock %}

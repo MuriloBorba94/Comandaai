@@ -82,6 +82,64 @@ def register_cli(app: Flask) -> None:
         # gravado no banco.
         click.echo("Ajuste os precos em Plataforma > Planos.")
 
+    @app.cli.command("fazer-backup")
+    @click.option("--destino", default="backups", show_default=True, help="Pasta onde gravar.")
+    def fazer_backup(destino: str) -> None:
+        """Copia o banco e CONFERE a cópia antes de dar por concluída.
+
+        Backup corrompido tratado como sucesso é pior do que backup nenhum:
+        cria confiança onde não há, e a descoberta acontece no dia em que
+        alguém precisa restaurar.
+        """
+        from .services.backup import BackupInvalido, fazer
+
+        try:
+            resultado = fazer(destino)
+        except BackupInvalido as exc:
+            raise SystemExit(f"FALHOU: {exc}") from exc
+
+        click.echo(
+            f"Backup: {resultado['arquivo']} "
+            f"({resultado['bytes'] / 1024:.0f} KB, "
+            f"{resultado['tenants']} restaurante(s), {resultado['pedidos']} pedido(s))"
+        )
+
+    @app.cli.command("verificar-backup")
+    @click.option("--destino", default="backups", show_default=True, help="Pasta dos backups.")
+    @click.option(
+        "--maximo-horas",
+        default=30,
+        show_default=True,
+        help="Idade máxima aceitável do backup mais recente.",
+    )
+    def verificar_backup(destino: str, maximo_horas: int) -> None:
+        """Abre o backup mais recente e prova que dá para restaurar.
+
+        É este comando que transforma "existe um arquivo de backup" em "existe
+        um backup". Rode-o de vez em quando: cron que falha não avisa ninguém.
+        """
+        from .services.backup import BackupInvalido, verificar
+
+        try:
+            resultado = verificar(destino)
+        except BackupInvalido as exc:
+            raise SystemExit(f"FALHOU: {exc}") from exc
+
+        click.echo(f"Arquivo...: {resultado['arquivo']}")
+        click.echo(f"Tamanho...: {resultado['bytes'] / 1024:.0f} KB")
+        click.echo(f"Idade.....: {resultado['idade_horas']:.1f} h")
+        click.echo(
+            f"Conteudo..: {resultado['tabelas']} tabelas, "
+            f"{resultado['tenants']} restaurante(s), "
+            f"{resultado['produtos']} produto(s), {resultado['pedidos']} pedido(s)"
+        )
+        if resultado["idade_horas"] > maximo_horas:
+            raise SystemExit(
+                f"FALHOU: o backup mais recente tem {resultado['idade_horas']:.0f} horas "
+                f"(limite {maximo_horas}). O agendamento parou de rodar?"
+            )
+        click.echo("OK: o backup abre e tem conteudo.")
+
     @app.cli.command("enviar-avisos")
     @click.option("--limite", default=50, show_default=True, help="Quantos avisos por execução.")
     def enviar_avisos(limite: int) -> None:

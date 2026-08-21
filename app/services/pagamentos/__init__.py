@@ -138,6 +138,16 @@ def confirmar_recebimento(pagamento: Pagamento, *, actor: str | None = None) -> 
         transicionar(pedido, STATUS_CONFIRMADO, actor=actor)
     else:
         db.session.commit()
+
+    from ...models.auditoria import ACAO_PAGAMENTO_CONFIRMADO
+    from ..auditoria import registrar
+
+    registrar(
+        ACAO_PAGAMENTO_CONFIRMADO,
+        tenant=pedido.tenant,
+        alvo=f"Pedido #{pedido.numero}",
+        detalhes=f"R$ {pagamento.valor:.2f}".replace(".", ","),
+    )
     return True
 
 

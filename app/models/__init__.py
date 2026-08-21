@@ -1,5 +1,6 @@
 from .adicional import Adicional, produto_adicional
 from .assinatura import Cobranca, Plano
+from .auditoria import Auditoria
 from .categoria import Categoria
 from .cupom import BairroEntrega, Cupom, CupomUso
 from .estoque import FichaTecnica, Insumo, MovimentacaoEstoque
@@ -16,6 +17,7 @@ from .usuario import Usuario
 __all__ = [
     "Adicional",
     "AgenteImpressao",
+    "Auditoria",
     "BairroEntrega",
     "Categoria",
     "Cobranca",

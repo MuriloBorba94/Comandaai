@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Atividade — {{ tenant.nome_fantasia }}{% endblock %}
+{% block secao %}Atividade{% endblock %}
+{% block intro_titulo %}Atividade do restaurante{% endblock %}
+{% block intro_texto %}Quem fez o quê, e quando.{% endblock %}
+{% block content %}
+  <div class="card-admin">
+    <h1>Últimos registros</h1>
+    <p class="muted">
+      Só o que alguém iria querer reconstituir depois: entradas no sistema,
+      cancelamento de pedido, confirmação de pagamento e mudança no que
+      recebe dinheiro. Cadastro de produto e movimento de estoque não entram
+      aqui — o estoque tem registro próprio, com autor.
+    </p>
+
+    {% if registros %}
+      <div class="v17-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Quando</th><th>Quem</th><th>O quê</th><th>Detalhe</th></tr>
+          </thead>
+          <tbody>
+            {% for registro in registros %}
+              <tr>
+                <td>{{ registro.criado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+                <td>
+                  <strong>{{ registro.ator }}</strong>
+                  {% if registro.ator_tipo == "plataforma" %}
+                    <small>suporte</small>
+                  {% endif %}
+                </td>
+                <td>
+                  {{ registro.rotulo }}
+                  {% if registro.alvo %}<small>{{ registro.alvo }}</small>{% endif %}
+                </td>
+                <td class="muted">{{ registro.detalhes or "—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">Nada registrado ainda.</p>
+    {% endif %}
+  </div>
+{% endblock %}
