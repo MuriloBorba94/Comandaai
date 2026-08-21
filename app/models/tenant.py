@@ -23,6 +23,10 @@ class Tenant(TimestampMixin, db.Model):
     trial_termina_em = db.Column(db.DateTime)
     assinatura_provider = db.Column(db.String(30))
     assinatura_id_externo = db.Column(db.String(120), index=True)
+    # Id deste restaurante dentro do Asaas. Criado uma vez e reaproveitado: um
+    # cliente novo a cada mês encheria a conta de duplicatas do mesmo
+    # restaurante e quebraria os relatórios do próprio gateway.
+    asaas_customer_id = db.Column(db.String(60), index=True)
     proxima_cobranca_em = db.Column(db.DateTime)
 
     # Identidade visual do restaurante. A logo é um caminho relativo dentro de

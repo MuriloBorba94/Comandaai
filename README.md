@@ -27,10 +27,12 @@ O que já existe aqui:
   aviso sonoro opcional para pedido novo.
 - **Cupons e taxa por bairro** (Fase 3): cupom com reserva de uso (não vende
   além do limite em checkouts simultâneos), e taxa/prazo de entrega por bairro.
-- **Cobrança da assinatura** (Fase 4, núcleo): catálogo de planos com preço,
+- **Cobrança da assinatura** (Fase 4): catálogo de planos com preço,
   mensalidade por tenant, ciclo que suspende quem passa da carência e libera ao
-  registrar o pagamento. Provedor `manual` (você recebe o PIX e marca como pago);
-  a integração com gateway fica para quando houver chave de API.
+  registrar o pagamento. Dois provedores, escolhidos **por restaurante**:
+  `manual` (você recebe o PIX e marca como pago) e `asaas`, que emite a fatura
+  e confirma o pagamento por webhook — o acesso do restaurante volta sozinho
+  quando ele paga. Ativação em [`deploy/COBRANCA-AUTOMATICA.md`](deploy/COBRANCA-AUTOMATICA.md).
 - **Relatórios de venda** e **estoque com ficha técnica** (Fase 9): custo e lucro
   por pedido, baixa automática de insumo ao vender, despesas a pagar e resultado
   do período.
@@ -186,9 +188,10 @@ clientes. A restrição de um plano começa a valer no momento em que você salv
 configuração dele.
 
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):
-integração com gateway (tanto da assinatura quanto do PIX — hoje a
-confirmação do recebimento é feita por uma pessoa). A lógica de negócio é
-portada de `C:\borbas_burguer_v17` fase por fase.
+log de auditoria, monitoramento e backup fora do disco do servidor (Fase
+10). No PIX do cliente final, a confirmação do recebimento continua sendo
+feita por uma pessoa, de propósito: é o que dispensa gateway e taxa. A
+lógica de negócio é portada de `C:\borbas_burguer_v17` fase por fase.
 
 ### Fotos de produto
 

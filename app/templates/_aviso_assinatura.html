@@ -26,9 +26,18 @@
     <span>{{ aviso.quantidade }} mensalidades em aberto.</span>
   {% endif %}
 
+  {# Com gateway, o restaurante paga sozinho pelo link da fatura. Sem ele,
+     resta o contato — e o contato continua aparecendo junto, porque quem está
+     em atraso costuma querer falar com alguém antes de pagar. #}
+  {% if aviso.cobranca.url_pagamento %}
+    <a class="btn-pagar" href="{{ aviso.cobranca.url_pagamento }}" target="_blank" rel="noopener">
+      Pagar agora
+    </a>
+  {% endif %}
+
   {% if aviso.contato %}
-    <span>Para pagar, fale com {{ aviso.contato }}.</span>
-  {% else %}
+    <span>Dúvida sobre a cobrança? Fale com {{ aviso.contato }}.</span>
+  {% elif not aviso.cobranca.url_pagamento %}
     <span>Fale com o suporte para regularizar.</span>
   {% endif %}
 </div>

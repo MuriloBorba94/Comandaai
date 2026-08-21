@@ -106,6 +106,54 @@ def register_cli(app: Flask) -> None:
             f"falharam: {resultado['falharam']}"
         )
 
+    @app.cli.command("reemitir-no-gateway")
+    @click.option("--simular", is_flag=True, help="Mostra o que faria sem gravar nada.")
+    def reemitir_no_gateway(simular: bool) -> None:
+        """Manda ao gateway as mensalidades que ficaram sem fatura.
+
+        Emitir a cobrança NUNCA falha por causa do gateway: se o Asaas estiver
+        fora do ar no dia do ciclo, a mensalidade é criada assim mesmo e o
+        motivo fica na observação. Este comando é a segunda chance — sem ele, a
+        cobrança existiria só aqui dentro e o cliente nunca receberia a fatura.
+        """
+        from .models.assinatura import COBRANCA_PENDENTE, PROVEDOR_ASAAS, Cobranca
+        from .services.cobrancas import provedor_do_tenant
+
+        pendentes = (
+            Cobranca.query.filter(
+                Cobranca.status == COBRANCA_PENDENTE,
+                Cobranca.id_externo.is_(None),
+            )
+            .order_by(Cobranca.id)
+            .all()
+        )
+        # Só as de quem usa gateway: cobrança manual não tem fatura para emitir.
+        alvos = [c for c in pendentes if provedor_do_tenant(c.tenant).slug == PROVEDOR_ASAAS]
+
+        if not alvos:
+            click.echo("Nenhuma cobranca pendente de fatura.")
+            return
+
+        enviadas = 0
+        for cobranca in alvos:
+            rotulo = f"{cobranca.tenant.slug} {cobranca.rotulo_competencia}"
+            if simular:
+                click.echo(f"  [simulacao] emitiria {rotulo}")
+                continue
+            resultado = provedor_do_tenant(cobranca.tenant).criar(cobranca)
+            if resultado.ok:
+                cobranca.id_externo = resultado.id_externo
+                cobranca.url_pagamento = resultado.url_pagamento
+                cobranca.observacao = None
+                enviadas += 1
+                click.echo(f"  ok  {rotulo}")
+            else:
+                cobranca.observacao = (f"Gateway: {resultado.erro}")[:300]
+                click.echo(f"  erro {rotulo}: {resultado.erro}")
+        if not simular:
+            db.session.commit()
+            click.echo(f"Faturas emitidas: {enviadas} de {len(alvos)}.")
+
     @app.cli.command("ciclo-cobranca")
     @click.option(
         "--simular",

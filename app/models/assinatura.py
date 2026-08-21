@@ -229,6 +229,10 @@ class Cobranca(TimestampMixin, db.Model):
     status = db.Column(db.String(20), default=COBRANCA_PENDENTE, nullable=False, index=True)
     provedor = db.Column(db.String(20), default=PROVEDOR_MANUAL, nullable=False)
     id_externo = db.Column(db.String(120), index=True)
+    # Endereço da fatura no gateway, onde o restaurante paga por PIX ou boleto.
+    # Vazio no modo manual: ali não há fatura, há um acerto entre as duas
+    # partes.
+    url_pagamento = db.Column(db.String(500))
 
     pago_em = db.Column(db.DateTime)
     valor_pago = db.Column(db.Float)

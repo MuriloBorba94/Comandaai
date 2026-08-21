@@ -72,6 +72,13 @@
 
           {% if cobranca.status == "pendente" %}
             <div class="cobranca-acoes">
+              {% if cobranca.url_pagamento %}
+                {# Com fatura no gateway, o restaurante paga sozinho e o webhook
+                   confirma. O link fica aqui para você conseguir reenviá-lo a
+                   quem diz que não recebeu. #}
+                <a class="btn-secondary" href="{{ cobranca.url_pagamento }}"
+                   target="_blank" rel="noopener">Ver fatura</a>
+              {% endif %}
               <form method="post" action="{{ url_for('platform.cobranca_pagar', cobranca_id=cobranca.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="voltar_para" value="{{ url_for('platform.cobrancas', status=filtro) }}">

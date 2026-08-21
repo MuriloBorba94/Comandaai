@@ -74,17 +74,33 @@ def valor_mensal(tenant: Tenant) -> Decimal:
 def criar_no_provedor(cobranca: Cobranca) -> str | None:
     """Registra a cobrança no provedor externo e devolve o id de lá.
 
-    Hoje só existe o modo manual, que não fala com ninguém. Este é o ponto onde
-    a chamada HTTP do Asaas entra quando houver chave de API.
+    Falhar aqui NÃO derruba a emissão. A cobrança precisa existir de qualquer
+    jeito: se o gateway estiver fora do ar no dia do ciclo, o mês não pode
+    simplesmente não ser cobrado — isso não bloqueia ninguém, mas some com a
+    receita da plataforma em silêncio. O erro fica gravado na observação, e
+    `flask reemitir-no-gateway` tenta de novo depois.
     """
-    if cobranca.provedor == PROVEDOR_MANUAL:
-        return None
-    if cobranca.provedor == PROVEDOR_ASAAS:
-        raise NotImplementedError(
-            "A integração com o Asaas ainda não foi configurada. "
-            "Use o provedor manual até existir chave de API."
+    from .cobrancas import provedor_do_tenant
+
+    escolhido = provedor_do_tenant(cobranca.tenant)
+    # O provedor efetivo pode diferir do pedido (chave de API faltando derruba
+    # para o manual). Gravar o efetivo é o que faz a tela dizer a verdade.
+    cobranca.provedor = escolhido.slug
+
+    resultado = escolhido.criar(cobranca)
+    if not resultado.ok:
+        cobranca.observacao = (f"Gateway: {resultado.erro or 'falha desconhecida'}")[:300]
+        current_app.logger.warning(
+            "Cobrança emitida sem o gateway: tenant=%s competencia=%s motivo=%s",
+            cobranca.tenant.slug,
+            cobranca.rotulo_competencia,
+            resultado.erro,
         )
-    raise ValueError(f"Provedor de cobrança desconhecido: {cobranca.provedor!r}")
+        return None
+
+    if resultado.url_pagamento:
+        cobranca.url_pagamento = resultado.url_pagamento
+    return resultado.id_externo
 
 
 def cobranca_da_competencia(

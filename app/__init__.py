@@ -75,6 +75,7 @@ def create_app(config_object=Config) -> Flask:
     from .routes.operacao import operacao_bp
     from .routes.platform import platform_bp
     from .routes.public import public_bp
+    from .routes.webhooks import webhooks_bp
 
     app.register_blueprint(public_bp)
     app.register_blueprint(auth_bp)
@@ -82,6 +83,7 @@ def create_app(config_object=Config) -> Flask:
     app.register_blueprint(api_bp)
     app.register_blueprint(operacao_bp)
     app.register_blueprint(platform_bp)
+    app.register_blueprint(webhooks_bp)
 
     register_tenancy(app)
     register_cli(app)

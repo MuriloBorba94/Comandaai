@@ -22,14 +22,27 @@
           · vencida há {{ aviso.dias_de_atraso }} dia(s)
         </span>
       </p>
-      <p>
-        {% if aviso.contato %}
-          Para regularizar e liberar o acesso na hora, fale com
-          <strong>{{ aviso.contato }}</strong>.
-        {% else %}
-          Fale com o suporte para regularizar e liberar o acesso.
-        {% endif %}
-      </p>
+      {% if aviso.cobranca.url_pagamento %}
+        <p>
+          <a class="btn-pagar grande" href="{{ aviso.cobranca.url_pagamento }}"
+             target="_blank" rel="noopener">Pagar agora e liberar o acesso</a>
+        </p>
+        <p class="muted">
+          O acesso volta sozinho assim que o pagamento for confirmado.
+          {% if aviso.contato %}
+            Qualquer dúvida, fale com <strong>{{ aviso.contato }}</strong>.
+          {% endif %}
+        </p>
+      {% else %}
+        <p>
+          {% if aviso.contato %}
+            Para regularizar e liberar o acesso na hora, fale com
+            <strong>{{ aviso.contato }}</strong>.
+          {% else %}
+            Fale com o suporte para regularizar e liberar o acesso.
+          {% endif %}
+        </p>
+      {% endif %}
     {% else %}
       {# Sem cobrança em aberto: pode ser bloqueio manual ou cancelamento. Não
          acusar inadimplência que não existe. #}

@@ -101,6 +101,24 @@ class Config:
     # cliente é avisado de que deve sem saber para quem pagar.
     PLATFORM_CONTATO = os.getenv("PLATFORM_CONTATO", "").strip()
 
+    # ------------------------------------------------------------------ #
+    # Cobrança automática pelo Asaas
+    # ------------------------------------------------------------------ #
+    #
+    # Fica no .env, e não no banco, por dois motivos: é UMA conta para a
+    # plataforma inteira (não é por tenant, como as credenciais de WhatsApp),
+    # e chave de API de gateway em banco viaja no backup.
+    #
+    # O padrão é "sandbox" de propósito. Uma configuração pela metade não pode
+    # sair cobrando ninguém de verdade: no sandbox o erro é visível e não
+    # custa nada.
+    ASAAS_AMBIENTE = os.getenv("ASAAS_AMBIENTE", "sandbox").strip().lower()
+    ASAAS_API_KEY = os.getenv("ASAAS_API_KEY", "").strip()
+    # Token que o Asaas devolve no cabeçalho `asaas-access-token` de cada
+    # webhook. Sem ele configurado, o webhook recusa tudo: um endereço público
+    # que marca cobrança como paga não pode aceitar qualquer chamada.
+    ASAAS_WEBHOOK_TOKEN = os.getenv("ASAAS_WEBHOOK_TOKEN", "").strip()
+
     LOG_FOLDER = str(BASE_DIR / "logs")
 
     # Imagens de produto. Cada tenant grava em uploads/<slug>/, e o arquivo é

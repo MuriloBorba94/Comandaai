@@ -33,17 +33,40 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    cancelamento. A reserva nasce sem prazo: expirar enquanto a cozinha demora
    liberaria o cupom com o desconto já concedido — a expiração volta na Fase 6.
 
-4. **Cobrança recorrente da própria SaaS.** *Núcleo concluído com provedor
-   manual.* `Plano` (catálogo com preço) e `Cobranca` (mensalidade por tenant,
-   única por competência), com ciclo diário que emite, avalia atraso e suspende
-   além da carência — o bloqueio usa o `before_request` já existente em
+4. ~~**Cobrança recorrente da própria SaaS.**~~ **CONCLUÍDA.** `Plano`
+   (catálogo com preço) e `Cobranca` (mensalidade por tenant, única por
+   competência), com ciclo diário que emite, avalia atraso e suspende além da
+   carência — o bloqueio usa o `before_request` já existente em
    `app/tenancy.py`. Telas de planos, cobranças e resumo por tenant, mais
    `flask ciclo-cobranca` para agendar.
 
-   **Falta:** o provedor `asaas`, que exige conta e chave de API. O ponto de
-   encaixe é `criar_no_provedor()` em `app/services/faturamento_saas.py`, e o
-   webhook que confirma pagamento automaticamente. Enquanto isso, o provedor
-   `manual` opera: você recebe o PIX e marca a cobrança como paga.
+   O provedor `asaas` entrou no encaixe que já existia
+   (`criar_no_provedor`), com a mesma abstração de provedor do PIX e do
+   WhatsApp, e o webhook `/webhooks/asaas` confirma o pagamento. O laço que
+   fecha a fase: emitir → suspender por atraso → o restaurante paga → o acesso
+   volta sozinho, sem ninguém no meio.
+
+   Escolha por tenant, não global: virar a chave de todos de uma vez é como se
+   descobre no dia seguinte que faltava o CNPJ de metade deles. O `manual`
+   continua sendo o piso e não desaparece.
+
+   Três decisões que valem mais que o código:
+
+   - **Emitir nunca falha por causa do gateway.** Se o Asaas estiver fora do ar
+     no dia do ciclo, a cobrança é criada assim mesmo e o motivo fica na
+     observação. Mês sem cobrança não bloqueia ninguém — só some com a receita
+     da plataforma em silêncio. `flask reemitir-no-gateway` é a segunda chance.
+   - **O webhook recusa tudo sem token configurado.** Não existe modo "aberto
+     para facilitar o teste" num endereço público que marca dinheiro como
+     recebido. Reenvio do mesmo evento responde 200, para a fila do Asaas não
+     girar para sempre.
+   - **Estorno não bloqueia sozinho.** Fica registrado e visível; derrubar a
+     loja de alguém por causa de um webhook é um martelo grande demais para uma
+     decisão que sempre tem contexto humano atrás.
+
+   O ambiente padrão é o **sandbox** do Asaas — conta de testes gratuita e
+   completa. Configuração pela metade não sai cobrando ninguém de verdade. O
+   passo a passo está em `deploy/COBRANCA-AUTOMATICA.md`.
 
 5. ~~**Infra de produção (1ª passada).**~~ **NO AR desde 20/08/2026.**
    `https://comandaai.app.br` publicado numa VPS da Locaweb (Ubuntu 24.04, 2 GB),

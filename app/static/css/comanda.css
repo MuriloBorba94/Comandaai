@@ -1089,6 +1089,18 @@ body.vitrine { --price: var(--ambar); }
   margin: 8px 0 0; font-size: .74rem; color: var(--muted);
 }
 
+/* ===================== link de pagamento da mensalidade ===================== */
+/* Verde, e não a cor da marca: a marca é do RESTAURANTE, e este botão é da
+   plataforma cobrando ele. Pintá-lo com a cor da casa confundiria as duas
+   relações justo na tela mais delicada que existe entre nós. */
+.btn-pagar {
+  display: inline-block; text-decoration: none; white-space: nowrap;
+  padding: 8px 15px; border-radius: var(--raio-sm); font-weight: 700; font-size: .82rem;
+  background: var(--success); color: #ffffff; border: 1px solid var(--success);
+}
+.btn-pagar:hover { filter: brightness(1.08); }
+.btn-pagar.grande { padding: 13px 26px; font-size: 1rem; margin-top: 6px; }
+
 @media (max-width: 640px) {
   .pix-conteudo { grid-template-columns: 1fr; justify-items: center; }
   .pix-copia { width: 100%; }
