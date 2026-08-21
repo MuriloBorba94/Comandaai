@@ -162,6 +162,38 @@ def pedido_confirmar_pagamento(pedido_id: int):
     return redirect(request.referrer or url_for("operacao.cozinha"))
 
 
+@operacao_bp.route("/cozinha/pedidos/<int:pedido_id>/whatsapp/<int:notificacao_id>", methods=["POST"])
+@login_required
+@requer_recurso("whatsapp")
+def pedido_whatsapp(pedido_id: int, notificacao_id: int):
+    """Abre o WhatsApp com a mensagem pronta e marca o aviso como enviado.
+
+    Marcar no clique, e não pedir confirmação depois: quem está atendendo não
+    volta à tela para dizer "mandei", e a fila acabaria cheia de avisos que já
+    foram. O registro guarda quem clicou, que é a quem se pergunta quando o
+    cliente diz que não recebeu.
+    """
+    from ..models.notificacao import Notificacao
+    from ..services.notificacoes import link_do_whatsapp, marcar_enviada_na_mao
+
+    notificacao = Notificacao.query.filter_by(
+        id=notificacao_id, pedido_id=pedido_id, tenant_id=g.tenant.id
+    ).first()
+    if notificacao is None:
+        flash("Este aviso não existe mais.", "erro")
+        return redirect(url_for("operacao.cozinha"))
+
+    destino = link_do_whatsapp(notificacao)
+    if not destino:
+        flash("O pedido não tem um telefone válido para avisar.", "erro")
+        return redirect(request.referrer or url_for("operacao.cozinha"))
+
+    marcar_enviada_na_mao(notificacao, actor=session.get("username"))
+    # Redireciona para o próprio WhatsApp: o navegador abre o aplicativo com a
+    # conversa e o texto já digitado, e o atendente só confere e envia.
+    return redirect(destino)
+
+
 @operacao_bp.route("/cozinha/pedidos/<int:pedido_id>/imprimir", methods=["POST"])
 @login_required
 @requer_recurso("impressao")

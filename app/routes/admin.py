@@ -168,10 +168,19 @@ def configuracoes():
         except ValueError as exc:
             erro_pix = str(exc)
 
+    from ..services.notificacoes import caiu_para_o_link, provedor_do_tenant
+    from ..services.notificacoes.registro import PROVEDORES as PROVEDORES_WHATSAPP
+
     return render_template(
         "admin/configuracoes.html",
         exemplo_pix=exemplo_pix,
         erro_pix=erro_pix,
+        provedores_whatsapp=PROVEDORES_WHATSAPP,
+        whatsapp_atual=provedor_do_tenant(g.tenant),
+        whatsapp_caiu=caiu_para_o_link(g.tenant),
+        # Só o final do token, para a pessoa reconhecer que há um gravado sem
+        # que ele apareça inteiro na tela.
+        whatsapp_token_final=(g.tenant.whatsapp_token or "")[-6:],
         tenant=g.tenant,
         plano=Plano.query.filter_by(slug=g.tenant.plano).first(),
         # Mostra o catálogo inteiro marcando o que está incluído: o dono precisa
@@ -263,6 +272,44 @@ def pix():
         flash("Chave PIX salva. Agora “PIX online” aparece no cardápio.", "sucesso")
     else:
         flash("Chave PIX removida. O cardápio deixa de oferecer pagamento pelo site.", "sucesso")
+    return redirect(url_for("admin.configuracoes"))
+
+
+@admin_bp.route("/configuracoes/whatsapp", methods=["POST"])
+@admin_required
+@requer_recurso("whatsapp")
+def whatsapp():
+    """Como este restaurante avisa o cliente.
+
+    O token da Meta nunca volta para a tela: o campo chega vazio e só é gravado
+    quando alguém digita algo. Sem isso, um segredo ficaria no HTML de toda
+    visita à página de configurações — e bastaria "ver código-fonte".
+    """
+    from ..services.notificacoes.registro import POR_SLUG, PADRAO
+
+    escolhido = (request.form.get("whatsapp_provedor") or "").strip()
+    g.tenant.whatsapp_provedor = escolhido if escolhido in POR_SLUG else PADRAO
+    g.tenant.whatsapp_phone_id = (request.form.get("whatsapp_phone_id") or "").strip()[:40] or None
+    g.tenant.whatsapp_modelos = (request.form.get("whatsapp_modelos") or "").strip() or None
+
+    token = (request.form.get("whatsapp_token") or "").strip()
+    if token:
+        g.tenant.whatsapp_token = token
+    elif request.form.get("remover_token") == "on":
+        g.tenant.whatsapp_token = None
+
+    db.session.commit()
+
+    from ..services.notificacoes import caiu_para_o_link, provedor_do_tenant
+
+    if caiu_para_o_link(g.tenant):
+        flash(
+            "Salvo, mas o envio automático ainda não está de pé: falta o ID do número "
+            "ou o token. Enquanto isso os avisos continuam pelo link.",
+            "erro",
+        )
+    else:
+        flash(f"Avisos por WhatsApp: {provedor_do_tenant(g.tenant).nome}.", "sucesso")
     return redirect(url_for("admin.configuracoes"))
 
 

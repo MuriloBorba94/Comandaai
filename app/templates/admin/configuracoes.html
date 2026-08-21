@@ -156,6 +156,85 @@
   </div>
   {% endif %}
 
+  {% if libera('whatsapp') %}
+  <div class="card-admin">
+    <h1>Avisar o cliente no WhatsApp</h1>
+    <p class="muted">
+      Em uso agora: <strong>{{ whatsapp_atual.nome }}</strong>.
+    </p>
+    {% if whatsapp_caiu %}
+      <p class="aviso-impressao">
+        Você escolheu o envio automático, mas ele ainda não está de pé — falta o
+        ID do número ou o token. Os avisos continuam saindo pelo link.
+      </p>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('admin.whatsapp') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label>Como enviar</label>
+      <div class="radio-cards">
+        {% for provedor in provedores_whatsapp %}
+          <label class="check-inline">
+            <input type="radio" name="whatsapp_provedor" value="{{ provedor.slug }}"
+                   {{ 'checked' if tenant.whatsapp_provedor == provedor.slug or (not tenant.whatsapp_provedor and provedor.slug == 'link') }}>
+            <span>
+              <strong>{{ provedor.nome }}</strong>
+              <small>
+                {% if provedor.automatico %}
+                  Envia sozinho, em todas as etapas. Cobrado por mensagem pela Meta,
+                  na sua conta.
+                {% else %}
+                  O sistema escreve a mensagem e você clica para enviar. Não custa
+                  nada e funciona hoje.
+                {% endif %}
+              </small>
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+
+      <h4>Só para o envio automático</h4>
+      <p class="muted">
+        Estes dados vêm do painel da Meta, em <em>WhatsApp → Configuração da API</em>.
+        Sem eles, a opção automática continua caindo para o link.
+      </p>
+
+      <label for="whatsapp_phone_id">ID do número de telefone</label>
+      <input id="whatsapp_phone_id" name="whatsapp_phone_id" maxlength="40"
+             value="{{ tenant.whatsapp_phone_id or '' }}" placeholder="ex.: 123456789012345">
+
+      <label for="whatsapp_token">Token de acesso</label>
+      <input id="whatsapp_token" name="whatsapp_token" type="password" autocomplete="off"
+             placeholder="{{ 'gravado, terminando em ' ~ whatsapp_token_final if whatsapp_token_final else 'cole o token aqui' }}">
+      <p class="muted">
+        Deixe em branco para manter o que já está gravado. O token nunca é
+        mostrado de volta nesta tela.
+        {% if whatsapp_token_final %}
+          <label class="check-inline">
+            <input type="checkbox" name="remover_token"> Apagar o token gravado
+          </label>
+        {% endif %}
+      </p>
+
+      <label for="whatsapp_modelos">Modelos aprovados</label>
+      <textarea id="whatsapp_modelos" name="whatsapp_modelos" rows="4"
+                placeholder="confirmado=pedido_confirmado&#10;pronto=pedido_pronto">{{ tenant.whatsapp_modelos or '' }}</textarea>
+      <p class="muted">
+        Um por linha, no formato <code>evento=nome_do_modelo</code>. Eventos:
+        <code>confirmado</code>, <code>em_preparo</code>, <code>pronto</code>,
+        <code>saiu_entrega</code>, <code>entregue</code>, <code>cancelado</code>.
+        <br>
+        A Meta só deixa a empresa iniciar conversa com um texto aprovado por ela.
+        Sem modelo cadastrado, o sistema tenta texto livre — o que só funciona se
+        o cliente tiver escrito para você nas últimas 24 horas.
+      </p>
+
+      <button type="submit">Salvar</button>
+    </form>
+  </div>
+  {% endif %}
+
   <div class="card-admin">
     <h1>Configurações da loja</h1>
     <form method="post">

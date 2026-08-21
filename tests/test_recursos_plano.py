@@ -393,6 +393,77 @@ def test_plataforma_grava_os_recursos_marcados(client, platform_admin):
     assert plano.recursos_configurados is True
 
 
+def test_plataforma_marca_o_plano_como_completo(client, platform_admin):
+    """A caixa que faz um recurso novo entrar sozinho no plano mais caro.
+
+    Sem ela, cada fase nova exigia uma migration de dados reescrevendo a lista —
+    e esquecer significava o recurso sumir da tela de quem já pagava por ele,
+    sem erro e sem aviso.
+    """
+    from app.models.assinatura import RECURSOS_SLUGS
+
+    plano = _plano(recursos=None)
+    client.post(
+        "/plataforma/login",
+        data={"username": "admin", "password": "senha-super-admin-123"},
+        base_url="http://app.localhost",
+    )
+
+    client.post(
+        f"/plataforma/planos/{plano.id}/salvar",
+        data={
+            "nome": "Completo",
+            "preco_mensal": "199,00",
+            "ordem": "2",
+            "ativo": "on",
+            "recursos": ["cozinha"],
+            "libera_tudo": "on",
+        },
+        base_url="http://app.localhost",
+        follow_redirects=True,
+    )
+
+    db.session.refresh(plano)
+    assert plano.libera_tudo is True
+    assert plano.recursos_liberados == set(RECURSOS_SLUGS)
+
+    corpo = client.get("/plataforma/planos", base_url="http://app.localhost").get_data(as_text=True)
+    assert 'name="libera_tudo"' in corpo
+
+
+def test_desmarcar_completo_volta_ao_que_estava_marcado(client, platform_admin):
+    """Desmarcar não pode zerar o plano: volta a valer a lista escolhida."""
+    plano = _plano(recursos=None)
+    client.post(
+        "/plataforma/login",
+        data={"username": "admin", "password": "senha-super-admin-123"},
+        base_url="http://app.localhost",
+    )
+    dados = {
+        "nome": "Completo",
+        "preco_mensal": "199,00",
+        "ordem": "2",
+        "ativo": "on",
+        "recursos": ["cozinha", "mesas"],
+    }
+    client.post(
+        f"/plataforma/planos/{plano.id}/salvar",
+        data={**dados, "libera_tudo": "on"},
+        base_url="http://app.localhost",
+        follow_redirects=True,
+    )
+    client.post(
+        f"/plataforma/planos/{plano.id}/salvar",
+        data=dados,
+        base_url="http://app.localhost",
+        follow_redirects=True,
+    )
+
+    db.session.refresh(plano)
+    assert plano.libera_tudo is False
+    assert plano.recursos_liberados == {"cozinha", "mesas"}
+
+
 def test_mesa_de_um_plano_nao_afeta_o_outro_tenant(cenario, client, two_tenants):
     """Tenants em planos diferentes têm recursos diferentes."""
     _plano(recursos=["mesas"], slug="starter")

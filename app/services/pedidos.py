@@ -73,6 +73,17 @@ TRANSICOES_PERMITIDAS = {
     STATUS_CANCELADO: set(),
 }
 
+# Que aviso cada mudança de status gera. "Novo" e "Aguardando PIX" não avisam
+# nada: o cliente acabou de sair do checkout e já está olhando a tela do pedido.
+EVENTO_DO_STATUS = {
+    STATUS_CONFIRMADO: "confirmado",
+    STATUS_EM_PREPARO: "em_preparo",
+    STATUS_PRONTO: "pronto",
+    STATUS_SAIU_ENTREGA: "saiu_entrega",
+    STATUS_ENTREGUE: "entregue",
+    STATUS_CANCELADO: "cancelado",
+}
+
 PAGAMENTO_COMANDA = "Comanda Aberta"
 
 # Pagar agora, pelo site. Diferente de "PIX na entrega", em que o cliente paga
@@ -438,6 +449,28 @@ def transicionar(pedido: Pedido, novo_status: str, actor: str | None = None) -> 
         aplicar_baixa(pedido, usuario=actor)
 
     db.session.commit()
+
+    # Avisar o cliente vem depois do commit, e nunca derruba a transição: o
+    # pedido já mudou de status quando isto roda.
+    from ..models.notificacao import STATUS_PENDENTE as AVISO_PENDENTE
+    from .notificacoes import cancelar_pendentes as cancelar_avisos
+    from .notificacoes import despachar, enfileirar as enfileirar_aviso
+    from .notificacoes import tentar as tentar_aviso
+
+    if novo_status == STATUS_CANCELADO:
+        # "Seu pedido está pronto" chegando depois de "seu pedido foi
+        # cancelado" é pior do que não avisar nada.
+        tentar_aviso(cancelar_avisos, pedido)
+        db.session.commit()
+
+    evento = EVENTO_DO_STATUS.get(novo_status)
+    if evento:
+        aviso = tentar_aviso(enfileirar_aviso, pedido, evento)
+        if aviso is not None and aviso.status == AVISO_PENDENTE:
+            # Tentativa imediata para o cliente receber na hora. Se a Meta
+            # estiver fora do ar, o aviso fica na fila e o comando agendado
+            # tenta de novo — a transição do pedido não espera por ninguém.
+            tentar_aviso(despachar, aviso)
 
     if novo_status == STATUS_CANCELADO:
         # Cobrança de pedido cancelado não fica esperando pagamento para sempre.

@@ -1078,6 +1078,17 @@ body.vitrine { --price: var(--ambar); }
   background: var(--warning-bg); border: 1px solid var(--warning-border);
   color: var(--warning); font-size: .78rem; font-weight: 700;
 }
+/* ===================== aviso no WhatsApp ===================== */
+/* Verde do WhatsApp, e não a cor da marca: o botão leva para FORA do sistema, e
+   o atendente reconhece para onde vai antes de ler. */
+.btn-whatsapp {
+  background: #1f9d55; color: #ffffff; border: 1px solid #1a8449;
+}
+.btn-whatsapp:hover { background: #1a8449; }
+.aviso-whatsapp {
+  margin: 8px 0 0; font-size: .74rem; color: var(--muted);
+}
+
 @media (max-width: 640px) {
   .pix-conteudo { grid-template-columns: 1fr; justify-items: center; }
   .pix-copia { width: 100%; }

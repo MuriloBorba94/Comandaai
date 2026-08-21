@@ -64,6 +64,15 @@
               {# Só as transições válidas para este pedido aparecem, então a tela
                  nunca oferece um botão que o serviço vai recusar. #}
               <div class="order-actions">
+                {% for aviso in pedido.notificacoes if aviso.status == "aguardando_envio" %}
+                  {# target=_blank porque o destino é o WhatsApp, e o atendente
+                     precisa continuar com o painel aberto atrás. #}
+                  <form method="post" target="_blank"
+                        action="{{ url_for('operacao.pedido_whatsapp', pedido_id=pedido.id, notificacao_id=aviso.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-whatsapp">Avisar no WhatsApp</button>
+                  </form>
+                {% endfor %}
                 {% if pedido.pagamento_online and pedido.pagamento_online.status == "aguardando" %}
                   {# Vem antes dos botões de status de propósito: é a ação que
                      este pedido está esperando, e a única que o tira daqui. #}

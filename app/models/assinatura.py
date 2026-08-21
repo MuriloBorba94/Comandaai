@@ -31,6 +31,7 @@ RECURSOS = (
     ("cozinha", "Painel da cozinha", "Fila de pedidos por status, com atualização automática."),
     ("impressao", "Impressão na cozinha", "Comanda no papel pela impressora do balcão, via agente."),
     ("pix", "PIX pelo site", "Cliente paga no ato do pedido; o dinheiro cai direto na conta do restaurante."),
+    ("whatsapp", "Aviso no WhatsApp", "Mensagem para o cliente a cada etapa do pedido, por link ou pela API oficial."),
     ("mesas", "Salão e comanda de mesa", "Mapa de mesas, PDV da comanda e fechamento."),
     ("cupons", "Cupons de desconto", "Cupom com limite de usos e pedido mínimo."),
     ("bairros", "Taxa de entrega por bairro", "Taxa e prazo próprios por região."),
@@ -87,6 +88,20 @@ class Plano(TimestampMixin, db.Model):
     # alguém marca as caixas na tela de planos.
     recursos = db.Column(db.Text)
 
+    # "Este plano inclui tudo, inclusive o que for criado depois."
+    #
+    # Existe porque a alternativa se mostrou insustentável na prática: cada fase
+    # nova acrescenta um slug ao catálogo, e um plano com `recursos` preenchido
+    # simplesmente não o recebe — a tela nova não aparece, sem explicação, para
+    # quem já pagava pelo plano mais caro. Nas Fases 8 e 6 isso foi corrigido com
+    # uma migration de dados que reescrevia a lista; na terceira vez ficou claro
+    # que o certo era o plano poder DIZER que é completo, em vez de eu relistar
+    # os recursos a cada recurso novo.
+    #
+    # Diferente de `recursos = NULL`, que significa "nunca foi configurado":
+    # aqui alguém marcou de propósito.
+    libera_tudo = db.Column(db.Boolean, default=False, nullable=False)
+
     # Limites numéricos, como `max_produtos=50,max_usuarios=3`. Vazio ou NULL =
     # sem limite, pela mesma razão do campo acima.
     limites = db.Column(db.Text)
@@ -101,8 +116,12 @@ class Plano(TimestampMixin, db.Model):
 
     @property
     def recursos_liberados(self) -> set[str]:
-        """Recursos que este plano libera. Plano não configurado libera todos."""
-        if self.recursos is None:
+        """Recursos que este plano libera.
+
+        Libera todos quando foi marcado como completo, e também quando nunca foi
+        configurado — nos dois casos um recurso novo entra sozinho.
+        """
+        if self.libera_tudo or self.recursos is None:
             return set(RECURSOS_SLUGS)
         return {
             trecho.strip()
@@ -110,11 +129,17 @@ class Plano(TimestampMixin, db.Model):
             if trecho.strip() in RECURSOS_SLUGS
         }
 
-    def definir_recursos(self, slugs) -> None:
-        """Grava os recursos liberados, ignorando slugs que não existem."""
+    def definir_recursos(self, slugs, *, tudo: bool = False) -> None:
+        """Grava os recursos liberados, ignorando slugs que não existem.
+
+        Com `tudo=True` a lista continua sendo gravada: se alguém desmarcar
+        "libera tudo" depois, volta a valer exatamente o que estava marcado, em
+        vez de o plano perder todos os recursos de uma vez.
+        """
         validos = [slug for slug in RECURSOS_SLUGS if slug in set(slugs or [])]
         # String vazia (e não NULL) registra "configurado, mas nada liberado".
         self.recursos = ",".join(validos)
+        self.libera_tudo = bool(tudo)
 
     def libera(self, slug: str) -> bool:
         return slug in self.recursos_liberados

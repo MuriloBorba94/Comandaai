@@ -492,6 +492,12 @@ Sem isso, um disco com problema leva os pedidos e as fotos de todos os clientes.
 Adicione:
 
     30 4 * * * /opt/comandaai/deploy/backup.sh >> /opt/comandaai/logs/backup.log 2>&1
+    * * * * * cd /opt/comandaai && FLASK_APP=run.py .venv/bin/python -m flask enviar-avisos >> /opt/comandaai/logs/avisos.log 2>&1
+
+A segunda linha é a rede de proteção dos avisos de WhatsApp: o envio normal
+acontece na hora em que o pedido muda de status, e este comando reenvia o que
+falhou porque a Meta estava fora do ar naquele instante. Ele não faz nada
+quando não há pendência, e não toca em aviso que espera alguém clicar.
 
 Confira que o script pode ser executado antes de confiar no agendamento — cron
 que falha não avisa ninguém, e um backup que nunca rodou só é descoberto no dia

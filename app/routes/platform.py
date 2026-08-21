@@ -444,7 +444,10 @@ def planos():
                 descricao=(request.form.get("descricao") or "").strip() or None,
                 ordem=_para_int(request.form.get("ordem")),
             )
-            plano.definir_recursos(request.form.getlist("recursos"))
+            plano.definir_recursos(
+            request.form.getlist("recursos"),
+            tudo=request.form.get("libera_tudo") == "on",
+        )
             plano.definir_limites(
                 {chave: request.form.get(f"limite_{chave}") for chave in LIMITES_CHAVES}
             )
@@ -480,7 +483,10 @@ def plano_salvar(plano_id: int):
         plano.descricao = (request.form.get("descricao") or "").strip() or None
         plano.ordem = _para_int(request.form.get("ordem"))
         plano.ativo = request.form.get("ativo") == "on"
-        plano.definir_recursos(request.form.getlist("recursos"))
+        plano.definir_recursos(
+            request.form.getlist("recursos"),
+            tudo=request.form.get("libera_tudo") == "on",
+        )
         plano.definir_limites(
             {chave: request.form.get(f"limite_{chave}") for chave in LIMITES_CHAVES}
         )

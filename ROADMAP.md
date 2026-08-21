@@ -103,10 +103,37 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    Pedido esperando PIX não baixa estoque, não imprime comanda e não avança por
    botão de status.
 
-7. **WhatsApp multi-tenant-seguro.** Usar exclusivamente a API oficial (Meta
-   WhatsApp Cloud API) por tenant — abandonar os modos manual e Baileys do
-   repo atual, que não escalam nem são seguros para múltiplos clientes
-   simultâneos.
+7. ~~**WhatsApp multi-tenant-seguro.**~~ **CONCLUÍDA.** `Notificacao` por
+   pedido, com o texto congelado no disparo, e provedor escolhido por tenant.
+
+   **Baileys ficou de fora, como o roteiro mandava.** Ele funciona conectando-se
+   ao WhatsApp pessoal do número, o que viola os termos e faz o número ser
+   banido. Num sistema de um restaurante só, o dono assume esse risco por conta
+   própria; numa plataforma, um banimento derruba o atendimento de quem não
+   escolheu nada.
+
+   O roteiro dizia "exclusivamente a API oficial", e aí houve um desvio
+   deliberado: **entraram dois provedores, não um.** A API oficial custa por
+   mensagem e exige conta de negócios verificada, o que leva dias — um
+   restaurante novo ficaria sem avisar ninguém nesse meio-tempo. O provedor
+   `link` (wa.me) cobre esse vão: o sistema escreve a mensagem, alguém do
+   balcão clica, e não custa nada. Não é o modo "manual" do repo antigo, que
+   só montava um link solto sem registrar nada: aqui o aviso é uma linha na
+   fila, com quem clicou e quando.
+
+   Quem escolhe é o restaurante, na tela. A única regra automática é de
+   segurança: quem pediu "meta" mas não terminou de configurar volta para o
+   link, porque aviso que não sai é pior do que aviso que exige um clique.
+
+   Correções sobre o original: `cliente.split()[0]` estourava com nome em
+   branco, e o cliente recebia o `id` global do pedido em vez do número que ele
+   vê na tela.
+
+   **`Plano.libera_tudo` nasceu aqui**, e resolve um problema que já tinha
+   custado duas migrations de dados (Fases 8 e 6): recurso novo não entrava em
+   plano com `recursos` preenchido, e sumia da tela de quem pagava pelo plano
+   mais caro. Agora o plano pode dizer que é completo, e o próximo recurso entra
+   sozinho.
 
 8. ~~**Agente de impressão multi-tenant.**~~ **CONCLUÍDA.** `AgenteImpressao`
    por tenant (token pareado, guardado só como hash, com heartbeat) e

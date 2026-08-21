@@ -44,6 +44,23 @@ class Tenant(TimestampMixin, db.Model):
     pix_recebedor = db.Column(db.String(60))
     pix_cidade = db.Column(db.String(40))
 
+    # Como este restaurante avisa o cliente pelo WhatsApp.
+    #
+    # "link" (padrão) prepara a mensagem e alguém clica: não custa nada e
+    # funciona no primeiro dia. "meta" envia sozinho pela API oficial, com a
+    # conta e a fatura DO RESTAURANTE — a plataforma não intermedeia o envio.
+    #
+    # O token é um segredo de verdade e fica em texto no banco, como a Meta o
+    # entrega. Quem tiver o arquivo do banco tem o token, então o backup precisa
+    # ser tratado como material sensível — o que já valia, porque ali também
+    # estão telefone e endereço dos clientes.
+    whatsapp_provedor = db.Column(db.String(20), default="link", nullable=False)
+    whatsapp_phone_id = db.Column(db.String(40))
+    whatsapp_token = db.Column(db.Text)
+    # Modelos aprovados pela Meta, como `evento=nome`, separados por vírgula ou
+    # quebra de linha. Mesmo formato dos limites do plano.
+    whatsapp_modelos = db.Column(db.Text)
+
     # Meta de margem sobre o PREÇO DE VENDA, como no sistema original: o preço
     # sugerido é custo / (1 - margem/100). Não é markup sobre o custo — 60 aqui
     # significa "quero que 60% do preço seja lucro", não "somar 60% ao custo".

@@ -140,6 +140,10 @@ class Pedido(TimestampMixin, db.Model):
     pagamento_online = db.relationship(
         "Pagamento", back_populates="pedido", uselist=False, cascade="all, delete-orphan"
     )
+    notificacoes = db.relationship(
+        "Notificacao", back_populates="pedido", cascade="all, delete-orphan",
+        order_by="Notificacao.id",
+    )
     itens = db.relationship(
         "PedidoItem", back_populates="pedido", cascade="all, delete-orphan", order_by="PedidoItem.id"
     )

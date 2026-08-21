@@ -96,6 +96,17 @@
             <input name="descricao" value="{{ plano.descricao or '' }}" maxlength="200"
                    placeholder="Descrição mostrada ao contratante" aria-label="Descrição">
 
+            <label class="check-inline libera-tudo">
+              <input type="checkbox" name="libera_tudo" {% if plano.libera_tudo %}checked{% endif %}>
+              <span>
+                <strong>Liberar tudo, inclusive recursos novos</strong><br>
+                <span class="muted">
+                  Marque no plano mais completo. Sem isto, todo recurso que eu
+                  criar depois some da tela de quem já paga por ele.
+                </span>
+              </span>
+            </label>
+
             <div class="recursos">
               {% for slug, rotulo, explicacao in recursos %}
                 <label>

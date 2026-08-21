@@ -82,6 +82,30 @@ def register_cli(app: Flask) -> None:
         # gravado no banco.
         click.echo("Ajuste os precos em Plataforma > Planos.")
 
+    @app.cli.command("enviar-avisos")
+    @click.option("--limite", default=50, show_default=True, help="Quantos avisos por execução.")
+    def enviar_avisos(limite: int) -> None:
+        """Reenvia os avisos de WhatsApp que ainda não saíram.
+
+        Feito para rodar de minuto em minuto no cron. O envio normal acontece na
+        hora em que o pedido muda de status; este comando é a rede de proteção
+        para quando a Meta estava fora do ar naquele instante.
+
+        Só mexe no que é automático: aviso esperando alguém clicar não é
+        problema a resolver sozinho.
+        """
+        from .services.notificacoes import despachar_pendentes
+
+        resultado = despachar_pendentes(limite=limite)
+        if not resultado["tentadas"]:
+            click.echo("Nada pendente.")
+            return
+        click.echo(
+            f"Tentadas: {resultado['tentadas']}  "
+            f"enviadas: {resultado['enviadas']}  "
+            f"falharam: {resultado['falharam']}"
+        )
+
     @app.cli.command("ciclo-cobranca")
     @click.option(
         "--simular",

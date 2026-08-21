@@ -40,13 +40,20 @@ O que já existe aqui:
   intermediária de pagamento. O pedido fica em *Aguardando PIX* e só desce para
   a cozinha quando alguém aperta “Recebi o PIX”: pagamento e status mudam na
   mesma operação, então não têm como divergir.
+- **Aviso no WhatsApp** (Fase 7): mensagem para o cliente a cada etapa do
+  pedido. Dois caminhos, escolhidos por restaurante: o **link** (grátis — o
+  sistema escreve, alguém do balcão clica) e a **API oficial da Meta** (envia
+  sozinha, cobrada por mensagem na conta do restaurante). O modo não-oficial do
+  sistema antigo ficou de fora de propósito: ele faz o número ser banido, e num
+  SaaS o banimento atinge quem não escolheu nada.
 - **Impressão na cozinha** (Fase 8): comanda no papel pela térmica do balcão. O
   agente em `agente/` roda no computador do restaurante e **consulta** o
   servidor — a rede dele nunca recebe conexão de fora, então não precisa de IP
   fixo nem de porta aberta no roteador. Pareamento por código (guardado só como
   hash), fila com reserva para a comanda não sair duas vezes, e comanda de
   acréscimo que leva só o item que acabou de ser lançado na mesa.
-- **Planos versáteis**: cada plano marca quais dos 12 recursos libera e pode
+- **Planos versáteis**: cada plano marca quais dos 13 recursos libera (ou se
+  libera tudo, inclusive o que for criado depois) e pode
   impor limites numéricos (produtos no cardápio, mesas do salão). Plano sem
   recursos configurados libera tudo; limite em branco ou zero significa sem
   teto — apertar a régua é sempre uma decisão explícita.
@@ -179,8 +186,8 @@ clientes. A restrição de um plano começa a valer no momento em que você salv
 configuração dele.
 
 O que **não** está aqui ainda (ver [`ROADMAP.md`](ROADMAP.md) para as fases):
-WhatsApp e integração com gateway (tanto da assinatura quanto do PIX — hoje
-a confirmação do recebimento é feita por uma pessoa). A lógica de negócio é
+integração com gateway (tanto da assinatura quanto do PIX — hoje a
+confirmação do recebimento é feita por uma pessoa). A lógica de negócio é
 portada de `C:\borbas_burguer_v17` fase por fase.
 
 ### Fotos de produto

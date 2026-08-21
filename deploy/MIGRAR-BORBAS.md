@@ -268,9 +268,21 @@ padrão do Banco Central corta em 25 caracteres e tira os acentos.
 A chave que está no sistema antigo é `murilo-borba@jim.com`, com recebedor
 "Borbas Burguer" e cidade "Vicência".
 
-O que ainda falta para não sentir falta do sistema antigo:
+Para o **aviso no WhatsApp**, o painel tem duas opções em *Loja e identidade →
+Avisar o cliente no WhatsApp*. O padrão é o **link**: o sistema escreve a
+mensagem e você clica em "Avisar no WhatsApp" no painel da cozinha. É diferente
+do bot que roda hoje no sistema antigo, que envia sozinho — mas aquele bot se
+conecta ao seu WhatsApp pessoal por fora dos termos, e o preço de continuar com
+ele é o número ser banido um dia. Para envio automático seguro, a opção é a API
+oficial da Meta, que exige conta de negócios verificada e cobra por mensagem.
 
-- **WhatsApp** (Fase 7)
+Com isso, nada de essencial do sistema antigo ficou para trás. O que segue em
+aberto não é do restaurante, é da plataforma:
+
+- cobrança automática das mensalidades por gateway (hoje é você recebendo o PIX
+  e marcando como pago);
+- backup fora do disco do servidor;
+- monitoramento, para você saber que o site caiu antes do cliente avisar.
 
 ---
 
