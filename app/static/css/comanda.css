@@ -1206,6 +1206,86 @@ body.vitrine { --price: var(--ambar); }
    com o tema deixaria o mapa ilegível na rua, que é onde ele é usado. */
 .mapa-panel h2 { margin-top: 0; }
 
+/* ===================== foto ampliada do cardápio ===================== */
+/* Fundo mais escuro que o dos outros modais e sem caixa em volta: a foto é o
+   conteúdo inteiro, e qualquer moldura só rouba espaço dela no celular. */
+.lightbox-backdrop {
+  background: rgba(4, 5, 8, .93); backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center; padding: 16px;
+}
+.lightbox-backdrop[style*="block"] { display: flex !important; }
+.lightbox-img {
+  max-width: 100%; max-height: 86vh; border-radius: var(--raio);
+  /* object-fit: contain garante que a foto apareça INTEIRA. Cortar a imagem
+     aqui derrotaria o motivo de ela ter sido ampliada. */
+  object-fit: contain; box-shadow: var(--shadow-lg);
+}
+.lightbox-close {
+  position: fixed; top: 14px; right: 16px; z-index: 2;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: rgba(255, 255, 255, .12); color: #fff; border: 0;
+  font-size: 1.5rem; line-height: 1; cursor: pointer;
+}
+.lightbox-close:hover { background: rgba(255, 255, 255, .22); }
+/* Miniatura clicável precisa parecer clicável. */
+.product-thumb img[data-foto] { cursor: zoom-in; }
+.product-modal-image { cursor: zoom-in; }
+
+/* ===================== sacola e fechamento ===================== */
+/* A tela anterior era uma pilha de campos empilhados, todos com o mesmo peso.
+   Aqui o que o cliente já escolheu fica compacto, e o que ele ainda precisa
+   decidir ganha o espaço. */
+.linha-sacola {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center;
+  padding: 11px 0; border-bottom: 1px solid var(--border);
+}
+.linha-sacola form { margin: 0; }
+.sacola-corpo { display: grid; gap: 2px; min-width: 0; }
+.sacola-corpo strong { font-size: .95rem; }
+.sacola-corpo small { color: var(--muted); font-size: .76rem; }
+.sacola-preco { font-weight: 700; white-space: nowrap; }
+/* Um "×" discreto em vez de um botão "Remover" do tamanho de um botão de ação:
+   remover item é raro, e o botão grande competia com o de fechar o pedido. */
+.botao-remover {
+  width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+  font-size: 1.05rem; line-height: 1; cursor: pointer;
+}
+.botao-remover:hover { border-color: var(--danger-border); color: var(--danger); background: var(--danger-bg); }
+
+.sacola-somas { display: grid; gap: 6px; margin: 14px 0 4px; font-size: .9rem; }
+.sacola-somas > div { display: flex; justify-content: space-between; gap: 12px; }
+.soma-desconto { color: var(--success); }
+.soma-total { padding-top: 8px; border-top: 1px solid var(--border); font-size: 1.15rem; font-weight: 800; }
+
+.linha-cupom { display: flex; gap: 8px; align-items: center; margin: 14px 0 0; }
+.linha-cupom input { margin: 0; flex: 1; }
+.linha-cupom button { margin: 0; white-space: nowrap; }
+.linha-cupom span { flex: 1; font-size: .88rem; }
+
+/* Duas opções ocupam duas colunas, não três: a terceira ficava vazia desde que
+   mesa saiu do cardápio. */
+.radio-cards-2 { grid-template-columns: 1fr 1fr; }
+
+/* A observação começa fechada. É opcional, e um campo de texto sempre aberto
+   sugere que alguém precisa preenchê-lo. */
+.detalhe-observacao { margin: 4px 0 16px; }
+.detalhe-observacao summary {
+  cursor: pointer; color: var(--text-2); font-size: .88rem; font-weight: 600;
+  padding: 6px 0; user-select: none;
+}
+.detalhe-observacao summary:hover { color: var(--text); }
+
+/* O último botão da jornada leva o valor junto: é a última confirmação de
+   quanto vai sair, no lugar onde o dedo já está. */
+.btn-fechar-pedido {
+  width: 100%; padding: 15px; font-size: 1.02rem; font-weight: 800;
+  margin-top: 6px;
+}
+@media (max-width: 560px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 860px) {
   .linha-equipe { grid-template-columns: 1fr 1fr; }
   .linha-equipe button { grid-column: 1/-1; }

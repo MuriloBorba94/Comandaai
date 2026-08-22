@@ -74,8 +74,11 @@
               </div>
               <div class="product-thumb">
                 {% if produto.imagem %}
+                  {# `data-foto` marca o que amplia. O clique NÃO sobe para o
+                     cartão: quem toca na foto quer ver a foto, não abrir o
+                     formulário de adicionar. #}
                   <img src="{{ url_for('static', filename='uploads/' + produto.imagem) }}"
-                       alt="{{ produto.nome }}" loading="lazy">
+                       alt="{{ produto.nome }}" loading="lazy" data-foto>
                 {% else %}
                   <div class="thumb-vazia" style="width:100%;height:100%">sem foto</div>
                 {% endif %}
@@ -97,6 +100,16 @@
     <span class="floating-cart-left">🛍️ <span id="cart-count">0</span> itens</span>
     <span class="floating-cart-right">Ver sacola · <span id="cart-value">R$ 0,00</span></span>
   </button>
+
+  <!-- ================= FOTO AMPLIADA ================= -->
+  {# Foto grande é o que decide a compra num cardápio de hambúrguer. A miniatura
+     do cartão tem 80px; aqui ela abre inteira, sem sair da página e sem carregar
+     nada além do que já foi baixado. #}
+  <div class="modal-backdrop lightbox-backdrop" id="image-lightbox" data-fechar="image-lightbox">
+    <button class="lightbox-close" type="button" aria-label="Fechar foto"
+            data-fechar="image-lightbox">×</button>
+    <img id="image-lightbox-img" class="lightbox-img" alt="">
+  </div>
 
   <!-- ================= PRODUTO ================= -->
   <div class="modal-backdrop" id="product-modal">
@@ -166,10 +179,34 @@
 
   document.querySelectorAll('[data-fechar]').forEach(b =>
     b.addEventListener('click', () => fechar(b.dataset.fechar)));
-  ['product-modal', 'cart-modal'].forEach(id =>
+  const MODAIS = ['image-lightbox', 'product-modal', 'cart-modal'];
+  MODAIS.forEach(id =>
     el(id).addEventListener('click', e => { if (e.target.id === id) fechar(id); }));
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') ['product-modal', 'cart-modal'].forEach(fechar);
+    // A foto ampliada fecha primeiro: ela abre POR CIMA do modal do produto, e
+    // um Esc que fechasse os dois faria o cliente perder o que já tinha
+    // escolhido de adicionais.
+    if (e.key !== 'Escape') { return; }
+    if (el('image-lightbox').style.display === 'block') { fechar('image-lightbox'); return; }
+    ['product-modal', 'cart-modal'].forEach(fechar);
+  });
+
+  // -------------------------------------------------------- foto ampliada ---
+  function ampliarFoto(src, alt) {
+    const img = el('image-lightbox-img');
+    img.src = src;
+    img.alt = alt || '';
+    abrir('image-lightbox');
+  }
+
+  document.querySelectorAll('.product-thumb img[data-foto]').forEach(img =>
+    img.addEventListener('click', e => {
+      e.stopPropagation();
+      ampliarFoto(img.src, img.alt);
+    }));
+
+  el('product-modal-image').addEventListener('click', function () {
+    if (this.src) { ampliarFoto(this.src, this.alt); }
   });
 
   // ------------------------------------------------------ busca e filtro ---

@@ -5,99 +5,120 @@
   <a href="{{ url_for('public.index') }}">Voltar ao cardápio</a>
 {% endblock %}
 {% block content %}
+
+{% if not itens %}
+  <div class="card-admin">
+    <h1>Seu pedido</h1>
+    <p>Seu carrinho está vazio. <a href="{{ url_for('public.index') }}">Escolher itens</a>.</p>
+  </div>
+{% else %}
+
+  {# ===================== o que vai no pedido ===================== #}
   <div class="card-admin">
     <h1>Seu pedido</h1>
 
-    {% if not itens %}
-      <p>Seu carrinho está vazio. <a href="{{ url_for('public.index') }}">Escolher itens</a>.</p>
-    {% else %}
-      {% for item in itens %}
-        <div class="menu-item">
-          <div class="menu-corpo">
-            <h3>{{ item.quantidade }}x {{ item.nome }}</h3>
-            {% if item.adicionais %}
-              <p class="muted">
-                Adicionais: {% for extra in item.adicionais %}{{ extra.nome }} (+R$ {{ extra.preco|brl }}){% if not loop.last %}, {% endif %}{% endfor %}
-              </p>
-            {% endif %}
-            {% if item.observacao %}<p class="muted">Obs.: {{ item.observacao }}</p>{% endif %}
-          </div>
-          <div class="menu-preco">R$ {{ item.total|brl }}</div>
-          <form method="post" action="{{ url_for('public.carrinho_remover') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="indice" value="{{ loop.index0 }}">
-            <button type="submit" class="btn-secondary">Remover</button>
-          </form>
+    {% for item in itens %}
+      <div class="linha-sacola">
+        <div class="sacola-corpo">
+          <strong>{{ item.quantidade }}x {{ item.nome }}</strong>
+          {% if item.adicionais %}
+            <small>+ {% for extra in item.adicionais %}{{ extra.nome }}{% if not loop.last %}, {% endif %}{% endfor %}</small>
+          {% endif %}
+          {% if item.observacao %}<small>{{ item.observacao }}</small>{% endif %}
         </div>
-      {% endfor %}
+        <div class="sacola-preco">R$ {{ item.total|brl }}</div>
+        <form method="post" action="{{ url_for('public.carrinho_remover') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="indice" value="{{ loop.index0 }}">
+          <button type="submit" class="botao-remover" aria-label="Remover {{ item.nome }}">×</button>
+        </form>
+      </div>
+    {% endfor %}
 
-      <p class="total-linha">Subtotal: R$ {{ subtotal|brl }}</p>
+    <div class="sacola-somas">
+      <div><span>Subtotal</span><span>R$ {{ subtotal|brl }}</span></div>
       {% if desconto %}
-        <p class="total-linha">Desconto ({{ codigo_cupom }}): −R$ {{ desconto|brl }}</p>
+        <div class="soma-desconto">
+          <span>Desconto ({{ codigo_cupom }})</span><span>− R$ {{ desconto|brl }}</span>
+        </div>
       {% endif %}
-      <p class="total-linha"><strong>Total: R$ {{ total_sem_entrega|brl }}</strong></p>
-      {% if bairros %}
-        <p class="muted">A taxa de entrega do bairro escolhido é somada no fechamento.</p>
+      <div class="soma-total"><span>Total</span><span>R$ {{ total_sem_entrega|brl }}</span></div>
+    </div>
+
+    {% if usa_cupons %}
+      {# O cupom vive aqui dentro, e não num cartão só dele: era mais um bloco
+         para rolar antes de chegar no que importa, que é fechar o pedido. #}
+      {% if aviso_cupom %}<div class="flash flash-erro">{{ aviso_cupom }}</div>{% endif %}
+      {% if codigo_cupom and desconto %}
+        <form method="post" action="{{ url_for('public.carrinho_cupom_remover') }}" class="linha-cupom">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <span>Cupom <strong>{{ codigo_cupom }}</strong> aplicado.</span>
+          <button type="submit" class="btn-secondary">Remover</button>
+        </form>
+      {% else %}
+        <form method="post" action="{{ url_for('public.carrinho_cupom') }}" class="linha-cupom">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input name="cupom" maxlength="40" placeholder="Tem um cupom?" autocomplete="off">
+          <button type="submit" class="btn-secondary">Aplicar</button>
+        </form>
       {% endif %}
     {% endif %}
   </div>
 
-  {% if itens and usa_cupons %}
+  {# ===================== fechar o pedido ===================== #}
   <div class="card-admin">
-    <h1>Cupom de desconto</h1>
-    {% if aviso_cupom %}<div class="flash flash-erro">{{ aviso_cupom }}</div>{% endif %}
-    {% if codigo_cupom and desconto %}
-      <p>Cupom <strong>{{ codigo_cupom }}</strong> aplicado.</p>
-      <form method="post" action="{{ url_for('public.carrinho_cupom_remover') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn-secondary">Remover cupom</button>
-      </form>
-    {% else %}
-      <form method="post" action="{{ url_for('public.carrinho_cupom') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="cupom">Tem um cupom?</label>
-        <input id="cupom" name="cupom" maxlength="40" placeholder="Digite o código">
-        <button type="submit">Aplicar</button>
-      </form>
-    {% endif %}
-  </div>
-  {% endif %}
+    <h1>Fechar pedido</h1>
 
-  {% if itens %}
-  <div class="card-admin">
-    <h1>Seus dados</h1>
-    <form method="post" action="{{ url_for('public.pedido_criar') }}">
+    <form method="post" action="{{ url_for('public.pedido_criar') }}" id="form-pedido">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {# Torna o envio idempotente: clicar duas vezes não gera dois pedidos. #}
       <input type="hidden" name="client_request_id" value="{{ client_request_id }}">
 
-      <label for="cliente">Seu nome</label>
-      <input id="cliente" name="cliente" required maxlength="100">
+      <div class="grid-2">
+        <div>
+          <label for="cliente">Seu nome</label>
+          <input id="cliente" name="cliente" required maxlength="100" autocomplete="name">
+        </div>
+        <div>
+          <label for="telefone">WhatsApp com DDD</label>
+          <input id="telefone" name="telefone" required maxlength="20"
+                 inputmode="tel" autocomplete="tel" placeholder="81999998888">
+        </div>
+      </div>
 
-      <label for="telefone">WhatsApp (com DDD)</label>
-      <input id="telefone" name="telefone" required maxlength="20" placeholder="81999998888">
-
-      <label for="tipo">Como você quer receber?</label>
-      <select id="tipo" name="tipo">
+      <label>Como você quer receber?</label>
+      {# Dois botões grandes em vez de um menu suspenso: são só duas opções, e
+         num celular o menu esconde a escolha atrás de um toque a mais. Mesa não
+         entra aqui — comanda de mesa quem abre é o atendente, no salão. #}
+      <div class="radio-cards radio-cards-2" id="escolha-tipo">
         {% for tipo in tipos %}
-          <option value="{{ tipo }}">{{ tipo }}</option>
+          <input type="radio" id="tipo-{{ loop.index }}" name="tipo" value="{{ tipo }}"
+                 {{ 'checked' if loop.first }}>
+          <label for="tipo-{{ loop.index }}">
+            {{ '🛵' if tipo == 'Entrega' else '🚶' }} {{ tipo }}
+          </label>
         {% endfor %}
-      </select>
+      </div>
 
-      <label for="endereco">Endereço (somente para entrega)</label>
-      <input id="endereco" name="endereco" maxlength="350" placeholder="Rua, número e referência">
+      {# Só aparece quando a escolha é Entrega. Pedir rua e bairro a quem vai
+         buscar no balcão é o tipo de campo que faz a pessoa desistir no meio. #}
+      <div id="campos-entrega">
+        <label for="endereco">Endereço da entrega</label>
+        <input id="endereco" name="endereco" maxlength="350"
+               autocomplete="street-address" placeholder="Rua, número e ponto de referência">
 
-      {% if bairros %}
-        <label for="bairro_id">Bairro da entrega</label>
-        <select id="bairro_id" name="bairro_id">
-          {% if bairros|length > 1 %}<option value="">— Escolha o bairro —</option>{% endif %}
-          {% for bairro in bairros %}
-            <option value="{{ bairro.id }}">
-              {{ bairro.nome }} — entrega R$ {{ bairro.taxa|brl }}{% if bairro.prazo_adicional_min %} (+{{ bairro.prazo_adicional_min }} min){% endif %}
-            </option>
-          {% endfor %}
-        </select>
-      {% endif %}
+        {% if bairros %}
+          <label for="bairro_id">Bairro</label>
+          <select id="bairro_id" name="bairro_id">
+            {% if bairros|length > 1 %}<option value="">— Escolha o bairro —</option>{% endif %}
+            {% for bairro in bairros %}
+              <option value="{{ bairro.id }}">
+                {{ bairro.nome }} — entrega R$ {{ bairro.taxa|brl }}{% if bairro.prazo_adicional_min %} (+{{ bairro.prazo_adicional_min }} min){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        {% endif %}
+      </div>
 
       <label for="pagamento">Forma de pagamento</label>
       <select id="pagamento" name="pagamento">
@@ -106,11 +127,53 @@
         {% endfor %}
       </select>
 
-      <label for="observacao">Observação do pedido</label>
-      <input id="observacao" name="observacao" maxlength="500" placeholder="Opcional">
+      <details class="detalhe-observacao">
+        <summary>Alguma observação?</summary>
+        <input id="observacao" name="observacao" maxlength="500"
+               placeholder="Ex.: tocar a campainha, troco para 50">
+      </details>
 
-      <button type="submit">Finalizar pedido</button>
+      <button type="submit" class="btn-fechar-pedido">
+        Fazer pedido · R$ {{ total_sem_entrega|brl }}
+      </button>
+      {% if bairros %}
+        <p class="muted" id="aviso-taxa">A taxa do bairro escolhido entra no total.</p>
+      {% endif %}
     </form>
   </div>
-  {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if itens %}
+<script>
+  "use strict";
+
+  /* Mostra os campos de entrega só quando eles fazem sentido.
+     O `required` acompanha: deixá-lo fixo faria o navegador barrar o envio de
+     quem escolheu retirada por causa de um campo escondido — e sem dizer onde,
+     porque o campo não está na tela para receber o foco. */
+  (function () {
+    var bloco = document.getElementById("campos-entrega");
+    var endereco = document.getElementById("endereco");
+    var bairro = document.getElementById("bairro_id");
+    var aviso = document.getElementById("aviso-taxa");
+    if (!bloco) { return; }
+
+    function atualizar() {
+      var escolhido = document.querySelector('input[name="tipo"]:checked');
+      var entrega = escolhido && escolhido.value === "Entrega";
+      bloco.style.display = entrega ? "" : "none";
+      if (aviso) { aviso.style.display = entrega ? "" : "none"; }
+      if (endereco) { endereco.required = !!entrega; }
+      if (bairro) { bairro.disabled = !entrega; }
+    }
+
+    document.querySelectorAll('input[name="tipo"]').forEach(function (opcao) {
+      opcao.addEventListener("change", atualizar);
+    });
+    atualizar();
+  })();
+</script>
+{% endif %}
 {% endblock %}

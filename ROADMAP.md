@@ -260,6 +260,29 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
 
     **Falta:** backup separado por tenant.
 
+**Cardápio e fechamento (fora da numeração).** Feito em 22/08/2026, comparando
+com o cardápio do sistema antigo.
+
+- **Foto amplia ao tocar.** A miniatura do cartão tem 80px, e foto grande é o
+  que decide a compra num cardápio de hambúrguer. O clique na foto não sobe
+  para o cartão: quem toca na imagem quer ver a imagem, não abrir o formulário
+  de adicionar. Produto sem foto não oferece ampliar — seria um clique que não
+  leva a lugar nenhum.
+
+- **Endereço e bairro somem na retirada.** Pedir rua a quem vai buscar no
+  balcão é o tipo de campo que faz a pessoa desistir no meio. O `required`
+  acompanha o esconder: fixo, ele faria o navegador barrar o envio por causa de
+  um campo que não está na tela para receber o foco — erro sem lugar visível
+  onde corrigir.
+
+- **Fechamento mais leve.** Com retirada sobram três campos (nome, telefone,
+  pagamento) contra sete antes. O cupom saiu do cartão próprio e virou uma
+  linha na sacola; a observação começa fechada, porque campo de texto sempre
+  aberto sugere que alguém precisa preenchê-lo; o tipo virou dois botões
+  grandes em vez de menu suspenso, que no celular esconde a escolha atrás de um
+  toque a mais. O botão final leva o valor junto — a última confirmação de
+  quanto vai sair, no lugar onde o dedo já está.
+
 **Mapa do salão (fora da numeração).** Feito em 22/08/2026, a partir de uma
 imagem de referência de outro sistema.
 
