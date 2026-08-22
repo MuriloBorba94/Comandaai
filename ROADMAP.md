@@ -260,6 +260,36 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
 
     **Falta:** backup separado por tenant.
 
+**Mapa do salão (fora da numeração).** Feito em 22/08/2026, a partir de uma
+imagem de referência de outro sistema.
+
+- **Quatro estados por cor**: disponível, em consumo, pediu a conta e ociosa
+  (10 min sem ninguém pedir nada). Mais tempo desde a abertura e valor no
+  cartão, e a contagem de cada estado na legenda — que é o número que o dono
+  olha primeiro.
+
+- `ultimo_consumo_em` existe em vez de reaproveitar `updated_at` porque este
+  muda por qualquer coisa (troca de status, reimpressão), e "faz 10 minutos que
+  ninguém pede nada" precisa significar exatamente isso, senão a cor mente.
+  Lançar item reinicia o relógio E desfaz o "pediu a conta": quem pede mais uma
+  cerveja não está mais esperando para ir embora.
+
+- **Mesa saiu do cardápio.** A vitrine já só oferecia Entrega e Retirada, mas
+  tela não é trava: um POST montado à mão abria comanda numa mesa qualquer,
+  inclusive numa já ocupada, e ela aparecia no mapa como se um cliente tivesse
+  sentado ali. Agora `criar_pedido` exige `permitir_mesa=True`, que só as duas
+  rotas do salão passam — argumento, e não campo do payload, porque campo vem
+  do mesmo formulário de que se quer desconfiar. E o padrão é negar, para um
+  caminho novo nascer fechado.
+
+- **Duas correções vieram de medir, não de olhar.** Branco sobre o âmbar dava
+  2,2:1 — ilegível — e eu tinha escrito no CSS que as quatro cores eram escuras
+  o bastante. O âmbar passou a levar texto escuro (9,4:1), como placa de aviso
+  no mundo real; verde e azul foram escurecidos 8% para chegar a 4,5:1. E, como
+  as quatro cores têm luminosidade parecida, quem tem daltonismo não separaria
+  verde de vermelho: cada cartão passou a escrever o estado ao lado da cor,
+  ocupando o lugar do "1 comanda" que era sempre 1 e não informava nada.
+
 **Equipe e entregas (fora da numeração).** Feito em 21/08/2026, depois da
 pergunta "não dá para mapear uma rota de entrega a partir de uma
 geolocalização?".

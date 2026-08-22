@@ -23,6 +23,7 @@ from ..decorators import login_required
 from ..services.recursos import requer_recurso
 from ..models.categoria import Categoria
 from ..models.pedido import (
+    ROTULO_DO_ESTADO,
     STATUS_ATIVOS,
     Pedido,
     TIPO_MESA,
@@ -288,16 +289,59 @@ def mesas():
 
     ocupadas = mesas_ativas(g.tenant.id)
     produtos, adicionais = _catalogo_da_comanda()
+
+    # O resumo que aparece na faixa de legenda. Contar aqui evita a tela fazer
+    # conta, e é o número que o dono olha primeiro: quantas mesas estão
+    # esperando alguém.
+    estados = {numero: pedido.estado_no_salao for numero, pedido in ocupadas.items()}
+    contagem = {
+        "disponivel": (g.tenant.qtd_mesas or 0) - len(ocupadas),
+        "consumo": sum(1 for e in estados.values() if e == "consumo"),
+        "conta": sum(1 for e in estados.values() if e == "conta"),
+        "ociosa": sum(1 for e in estados.values() if e == "ociosa"),
+    }
+
     return render_template(
         "operacao/mesas.html",
         tenant=g.tenant,
         numeros=range(1, (g.tenant.qtd_mesas or 0) + 1),
         ocupadas=ocupadas,
+        estados=estados,
+        rotulos=ROTULO_DO_ESTADO,
+        contagem=contagem,
         resumos={numero: _resumo_dos_itens(pedido) for numero, pedido in ocupadas.items()},
         catalogo=produtos,
         adicionais=adicionais,
         formas_pagamento=FORMAS_PAGAMENTO,
     )
+
+
+@operacao_bp.route("/mesas/<int:numero>/conta-pedida", methods=["POST"])
+@login_required
+@requer_recurso("mesas")
+def mesa_pedir_conta(numero: int):
+    """Sinaliza no mapa que a mesa chamou a conta.
+
+    Não fecha nada: a comanda continua aberta e ainda aceita item. É só a cor
+    mudando, para quem está no salão saber onde ir primeiro.
+    """
+    from ..services.pedidos import pedir_conta
+
+    pedido = mesas_ativas(g.tenant.id).get(numero)
+    if pedido is None:
+        flash(f"A mesa {numero} não tem comanda aberta.", "erro")
+        return redirect(url_for("operacao.mesas"))
+
+    desfazer = request.form.get("desfazer") == "1"
+    try:
+        pedir_conta(pedido, pedida=not desfazer)
+        flash(
+            f"Mesa {numero:02d}: {'conta cancelada' if desfazer else 'conta pedida'}.",
+            "sucesso",
+        )
+    except ValueError as exc:
+        flash(str(exc), "erro")
+    return redirect(url_for("operacao.mesas"))
 
 
 @operacao_bp.route("/mesas/<int:numero>/comanda", methods=["POST"])
@@ -354,6 +398,7 @@ def mesa_comanda(numero: int):
                     "observacao": observacao,
                     "origem": "mesa",
                 },
+                permitir_mesa=True,
             )
             mensagem = f"Mesa {numero:02d} aberta e pedido enviado para a cozinha."
         else:
@@ -404,6 +449,7 @@ def mesa_lancar_item(numero: int):
                     "carrinho": [linha],
                     "origem": "mesa",
                 },
+                permitir_mesa=True,
             )
             flash(f"Comanda da mesa {numero} aberta.", "sucesso")
         else:

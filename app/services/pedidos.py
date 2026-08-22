@@ -255,7 +255,7 @@ def pedido_por_request_id(tenant_id: int, client_request_id: str | None) -> Pedi
     return Pedido.query.filter_by(tenant_id=tenant_id, client_request_id=client_request_id).first()
 
 
-def criar_pedido(tenant, payload: dict) -> Pedido:
+def criar_pedido(tenant, payload: dict, *, permitir_mesa: bool = False) -> Pedido:
     """Cria um pedido a partir do payload do checkout (ou do salão).
 
     Devolve o pedido já existente quando o mesmo client_request_id chega de novo,
@@ -275,6 +275,19 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
         raise ValueError("Informe o nome do cliente.")
     if tipo not in TIPOS:
         raise ValueError("Tipo de pedido inválido.")
+
+    # Mesa é coisa de quem está no salão, não do cardápio.
+    #
+    # A tela da vitrine só oferece Entrega e Retirada — mas tela não é trava: um
+    # POST montado à mão abriria comanda numa mesa qualquer, inclusive numa já
+    # ocupada, e o pedido apareceria no mapa do salão como se um cliente tivesse
+    # sentado ali.
+    #
+    # A permissão é um ARGUMENTO, e não um campo do payload: campo vem do mesmo
+    # formulário que se quer desconfiar. E o padrão é negar, para um caminho
+    # novo que alguém escreva amanhã já nascer fechado.
+    if tipo == TIPO_MESA and not permitir_mesa:
+        raise ValueError("Comanda de mesa é aberta pelo atendente, no salão.")
 
     mesa = None
     endereco = None
@@ -349,6 +362,8 @@ def criar_pedido(tenant, payload: dict) -> Pedido:
     )
     pedido.itens = itens
     pedido.recalcular_total()
+    # O relógio do salão começa a contar na abertura da comanda.
+    pedido.ultimo_consumo_em = datetime.now()
 
     # A numeração por tenant é calculada com MAX+1, então dois pedidos
     # simultâneos podem tentar o mesmo número. A unique constraint barra, e aqui
@@ -528,6 +543,12 @@ def adicionar_itens_comanda(pedido: Pedido, carrinho, actor: str | None = None) 
         pedido.status = STATUS_CONFIRMADO
 
     pedido.recalcular_total()
+    # Reinicia o relógio do salão: a mesa acabou de consumir.
+    pedido.ultimo_consumo_em = datetime.now()
+    # E desfaz o "pediu a conta": quem pede mais uma cerveja depois de chamar a
+    # conta não está mais esperando para ir embora, e deixar a mesa amarela
+    # mandaria o atendente até lá à toa.
+    pedido.conta_pedida_em = None
     # A saída de estoque do pedido é o consumo TOTAL dele: aqui a linha existente
     # cresce e só a diferença sai do saldo.
     sincronizar_baixa(pedido, usuario=actor)
@@ -554,6 +575,19 @@ def fechar_comanda(pedido: Pedido, pagamento: str) -> Pedido:
     pedido.status = STATUS_ENTREGUE
     pedido.entregue_em = datetime.now()
     pedido.recalcular_total()
+    db.session.commit()
+    return pedido
+
+
+def pedir_conta(pedido: Pedido, pedida: bool = True) -> Pedido:
+    """Marca que a mesa chamou a conta — ou desfaz, se foi engano.
+
+    Não muda o status do pedido: a comanda continua aberta e ainda dá para
+    lançar item. É só um sinal para o mapa do salão.
+    """
+    if not pedido.comanda_aberta:
+        raise ValueError("Esta comanda não está aberta.")
+    pedido.conta_pedida_em = datetime.now() if pedida else None
     db.session.commit()
     return pedido
 

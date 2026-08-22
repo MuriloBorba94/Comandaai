@@ -273,6 +273,9 @@ def test_cupom_recusado_em_comanda_de_mesa(client, cenario, tenant_a_obj):
                 "cupom": "DEZ",
                 "carrinho": [{"produto_id": cenario["normal"], "quantidade": 1}],
             },
+            # Autorizada como o salão faz: o que este teste verifica é a regra
+            # do CUPOM, e sem isto ele pararia antes, na trava de mesa.
+            permitir_mesa=True,
         )
 
 

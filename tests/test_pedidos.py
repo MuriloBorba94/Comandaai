@@ -98,6 +98,17 @@ def _payload(carrinho, **extra):
     return base
 
 
+def _abrir_comanda(tenant, **extra):
+    """Abre comanda de mesa como o salão faz.
+
+    `permitir_mesa=True` é o que separa o atendente do cliente: pela vitrine,
+    pedido de mesa é recusado (ver criar_pedido).
+    """
+    dados = {"cliente": "Mesa", "tipo": TIPO_MESA, "mesa": 1}
+    dados.update(extra)
+    return criar_pedido(tenant, dados, permitir_mesa=True)
+
+
 def _adicionar_ao_carrinho(client, produto_id, base_url=BASE_A, **campos):
     dados = {"produto_id": produto_id, "quantidade": 1}
     dados.update(campos)
@@ -384,8 +395,7 @@ def test_cancelamento_fecha_comanda(client, cardapio, tenant_a_obj):
     db.session.commit()
     pedido = criar_pedido(
         tenant_a_obj,
-        {"cliente": "Mesa 3", "tipo": TIPO_MESA, "mesa": 3, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]},
-    )
+        {"cliente": "Mesa 3", "tipo": TIPO_MESA, "mesa": 3, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]}, permitir_mesa=True)
     assert pedido.comanda_aberta is True
 
     transicionar(pedido, STATUS_CANCELADO)
@@ -604,8 +614,7 @@ def test_comanda_abre_acumula_e_fecha(client, cardapio, tenant_a_obj):
             "tipo": TIPO_MESA,
             "mesa": 4,
             "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}],
-        },
-    )
+        }, permitir_mesa=True)
     assert pedido.comanda_aberta is True
     assert pedido.total == 6.0
     assert pedido.pagamento == "Comanda Aberta"
@@ -625,8 +634,7 @@ def test_nao_pode_adicionar_em_comanda_fechada(client, cardapio, tenant_a_obj):
     db.session.commit()
     pedido = criar_pedido(
         tenant_a_obj,
-        {"cliente": "Mesa 1", "tipo": TIPO_MESA, "mesa": 1, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]},
-    )
+        {"cliente": "Mesa 1", "tipo": TIPO_MESA, "mesa": 1, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]}, permitir_mesa=True)
     fechar_comanda(pedido, "Dinheiro")
 
     with pytest.raises(ValueError, match="não está aberta"):
@@ -642,10 +650,10 @@ def test_mesa_ja_ocupada_nao_abre_segunda_comanda(client, cardapio, tenant_a_obj
         "mesa": 2,
         "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}],
     }
-    criar_pedido(tenant_a_obj, dados)
+    criar_pedido(tenant_a_obj, dados, permitir_mesa=True)
 
     with pytest.raises(ValueError, match="já tem uma comanda aberta"):
-        criar_pedido(tenant_a_obj, dados)
+        criar_pedido(tenant_a_obj, dados, permitir_mesa=True)
 
 
 def test_item_novo_devolve_comanda_concluida_para_a_fila(client, cardapio, tenant_a_obj):
@@ -653,8 +661,7 @@ def test_item_novo_devolve_comanda_concluida_para_a_fila(client, cardapio, tenan
     db.session.commit()
     pedido = criar_pedido(
         tenant_a_obj,
-        {"cliente": "Mesa 5", "tipo": TIPO_MESA, "mesa": 5, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]},
-    )
+        {"cliente": "Mesa 5", "tipo": TIPO_MESA, "mesa": 5, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]}, permitir_mesa=True)
     transicionar(pedido, STATUS_CONFIRMADO)
     transicionar(pedido, STATUS_EM_PREPARO)
     transicionar(pedido, STATUS_PRONTO)
@@ -672,9 +679,9 @@ def test_mesas_de_tenants_diferentes_nao_conflitam(client, cardapio, two_tenants
     tenant_b.qtd_mesas = 10
     db.session.commit()
 
-    criar_pedido(tenant_a, {"cliente": "Mesa do A", "tipo": TIPO_MESA, "mesa": 1, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]})
+    criar_pedido(tenant_a, {"cliente": "Mesa do A", "tipo": TIPO_MESA, "mesa": 1, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]}, permitir_mesa=True)
     # A mesa 1 do tenant B é outra mesa: precisa abrir normalmente.
-    pedido_b = criar_pedido(tenant_b, {"cliente": "Mesa do B", "tipo": TIPO_MESA, "mesa": 1, "carrinho": [{"produto_id": cardapio["pizza_b"], "quantidade": 1}]})
+    pedido_b = criar_pedido(tenant_b, {"cliente": "Mesa do B", "tipo": TIPO_MESA, "mesa": 1, "carrinho": [{"produto_id": cardapio["pizza_b"], "quantidade": 1}]}, permitir_mesa=True)
     assert pedido_b.mesa == 1 and pedido_b.comanda_aberta is True
 
 
@@ -684,8 +691,7 @@ def test_reduzir_salao_com_comanda_aberta_e_bloqueado(client, cardapio, tenant_a
     db.session.commit()
     criar_pedido(
         tenant_a_obj,
-        {"cliente": "Mesa 9", "tipo": TIPO_MESA, "mesa": 9, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]},
-    )
+        {"cliente": "Mesa 9", "tipo": TIPO_MESA, "mesa": 9, "carrinho": [{"produto_id": cardapio["refri"], "quantidade": 1}]}, permitir_mesa=True)
 
     login_tenant(client, "tenant-a", "admin", "senha-a-123")
     resposta = client.post(
@@ -706,8 +712,7 @@ def test_telas_de_operacao_renderizam(client, cardapio, tenant_a_obj):
     db.session.commit()
     criar_pedido(
         tenant_a_obj,
-        {"cliente": "Mesa 2", "tipo": TIPO_MESA, "mesa": 2, "carrinho": [{"produto_id": cardapio["xtudo"], "quantidade": 1, "adicionais": [cardapio["bacon"]]}]},
-    )
+        {"cliente": "Mesa 2", "tipo": TIPO_MESA, "mesa": 2, "carrinho": [{"produto_id": cardapio["xtudo"], "quantidade": 1, "adicionais": [cardapio["bacon"]]}]}, permitir_mesa=True)
     criar_pedido(
         tenant_a_obj,
         _payload([{"produto_id": cardapio["refri"], "quantidade": 2}], tipo=TIPO_ENTREGA, endereco="Rua A, 10, Centro"),

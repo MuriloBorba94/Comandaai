@@ -573,7 +573,7 @@ form.inline { display: inline; }
 .barra-ao-vivo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 20px; }
 
 /* ===================== mesas ===================== */
-.mesas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 11px; margin-top: 16px; }
+.mesas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; margin-top: 16px; }
 .mesa-card {
   position: relative; border-radius: var(--raio); padding: 14px 6px;
   text-align: center; cursor: pointer;
@@ -582,12 +582,55 @@ form.inline { display: inline; }
   transition: border-color .15s, transform .15s, background .15s;
 }
 .mesa-card:hover { transform: translateY(-2px); border-color: var(--border-2); }
-.mesa-livre { background: rgba(255, 255, 255, .03); color: var(--text-2); }
-:root[data-theme="light"] .mesa-livre { background: var(--panel-2); }
-.mesa-ocupada { background: var(--brand-bg); color: var(--brand-texto); border-color: var(--brand-border); }
-.mesa-number { font-size: 1.5rem; font-weight: 800; letter-spacing: -.03em; color: var(--text); }
-.mesa-ocupada .mesa-number { color: var(--brand-texto); }
+/* Mapa do salão: a cor é a informação.
+ *
+ * As quatro cores são cheias e saturadas de propósito — esta tela é lida de
+ * relance, a três metros de distância, por alguém carregando pratos. Aqui o
+ * contraste vale mais do que combinar com o resto do painel, então elas não
+ * seguem a cor da marca do restaurante: verde/azul/amarelo/vermelho é o código
+ * que qualquer pessoa de salão já conhece.
+ *
+ * Os tons foram escolhidos medindo contraste, não a olho: com o verde e o azul
+ * originais, o número dava 3,4:1 e 3,9:1 sobre branco — abaixo do mínimo legível
+ * de 4,5:1. Escurecer 8% resolveu sem tirar a cor.
+ *
+ * O âmbar é a exceção, e por isso leva texto ESCURO: para branco funcionar
+ * nele, ele teria que virar um marrom (#946d0c) que não sinaliza mais "atenção".
+ * É a mesma razão pela qual placa amarela no mundo real tem letra preta. */
+.mesa-card { color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
+.mesa-disponivel { background: #288643; border-color: #1f6b35; }
+.mesa-consumo    { background: #1c78c0; border-color: #17629c; }
+.mesa-ociosa     { background: #cf2e2e; border-color: #a92525; }
+
+.mesa-conta {
+  background: #e8b021; border-color: #c0900f;
+  color: #1a1205; text-shadow: none;
+}
+.mesa-conta .mesa-number { color: #1a1205; }
+
+.mesa-number { font-size: 1.6rem; font-weight: 800; letter-spacing: -.03em; color: #ffffff; }
+/* Tempo e valor no rodapé do cartão, miúdos: quem precisa deles já foi atraído
+   pela cor e está olhando de perto. */
+.mesa-tempo, .mesa-valor, .mesa-estado { font-size: .64rem; font-weight: 600; line-height: 1.35; }
+.mesa-tempo { position: absolute; left: 7px; bottom: 16px; opacity: .95; }
+.mesa-valor { position: absolute; left: 7px; bottom: 5px; }
+.mesa-estado { position: absolute; right: 7px; bottom: 5px; opacity: .92; text-transform: uppercase; letter-spacing: .04em; font-size: .58rem; }
 .mesa-status { font-size: .74rem; font-weight: 600; }
+
+.salao-legenda {
+  display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center;
+  margin: 0 0 4px; font-size: .8rem; color: var(--text-2);
+}
+.salao-legenda b { color: var(--text); margin-left: 2px; }
+.salao-legenda small { color: var(--muted); }
+.ponto-mesa {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  margin-right: 5px; vertical-align: -1px;
+}
+.ponto-mesa.disponivel { background: #288643; }
+.ponto-mesa.consumo    { background: #1c78c0; }
+.ponto-mesa.conta      { background: #e8b021; }
+.ponto-mesa.ociosa     { background: #cf2e2e; }
 
 /* ===================== comanda (PDV de mesa) ===================== */
 .comanda-modal { max-width: 1000px; width: min(1000px, 96vw); padding: 0; display: flex; flex-direction: column; max-height: 92vh; }

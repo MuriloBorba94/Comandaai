@@ -75,7 +75,8 @@ def _pedido(tenant, produto_id, tipo=TIPO_RETIRADA, **extra):
         "carrinho": [{"produto_id": produto_id, "quantidade": 2}],
     }
     payload.update(extra)
-    return criar_pedido(tenant, payload)
+    # Comanda de mesa só nasce autorizada, como nas rotas do salão.
+    return criar_pedido(tenant, payload, permitir_mesa=payload["tipo"] == TIPO_MESA)
 
 
 def _cabecalhos(token: str) -> dict:

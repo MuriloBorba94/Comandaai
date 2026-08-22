@@ -333,7 +333,7 @@ def test_comanda_que_cresce_baixa_so_a_diferenca(cenario):
     pedido = criar_pedido(tenant, {
         "cliente": "Mesa 1", "tipo": TIPO_MESA, "mesa": 1,
         "carrinho": [{"produto_id": cenario["xtudo"], "quantidade": 1}],
-    })
+    }, permitir_mesa=True)
     transicionar(pedido, STATUS_CONFIRMADO)
     assert _insumo(cenario["carne"]).estoque_atual == pytest.approx(850.0)
 
@@ -357,7 +357,7 @@ def test_comanda_com_insumo_novo_cria_a_linha(cenario):
     pedido = criar_pedido(tenant, {
         "cliente": "Mesa 2", "tipo": TIPO_MESA, "mesa": 2,
         "carrinho": [{"produto_id": cenario["refri"], "quantidade": 1}],
-    })
+    }, permitir_mesa=True)
     transicionar(pedido, STATUS_CONFIRMADO)
 
     adicionar_itens_comanda(pedido, [{"produto_id": cenario["xtudo"], "quantidade": 1}])

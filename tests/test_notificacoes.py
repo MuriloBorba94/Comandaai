@@ -69,7 +69,8 @@ def _pedido(tenant, produto_id, **extra):
         "carrinho": [{"produto_id": produto_id, "quantidade": 2}],
     }
     dados.update(extra)
-    return criar_pedido(tenant, dados)
+    # Comanda de mesa só nasce autorizada, como nas rotas do salão.
+    return criar_pedido(tenant, dados, permitir_mesa=dados["tipo"] == TIPO_MESA)
 
 
 def _com_meta(tenant):

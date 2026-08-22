@@ -4,11 +4,15 @@
 {% block intro_titulo %}Salão / Mapa de Mesas{% endblock %}
 {% block intro_texto %}Selecione uma mesa livre para abrir a comanda, ou uma ocupada para adicionar itens.{% endblock %}
 {% block content %}
-  <div class="card-admin" style="border-top: 5px solid var(--info);">
-    <h2 style="color: var(--info)">📱 Salão / Mapa de Mesas</h2>
-    <p style="color: var(--text-sec); font-size: 0.9rem;">
-      Selecione uma mesa livre para abrir a comanda, ou uma ocupada para adicionar itens.
-    </p>
+  <div class="card-admin">
+    {# A legenda vem antes do mapa, e com a contagem junto: ela é o resumo que o
+       dono olha primeiro — quantas mesas estão esperando alguém. #}
+    <div class="salao-legenda">
+      <span><i class="ponto-mesa disponivel"></i> Disponível <b>{{ contagem.disponivel }}</b></span>
+      <span><i class="ponto-mesa consumo"></i> Em consumo <b>{{ contagem.consumo }}</b></span>
+      <span><i class="ponto-mesa conta"></i> Pediu a conta <b>{{ contagem.conta }}</b></span>
+      <span><i class="ponto-mesa ociosa"></i> Ociosa <small>({{ 10 }} min sem consumo)</small> <b>{{ contagem.ociosa }}</b></span>
+    </div>
 
     <div class="mesas-grid" data-total-mesas="{{ numeros|length }}">
       {% for numero in numeros %}
@@ -18,21 +22,25 @@
           {# Os valores vão por data-attribute, não interpolados no onclick: o
              nome do cliente e a observação podem ter aspas e quebra de linha,
              que quebrariam o atributo de evento. #}
-          <div class="mesa-card mesa-ocupada"
+          <div class="mesa-card mesa-{{ estados[numero] }}"
                data-id="{{ pedido.id }}"
                data-num="{{ num }}"
                data-numero="{{ numero }}"
                data-total="{{ pedido.total }}"
+               data-conta="{{ 1 if pedido.conta_pedida_em else 0 }}"
                data-itens="{{ resumos.get(numero, '') }}"
                onclick="abrirAcoesMesaViaData(this)">
-            <span style="position:absolute;top:5px;left:8px;font-size:.9rem" aria-hidden="true">🔒</span>
-            <span class="mesa-number">{{ num }}</span>
-            <span class="mesa-status">R$ {{ pedido.total|brl }}</span>
+            <span class="mesa-number">{{ numero }}</span>
+            <span class="mesa-tempo">{{ pedido.created_at | desde }}</span>
+            <span class="mesa-valor">R$ {{ pedido.total|brl }}</span>
+            {# O nome do estado ao lado da cor: quem não distingue verde de
+               vermelho continua conseguindo operar o salão. Ocupa o lugar de
+               "1 comanda", que hoje é sempre 1 e não informa nada. #}
+            <span class="mesa-estado">{{ rotulos[estados[numero]] }}</span>
           </div>
         {% else %}
-          <div class="mesa-card mesa-livre" onclick="abrirMesaLivre('{{ num }}', {{ numero }})">
-            <span class="mesa-status" style="font-size:.7rem;margin-bottom:2px">LIVRE</span>
-            <span class="mesa-number">{{ num }}</span>
+          <div class="mesa-card mesa-disponivel" onclick="abrirMesaLivre('{{ num }}', {{ numero }})">
+            <span class="mesa-number">{{ numero }}</span>
           </div>
         {% endif %}
       {% endfor %}
@@ -52,6 +60,15 @@
                 onclick="irParaAddComanda()">➕ Adicionar Produtos</button>
         <button class="btn-save" style="padding: 15px; font-size: 1.1rem; width: 100%;"
                 onclick="irParaFecharComanda()">💰 Fechar Conta</button>
+
+        {# Só marca a cor no mapa: a comanda continua aberta e ainda aceita item.
+           É o sinal de "vai lá primeiro" para quem está no salão. #}
+        <form method="post" id="form-conta-pedida" style="margin:0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="desfazer" id="conta-desfazer" value="0">
+          <button type="submit" class="btn-secondary" id="botao-conta-pedida"
+                  style="padding: 13px; width: 100%;">🧾 Marcar que pediu a conta</button>
+        </form>
 
         <div style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px;">
           <p style="color: var(--text-sec); font-size: 0.9rem; text-align: left; margin: 0 0 10px 0;">Itens da Mesa:</p>
@@ -126,6 +143,35 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+  "use strict";
+
+  /* O mapa se atualiza sozinho.
+     Duas razões, e a segunda é a que obriga: outra pessoa pode ter lançado item
+     em outra mesa, E a cor muda com o tempo mesmo sem nada acontecer no
+     servidor — uma mesa vira ociosa aos 10 minutos parada.
+
+     Não recarrega com modal aberto: alguém montando um pedido perderia o que
+     digitou, que é o jeito mais rápido de fazer a equipe odiar a tela. */
+  (function () {
+    function temModalAberto() {
+      /* Pelo estilo CALCULADO, e não pelo atributo: os modais desta tela são
+         abertos com display:block, e um seletor que procurasse "flex" ou uma
+         classe simplesmente nunca acharia nada — o guarda existiria sem
+         guardar. */
+      var modais = document.querySelectorAll(".modal-overlay");
+      for (var i = 0; i < modais.length; i++) {
+        if (getComputedStyle(modais[i]).display !== "none") { return true; }
+      }
+      return false;
+    }
+
+    setInterval(function () {
+      if (document.hidden || temModalAberto()) { return; }
+      window.location.reload();
+    }, 30000);
+  })();
+</script>
 <script type="application/json" id="comanda-cardapio">{{ catalogo|tojson }}</script>
 <script type="application/json" id="comanda-adicionais">{{ adicionais|tojson }}</script>
 <script>
@@ -171,6 +217,16 @@
       total: parseFloat(card.dataset.total || '0'),
     };
     el('acao-mesa-num').textContent = acaoMesa.num;
+
+    /* O mesmo botão marca e desmarca: quem apertou por engano desfaz onde
+       apertou, sem procurar outro lugar. */
+    var jaPediu = card.dataset.conta === '1';
+    var forma = el('form-conta-pedida');
+    forma.action = '/mesas/' + acaoMesa.numero + '/conta-pedida';
+    el('conta-desfazer').value = jaPediu ? '1' : '0';
+    el('botao-conta-pedida').textContent = jaPediu
+      ? '↩ Desmarcar: não pediu a conta'
+      : '🧾 Marcar que pediu a conta';
     el('acao-mesa-total').textContent = acaoMesa.total.toFixed(2).replace('.', ',');
     el('acao-mesa-itens').textContent = card.dataset.itens || '';
     el('modal-acoes-mesa').style.display = 'block';

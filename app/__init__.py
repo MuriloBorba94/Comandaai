@@ -262,6 +262,26 @@ def create_app(config_object=Config) -> Flask:
             numero = 0.0
         return f"{numero:.{casas}f}".replace(".", ",")
 
+    @app.template_filter("desde")
+    def desde(momento) -> str:
+        """Quanto tempo passou, no formato curto do mapa de mesas.
+
+        "0h11m", "3h05m", "2d 3h11m". Curto porque cabe num cartão de 96px, e
+        com o dia na frente porque comanda esquecida aberta há uma semana é
+        coisa que acontece — e precisa saltar aos olhos.
+        """
+        from datetime import datetime
+
+        if momento is None:
+            return ""
+        segundos = max(0, int((datetime.now() - momento).total_seconds()))
+        dias, resto = divmod(segundos, 86400)
+        horas, resto = divmod(resto, 3600)
+        minutos = resto // 60
+        if dias:
+            return f"{dias}d {horas}h{minutos:02d}m"
+        return f"{horas}h{minutos:02d}m"
+
     @app.template_filter("brl")
     def brl(valor) -> str:
         """Formata número no padrão brasileiro: 1234.5 -> "1.234,50"."""

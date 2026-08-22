@@ -49,6 +49,22 @@ STATUS_ATIVOS = (
 
 STATUS_FINAIS = (STATUS_ENTREGUE, STATUS_CANCELADO)
 
+# Depois disto sem ninguém pedir nada, a mesa aparece como ociosa no mapa. Não é
+# problema: é a mesa que provavelmente já terminou e ninguém foi lá perguntar.
+MINUTOS_PARA_OCIOSA = 10
+
+# O nome de cada estado, escrito no cartão ao lado da cor.
+#
+# Não é redundância: verde, azul e vermelho têm quase a mesma luminosidade, e
+# quem tem daltonismo (uns 8% dos homens) não distingue verde de vermelho. Numa
+# tela cujo ponto inteiro é "a cor é a informação", isso deixaria alguém da
+# equipe sem conseguir usar o salão. A palavra resolve, e cabe.
+ROTULO_DO_ESTADO = {
+    "consumo": "consumo",
+    "conta": "conta",
+    "ociosa": "ociosa",
+}
+
 TIPO_ENTREGA = "Entrega"
 TIPO_RETIRADA = "Retirada"
 TIPO_MESA = "Mesa"
@@ -148,6 +164,17 @@ class Pedido(TimestampMixin, db.Model):
     entrega_lng = db.Column(db.Float)
     entrega_atualizado_em = db.Column(db.DateTime)
 
+    # Quando a mesa consumiu pela última vez, e quando pediu a conta. São os
+    # dois relógios que o mapa do salão precisa: sem eles, uma mesa que já comeu
+    # e está esperando a conta fica com a mesma cara de uma que acabou de sentar.
+    #
+    # `ultimo_consumo_em` existe em vez de reaproveitar `updated_at` porque este
+    # último muda por qualquer coisa — troca de status, reimpressão de comanda —
+    # e "faz 10 minutos que ninguém pede nada" precisa significar exatamente
+    # isso, senão a cor mente.
+    ultimo_consumo_em = db.Column(db.DateTime)
+    conta_pedida_em = db.Column(db.DateTime)
+
     confirmado_em = db.Column(db.DateTime)
     em_preparo_em = db.Column(db.DateTime)
     pronto_em = db.Column(db.DateTime)
@@ -183,6 +210,28 @@ class Pedido(TimestampMixin, db.Model):
         if self.bairro_nome:
             partes.append(self.bairro_nome)
         return " — ".join(partes)
+
+    @property
+    def minutos_sem_consumo(self) -> int:
+        """Há quanto tempo ninguém pede nada nesta comanda."""
+        referencia = self.ultimo_consumo_em or self.created_at
+        if referencia is None:
+            return 0
+        return int((datetime.now() - referencia).total_seconds() // 60)
+
+    @property
+    def estado_no_salao(self) -> str:
+        """Como esta comanda aparece no mapa de mesas.
+
+        A ordem das perguntas é a ordem de urgência de quem está atendendo:
+        quem pediu a conta espera alguém AGORA, e isso vale mais do que o
+        tempo parado.
+        """
+        if self.conta_pedida_em is not None:
+            return "conta"
+        if self.minutos_sem_consumo >= MINUTOS_PARA_OCIOSA:
+            return "ociosa"
+        return "consumo"
 
     @property
     def rastreavel(self) -> bool:
