@@ -207,18 +207,7 @@ body.nav-open { overflow: hidden; }
   box-shadow: var(--shadow-lg);
 }
 .v17-sidebar.open { transform: none; }
-/* Só existe na tela larga e com a lateral recolhida: no celular ela nunca teve
-   coluna para ocupar, e fixada o botão não teria o que fazer. */
-.v17-fixar-nav {
-  display: none; align-self: flex-end; margin: -4px 0 8px;
-  padding: 5px 10px; font-size: .72rem; font-weight: 600;
-  background: transparent; border: 1px solid var(--border);
-  border-radius: 999px; color: var(--muted); cursor: pointer;
-}
-.v17-fixar-nav:hover { color: var(--text); border-color: var(--border-2); }
-@media (min-width: 1100px) {
-  :root.nav-recolhida .v17-fixar-nav { display: block; }
-}
+
 .v17-sidebar-backdrop { display: none; }
 .v17-sidebar-backdrop.open {
   display: block; position: fixed; inset: 0; z-index: 70;
@@ -310,23 +299,39 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; padding: 8px 24px; flex-wrap: wrap;
 }
-/* Botão da gaveta, à esquerda do título — onde a mão vai procurar por ele.
-   Substitui o botão flutuante do canto inferior, que só existia no celular e
-   ficava por cima do conteúdo. Um controle só, em qualquer largura. */
+/* Botão do menu, à esquerda do título — onde a mão vai procurar por ele.
+   Ícone de grade mais o rótulo: três traços prometiam gaveta lateral, e o que
+   abre é um painel. Proporção de botão de barra, não de quadrado esticado. */
 .v17-nav-toggle {
-  flex: none; width: 34px; height: 34px; padding: 0;
-  display: grid; place-items: center; cursor: pointer;
-  background: transparent; border: 1px solid var(--border);
+  flex: none; height: 34px; padding: 0 12px 0 10px;
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  background: rgba(255, 255, 255, .03); border: 1px solid var(--border);
   border-radius: var(--raio-sm); color: var(--text-2);
+  font-size: .8rem; font-weight: 600; line-height: 1;
   transition: background .15s, border-color .15s, color .15s;
 }
-.v17-nav-toggle:hover { background: rgba(255, 255, 255, .06); color: var(--text); border-color: var(--border-2); }
-:root[data-theme="light"] .v17-nav-toggle:hover { background: var(--panel-2); }
-.v17-nav-toggle span { display: block; width: 15px; height: 1.5px; background: currentColor; border-radius: 2px; }
-.v17-nav-toggle span + span { margin-top: 3.5px; }
+:root[data-theme="light"] .v17-nav-toggle { background: var(--panel); }
+.v17-nav-toggle:hover { color: var(--text); border-color: var(--border-2); background: rgba(255, 255, 255, .07); }
+.v17-nav-toggle[aria-expanded="true"] { color: var(--brand-texto); border-color: var(--brand-border); background: var(--brand-bg); }
+.v17-nav-toggle svg { flex: none; }
+@media (max-width: 560px) {
+  /* Só o ícone: numa barra estreita o rótulo empurra o nome da tela para fora. */
+  .v17-nav-toggle { padding: 0 9px; }
+  .v17-nav-toggle-txt { display: none; }
+}
 
 .v17-commandbar-title { display: flex; align-items: center; gap: 12px; }
-.v17-commandbar-title > div { display: flex; flex-direction: column; line-height: 1.35; }
+.v17-marca-topo { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; flex: none; }
+.v17-marca-topo img { width: 30px; height: 30px; object-fit: contain; border-radius: var(--raio-xs); flex: none; }
+.v17-marca-topo .v17-brand-inicial { width: 30px; height: 30px; font-size: .88rem; box-shadow: none; }
+.v17-marca-topo strong { font-size: .9rem; font-weight: 650; letter-spacing: -.02em; white-space: nowrap; }
+@media (max-width: 720px) {
+  /* Só a marca: o nome da loja e o da tela juntos não cabem, e quem está
+     dentro do painel já sabe de qual loja é. */
+  .v17-marca-topo strong { display: none; }
+}
+.v17-commandbar-title > div { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; }
+.v17-commandbar-title strong, .v17-commandbar-title small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .v17-commandbar-title small { font-size: .7rem; letter-spacing: 0; color: var(--muted); }
 .v17-commandbar-title strong { font-size: .95rem; font-weight: 700; letter-spacing: -.02em; }
 .v17-commandbar-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
@@ -353,8 +358,6 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
   background: var(--brand); background: var(--gradiente);
   color: var(--brand-contraste); font-size: .8rem; font-weight: 700;
 }
-.v17-user-chip > span { display: flex; flex-direction: column; }
-.v17-user-chip small { font-size: .62rem; color: var(--muted); }
 .v17-user-chip strong { font-size: .76rem; font-weight: 600; max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .v17-logout {
@@ -1194,20 +1197,14 @@ body.vitrine { --price: var(--ambar); }
 
 /* ===================== responsivo ===================== */
 @media (min-width: 1100px) {
-  /* Fixada: a lateral ocupa a primeira coluna da grade. */
-  .v17-app-shell { grid-template-columns: 246px 1fr; }
-  .v17-sidebar { transform: none; box-shadow: none; }
-  .v17-main { grid-column: 2; }
+  /* Duas colunas só onde existe lateral — hoje, a área da plataforma. No
+     painel do restaurante quem navega é o painel de menu, e o conteúdo usa a
+     largura toda em vez de reservar 246px para links que ninguém lê depois da
+     primeira semana. */
+  .v17-app-shell.com-lateral { grid-template-columns: 246px 1fr; }
+  .com-lateral .v17-sidebar { transform: none; box-shadow: none; }
+  .com-lateral .v17-main { grid-column: 2; }
   .v17-sidebar-backdrop { display: none !important; }
-
-  /* Recolhida: a grade volta a uma coluna e a lateral sai de cena. O conteúdo
-     ganha os 246px inteiros — que é o ponto de recolher. */
-  :root.nav-recolhida .v17-app-shell { grid-template-columns: 1fr; }
-  :root.nav-recolhida .v17-main { grid-column: 1; }
-  :root.nav-recolhida .v17-sidebar { transform: translateX(-105%); box-shadow: var(--shadow-lg); }
-  /* Recolhida mas aberta pelo botão: volta por cima, como gaveta. */
-  :root.nav-recolhida .v17-sidebar.open { transform: none; }
-  :root.nav-recolhida .v17-sidebar-backdrop.open { display: block !important; }
 }
 /* O botão flutuante sai de cena: quem chama a gaveta agora é o da barra. */
 .v17-fab-menu { display: none !important; }
@@ -1494,7 +1491,7 @@ body.vitrine { --price: var(--ambar); }
 @media (max-width: 720px) {
   .v17-commandbar { padding: 8px 14px; }
   .v17-quick-link.hide-mobile { display: none; }
-  .v17-user-chip > span { display: none; }
+  .v17-user-chip > strong { display: none; }
   .v17-user-chip { border: 0; padding: 0; }
   .v17-content { padding: 16px 12px 90px; }
   .v17-overview-strip { grid-template-columns: 1fr 1fr; }
@@ -1695,3 +1692,87 @@ body.vitrine { --price: var(--ambar); }
 /* A foto continua clicável — o cliente pode olhar o cardápio à vontade. O que
    sai é o convite a pedir. */
 .loja-fechada .product-card { cursor: default; }
+
+/* ---------------------------------------------------------------------------
+ * Painel de menu
+ *
+ * Ancorado no botão e com largura fixa — não é tela cheia. Um painel que cobre
+ * tudo obriga a pessoa a decidir "para onde vou" antes de poder olhar de novo
+ * o que estava fazendo; ancorado, ele é uma consulta rápida e some.
+ *
+ * A altura tem teto e rolagem interna: com 17 itens ele cabe, mas o dia em que
+ * alguém acrescentar a décima seção o painel não pode crescer até passar da
+ * tela e esconder o próprio fim.
+ * ------------------------------------------------------------------------- */
+.menu-painel {
+  position: absolute; left: 24px; top: calc(100% - 4px); z-index: 65;
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(70vh, 520px); overflow: auto; scrollbar-width: thin;
+  padding: 14px; border-radius: var(--raio);
+  background: var(--panel); border: 1px solid var(--border-2);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, .5);
+  animation: menu-aparecer .13s ease-out;
+}
+.menu-painel[hidden] { display: none; }
+@keyframes menu-aparecer { from { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .menu-painel { animation: none; } }
+
+.menu-busca { position: relative; margin-bottom: 13px; }
+.menu-busca > span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); opacity: .55; font-size: .82rem; pointer-events: none; }
+.menu-busca input { margin: 0; max-width: none; padding-left: 35px; }
+
+.menu-corpo { display: grid; grid-template-columns: 148px 1fr; gap: 16px; align-items: start; }
+.menu-trilho { display: grid; gap: 14px; border-right: 1px solid var(--border); padding-right: 14px; }
+.menu-trilho h3, .menu-secao h3 {
+  font-size: .74rem; font-weight: 650; color: var(--muted);
+  margin: 0 0 7px; letter-spacing: 0;
+}
+.menu-lista-curta { display: grid; gap: 2px; }
+.menu-lista-curta p { margin: 0; font-size: .72rem; line-height: 1.45; }
+.menu-lista-curta a {
+  display: block; text-decoration: none; color: var(--text-2);
+  font-size: .79rem; padding: 4px 6px; border-radius: var(--raio-xs);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.menu-lista-curta a:hover { background: rgba(255, 255, 255, .06); color: var(--text); }
+:root[data-theme="light"] .menu-lista-curta a:hover { background: var(--panel-2); }
+
+.menu-colunas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 18px; align-content: start; }
+.menu-secao { min-width: 0; }
+.menu-secao[hidden] { display: none; }
+
+.menu-linha { display: flex; align-items: center; border-radius: var(--raio-xs); }
+.menu-linha[hidden] { display: none; }
+.menu-linha > a {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  text-decoration: none; color: var(--text-2);
+  font-size: .84rem; padding: 6px 7px; border-radius: var(--raio-xs);
+}
+.menu-linha:hover { background: rgba(255, 255, 255, .05); }
+:root[data-theme="light"] .menu-linha:hover { background: var(--panel-2); }
+.menu-linha:hover > a { color: var(--text); }
+.menu-linha.ativo > a { color: var(--brand-texto); font-weight: 650; }
+.menu-icone { width: 17px; flex: none; color: var(--muted); font-size: .8rem; }
+.menu-linha.ativo .menu-icone { color: var(--brand-texto); }
+
+/* A estrela só aparece quando a linha é apontada, ou quando já é favorita.
+   Visível o tempo todo, dezessete estrelas competiriam com os próprios nomes
+   que a pessoa veio ler. */
+.menu-estrela {
+  flex: none; width: 26px; height: 26px; padding: 0; margin-right: 3px;
+  background: transparent; border: 0; border-radius: var(--raio-xs);
+  color: var(--muted); font-size: .82rem; cursor: pointer; opacity: 0;
+  transition: opacity .12s, color .12s;
+}
+.menu-linha:hover .menu-estrela, .menu-estrela:focus-visible { opacity: 1; }
+.menu-estrela.marcada { opacity: 1; color: var(--price); }
+.menu-vazio { grid-column: 1 / -1; margin: 4px 0 0; font-size: .8rem; }
+
+@media (max-width: 720px) {
+  .menu-painel { left: 12px; right: 12px; width: auto; }
+  /* O trilho vira uma faixa em cima: em coluna estreita ele espremeria os
+     nomes das telas, que são o conteúdo principal do painel. */
+  .menu-corpo { grid-template-columns: 1fr; }
+  .menu-trilho { border-right: 0; border-bottom: 1px solid var(--border); padding: 0 0 12px; grid-template-columns: 1fr 1fr; }
+  .menu-colunas { grid-template-columns: 1fr; }
+}

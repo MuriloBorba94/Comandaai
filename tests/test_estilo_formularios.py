@@ -13,7 +13,10 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import login_tenant
+
 CSS = Path("app/static/css/comanda.css")
+BASE = "http://tenant-a.localhost"
 
 
 @pytest.fixture(scope="module")
@@ -103,52 +106,64 @@ def test_o_teto_do_rotulo_so_alcanca_filho_direto(css):
 
 
 # --------------------------------------------------------------------------- #
-# Gaveta lateral recolhível
+# Painel de menu
 # --------------------------------------------------------------------------- #
 
 
-def test_o_botao_da_gaveta_fica_na_barra_de_comando(client, two_tenants):
-    """Substitui o botão flutuante do canto, que só existia no celular e ficava
-    por cima do conteúdo. Um controle só, em qualquer largura."""
-    from tests.conftest import login_tenant
-
+def test_o_botao_do_menu_fica_na_barra_de_comando(client, two_tenants):
     login_tenant(client, "tenant-a", "admin", "senha-a-123")
-    corpo = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+    corpo = client.get("/admin/", base_url=BASE).get_data(as_text=True)
     barra = corpo.split('class="v17-commandbar-title"', 1)[1].split("</div>", 1)[0]
 
     assert 'id="v17-nav-toggle"' in barra
-    assert 'aria-controls="v17-sidebar"' in barra
+    assert 'aria-controls="menu-painel"' in barra
 
 
-def test_o_estado_da_gaveta_e_aplicado_antes_de_pintar(client, two_tenants):
-    """No <head>, como o tema. Aplicado depois, a lateral apareceria e sumiria
-    na frente de quem está olhando."""
-    from tests.conftest import login_tenant
-
+def test_o_painel_do_restaurante_nao_tem_mais_lateral(client, two_tenants):
+    """As duas juntas seriam o mesmo menu em dois lugares — e o que diverge, some
+    de um deles sem ninguém perceber."""
     login_tenant(client, "tenant-a", "admin", "senha-a-123")
-    corpo = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
-    cabeca = corpo.split("</head>", 1)[0]
+    corpo = client.get("/admin/", base_url=BASE).get_data(as_text=True)
 
-    assert "comandaai_nav" in cabeca
-    assert "nav-recolhida" in cabeca
-    # E o `catch` também recolhe: sem localStorage (navegação privada travada),
-    # o padrão continua valendo em vez de a tela nascer num terceiro estado.
-    assert cabeca.count("nav-recolhida") >= 2
+    assert 'class="v17-sidebar"' not in corpo
+    assert 'id="menu-painel"' in corpo
+    # E o shell não reserva a coluna de 246px.
+    assert "com-lateral" not in corpo
 
 
-def test_ha_caminho_de_volta_para_fixar_a_gaveta(client, two_tenants):
-    """O botão da barra recolhe e chama a gaveta, mas nunca a prenderia de novo.
-    Sem este, recolher seria mão única."""
-    from tests.conftest import login_tenant
-
+def test_o_menu_tem_busca_favoritos_e_historico(client, two_tenants):
     login_tenant(client, "tenant-a", "admin", "senha-a-123")
-    corpo = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+    corpo = client.get("/admin/", base_url=BASE).get_data(as_text=True)
+    painel = corpo.split('id="menu-painel"', 1)[1].split("</header>", 1)[0]
 
-    assert 'id="v17-fixar-nav"' in corpo
+    assert 'id="menu-painel-busca"' in painel
+    assert 'id="menu-favoritos"' in painel
+    assert 'id="menu-historico"' in painel
 
 
-def test_a_classe_da_gaveta_vive_na_raiz(css):
-    """No <html>, não no <body>: é aplicada no <head>, quando o <body> ainda não
-    existe. Mesma razão do data-theme."""
-    assert ":root.nav-recolhida" in css
-    assert "body.nav-recolhida" not in css
+def test_cada_item_do_menu_e_buscavel_por_nome_e_categoria(client, two_tenants):
+    """A busca filtra por `data-busca`. Sem a categoria ali, procurar por
+    "cardápio" não acharia "Produtos"."""
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/", base_url=BASE).get_data(as_text=True)
+
+    assert 'data-busca="produtos cardápio e campanhas"' in corpo
+
+
+def test_o_item_da_tela_aberta_aparece_marcado(client, two_tenants):
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/categorias", base_url=BASE).get_data(as_text=True)
+    painel = corpo.split('id="menu-painel"', 1)[1].split("</header>", 1)[0]
+
+    marcada = [l for l in painel.splitlines() if "menu-linha ativo" in l]
+    assert len(marcada) == 1, "exatamente uma linha marcada"
+
+
+def test_o_painel_tem_teto_de_largura_e_de_altura(css):
+    """Ancorado no botão, e não em tela cheia: um painel que cobre tudo obriga a
+    decidir "para onde vou" antes de poder olhar o que se estava fazendo."""
+    regra = _regra(css, ".menu-painel")
+
+    assert "width: min(" in regra
+    assert "max-height: min(" in regra
+    assert "overflow: auto" in regra

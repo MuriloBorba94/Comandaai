@@ -32,56 +32,147 @@
   window.openNav = openNav;
   window.closeNav = closeNav;
 
-  const NAV_FIXA = "(min-width: 1100px)";
-  const raiz = document.documentElement;
+  // ------------------------------------------------------- painel de menu ----
+  /* Favoritos e historico vivem no navegador. Nao viram tabela de proposito:
+   * sao preferencia de atalho de UMA pessoa numa MAQUINA, nao dado do
+   * restaurante — e no servidor custariam migration, consulta por pagina e uma
+   * decisao sobre o que fazer quando dois atendentes dividem o mesmo login. */
+  const CHAVE_FAV = "comandaai_menu_favoritos";
+  const CHAVE_HIST = "comandaai_menu_historico";
+  const LIMITE_HIST = 6;
 
-  function estaRecolhida() { return raiz.classList.contains("nav-recolhida"); }
-
-  function marcarBotao() {
-    const botao = el("v17-nav-toggle");
-    if (!botao) { return; }
-    // Aberta = a lateral está visível, seja fixada na grade ou por cima.
-    const visivel = window.matchMedia(NAV_FIXA).matches
-      ? !estaRecolhida() || el("v17-sidebar")?.classList.contains("open")
-      : el("v17-sidebar")?.classList.contains("open");
-    botao.setAttribute("aria-expanded", visivel ? "true" : "false");
-  }
-
-  /* Um botão, dois comportamentos, porque são duas situações diferentes.
-   *
-   * Numa tela larga, esconder a lateral devolve 246px ao conteúdo — é uma
-   * preferência, e fica guardada. Num celular ela nunca ocupou coluna: ali o
-   * botão só chama e dispensa a gaveta, e guardar isso não significaria nada. */
-  function alternarNav() {
-    if (!window.matchMedia(NAV_FIXA).matches) {
-      el("v17-sidebar")?.classList.contains("open") ? closeNav() : openNav();
-      marcarBotao();
-      return;
-    }
-    if (!estaRecolhida()) {
-      raiz.classList.add("nav-recolhida");
-      closeNav();
-    } else if (el("v17-sidebar")?.classList.contains("open")) {
-      closeNav();
-    } else {
-      openNav();
-    }
+  function lerLista(chave) {
     try {
-      localStorage.setItem("comandaai_nav", estaRecolhida() ? "recolhida" : "fixada");
-    } catch (e) {}
-    marcarBotao();
+      const bruto = JSON.parse(localStorage.getItem(chave) || "[]");
+      return Array.isArray(bruto) ? bruto.filter(x => x && x.rotulo && x.href) : [];
+    } catch (e) { return []; }
   }
 
-  /* Fixar de volta: um toque longo não serve, e um segundo botão poluiria a
-   * barra. Quem quiser a lateral presa outra vez usa o mesmo botão com a
-   * gaveta já aberta — clicar no item de menu navega e ela se fecha sozinha. */
-  function fixarNav() {
-    raiz.classList.remove("nav-recolhida");
-    closeNav();
-    try { localStorage.setItem("comandaai_nav", "fixada"); } catch (e) {}
-    marcarBotao();
+  function gravarLista(chave, lista) {
+    try { localStorage.setItem(chave, JSON.stringify(lista)); } catch (e) {}
   }
-  window.fixarNav = fixarNav;
+
+  function desenharListaCurta(caixa, lista, vazio) {
+    if (!caixa) { return; }
+    if (!lista.length) { caixa.innerHTML = '<p class="muted">' + vazio + "</p>"; return; }
+    caixa.textContent = "";
+    lista.forEach(item => {
+      const a = document.createElement("a");
+      a.href = item.href;
+      a.textContent = item.rotulo;
+      a.title = item.rotulo;
+      caixa.appendChild(a);
+    });
+  }
+
+  function marcarEstrelas(favoritos) {
+    const nomes = new Set(favoritos.map(f => f.rotulo));
+    document.querySelectorAll("[data-favoritar]").forEach(botao => {
+      const marcado = nomes.has(botao.dataset.favoritar);
+      botao.classList.toggle("marcada", marcado);
+      botao.textContent = marcado ? "★" : "☆";
+      botao.setAttribute("aria-label", (marcado ? "Desfavoritar " : "Favoritar ") + botao.dataset.favoritar);
+    });
+  }
+
+  function desenharAtalhos() {
+    const favoritos = lerLista(CHAVE_FAV);
+    desenharListaCurta(el("menu-favoritos"), favoritos,
+      "Passe o mouse num item e clique na estrela.");
+    desenharListaCurta(el("menu-historico"), lerLista(CHAVE_HIST),
+      "As últimas telas abertas aparecem aqui.");
+    marcarEstrelas(favoritos);
+  }
+
+  function alternarFavorito(rotulo, href) {
+    const favoritos = lerLista(CHAVE_FAV);
+    const i = favoritos.findIndex(f => f.rotulo === rotulo);
+    if (i >= 0) { favoritos.splice(i, 1); } else { favoritos.push({ rotulo: rotulo, href: href }); }
+    gravarLista(CHAVE_FAV, favoritos);
+    desenharAtalhos();
+  }
+
+  /* Registra a tela ATUAL, e nao a clicada: so entra no historico o que
+   * realmente abriu. Clique que virou erro 403 ou pagina inexistente nao
+   * merece virar atalho. */
+  function registrarVisita() {
+    const ativo = document.querySelector(".menu-linha.ativo > a");
+    if (!ativo) { return; }
+    const item = { rotulo: ativo.dataset.rotulo, href: ativo.getAttribute("href") };
+    const lista = lerLista(CHAVE_HIST).filter(x => x.rotulo !== item.rotulo);
+    lista.unshift(item);
+    gravarLista(CHAVE_HIST, lista.slice(0, LIMITE_HIST));
+  }
+
+  function filtrarMenu(termo) {
+    const alvo = (termo || "").trim().toLowerCase();
+    let achou = 0;
+    document.querySelectorAll(".menu-secao").forEach(secao => {
+      let visiveis = 0;
+      secao.querySelectorAll(".menu-linha").forEach(linha => {
+        const bate = !alvo || (linha.dataset.busca || "").includes(alvo);
+        linha.hidden = !bate;
+        if (bate) { visiveis++; }
+      });
+      secao.hidden = visiveis === 0;
+      achou += visiveis;
+    });
+    const vazio = el("menu-vazio");
+    if (vazio) { vazio.hidden = achou > 0; }
+  }
+
+  function menuAberto() { const p = el("menu-painel"); return p && !p.hidden; }
+
+  function abrirMenu() {
+    const painel = el("menu-painel");
+    if (!painel) { return; }
+    painel.hidden = false;
+    el("v17-nav-toggle")?.setAttribute("aria-expanded", "true");
+    desenharAtalhos();
+    const busca = el("menu-painel-busca");
+    if (busca) { busca.value = ""; filtrarMenu(""); busca.focus(); }
+  }
+
+  function fecharMenu() {
+    const painel = el("menu-painel");
+    if (!painel) { return; }
+    painel.hidden = true;
+    el("v17-nav-toggle")?.setAttribute("aria-expanded", "false");
+  }
+
+  function alternarMenu() { menuAberto() ? fecharMenu() : abrirMenu(); }
+
+  function ligarMenu() {
+    if (!el("menu-painel")) { return; }
+    el("v17-nav-toggle")?.addEventListener("click", evento => {
+      evento.stopPropagation();
+      alternarMenu();
+    });
+    el("menu-painel-busca")?.addEventListener("input", evento => filtrarMenu(evento.target.value));
+
+    document.querySelectorAll("[data-favoritar]").forEach(botao => {
+      botao.addEventListener("click", evento => {
+        evento.preventDefault();
+        evento.stopPropagation();
+        const linha = botao.closest(".menu-linha");
+        alternarFavorito(botao.dataset.favoritar, linha.querySelector("a").getAttribute("href"));
+      });
+    });
+
+    // Clique fora fecha; dentro, nao — a pessoa pode estar digitando na busca.
+    document.addEventListener("click", evento => {
+      if (!menuAberto()) { return; }
+      if (evento.target.closest("#menu-painel") || evento.target.closest("#v17-nav-toggle")) { return; }
+      fecharMenu();
+    });
+    document.addEventListener("keydown", evento => {
+      if (evento.key !== "Escape" || !menuAberto()) { return; }
+      fecharMenu();
+      el("v17-nav-toggle")?.focus();
+    });
+
+    registrarVisita();
+  }
 
   // ---------------------------------------------------------------- tema ----
   /* O escuro é o padrão — é a cara da página inicial do produto —, então
@@ -278,7 +369,7 @@
   }
 
   // ---------------------------------------------------------------- boot ----
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeNav(); marcarBotao(); } });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeNav(); });
 
   // --------------------------------------------------------------------- //
   // Janelinha da barra do dia
@@ -311,16 +402,13 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     ligarJanelinhas();
-    el('v17-fab-menu')?.addEventListener('click', openNav);
-    el('v17-nav-toggle')?.addEventListener('click', alternarNav);
-    el('v17-sidebar-backdrop')?.addEventListener('click', () => { closeNav(); marcarBotao(); });
-    el('v17-fixar-nav')?.addEventListener('click', fixarNav);
-    marcarBotao();
+    ligarMenu();
+    el('v17-sidebar-backdrop')?.addEventListener('click', closeNav);
     el('theme-toggle')?.addEventListener('click', toggleTheme);
     aplicarRotuloTema();
 
     // Fecha a gaveta ao navegar, senão ela fica aberta por cima da página nova.
-    document.querySelectorAll('.v17-nav .tab-btn').forEach(link => link.addEventListener('click', () => { closeNav(); marcarBotao(); }));
+    document.querySelectorAll('.v17-nav .tab-btn').forEach(link => link.addEventListener('click', closeNav));
 
     loadFinanceData();
     setupCashFlowFilters();

@@ -272,15 +272,24 @@ def test_os_controles_do_turno_ficam_junto_do_botao_de_tema(client, loja):
     assert barra.index("bd-estado") < barra.index('id="theme-toggle"')
 
 
-def test_o_cardapio_nao_aparece_duas_vezes_na_barra(client, loja):
-    """A barra de comando já tem "Cardápio"; repetir seria o mesmo botão duas
-    vezes a três centímetros de distância."""
+def test_a_barra_de_comando_cabe_em_uma_linha(client, loja):
+    """O atalho "Cardápio" saiu da barra.
+
+    Eram três caminhos para a mesma vitrine — o atalho, o painel de menu e o
+    "Ver como cliente" dos atalhos do dia — e a barra não tinha largura para os
+    três: com a marca do restaurante e o botão do menu, ela quebrava em duas
+    linhas e ia de 60px para 102px de altura.
+    """
     login_tenant(client, "tenant-a", "admin", "senha-a-123")
 
     corpo = client.get("/admin/", base_url=BASE_A).get_data(as_text=True)
     barra = corpo.split('class="v17-commandbar-actions"', 1)[1].split("</header>", 1)[0]
 
-    assert barra.count(">Cardápio<") == 1
+    assert ">Cardápio<" not in barra
+    # E o que precisa estar continua: turno, tema, usuário e saída.
+    assert "bd-estado" in barra
+    assert 'id="theme-toggle"' in barra
+    assert "v17-user-chip" in barra
 
 
 def test_abrir_a_loja_pela_tela(client, loja):

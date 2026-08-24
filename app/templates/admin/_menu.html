@@ -1,0 +1,66 @@
+{# Painel de menu: abre ancorado no botão da barra, não em tela cheia.
+
+   Substitui a coluna lateral fixa. A coluna comia 246px de todas as telas para
+   mostrar dezessete links que ninguém lê depois da primeira semana — aqui eles
+   aparecem quando são procurados, e somem quando não são.
+
+   Três partes, na ordem em que a mão as usa: a busca (quem sabe o nome digita),
+   os favoritos e o histórico (quem repete o caminho o encontra pronto) e as
+   colunas por categoria (quem está explorando lê).
+
+   Favoritos e histórico vivem no navegador, em localStorage. Não viram tabela
+   de propósito: são preferência de atalho de UMA pessoa numa MÁQUINA, não dado
+   do restaurante — e guardá-los no servidor custaria migration, consulta por
+   página e uma decisão sobre o que fazer quando dois atendentes dividem o mesmo
+   login. #}
+<div class="menu-painel" id="menu-painel" hidden>
+  <div class="menu-busca">
+    <span aria-hidden="true">🔍</span>
+    <input type="search" id="menu-painel-busca" autocomplete="off"
+           placeholder="Procure uma página pelo nome ou categoria"
+           aria-label="Procurar página do painel">
+  </div>
+
+  <div class="menu-corpo">
+    <aside class="menu-trilho">
+      <section>
+        <h3>☆ Favoritos</h3>
+        <div id="menu-favoritos" class="menu-lista-curta">
+          <p class="muted">Passe o mouse num item e clique na estrela.</p>
+        </div>
+      </section>
+      <section>
+        <h3>🕘 Histórico</h3>
+        <div id="menu-historico" class="menu-lista-curta">
+          <p class="muted">As últimas telas abertas aparecem aqui.</p>
+        </div>
+      </section>
+    </aside>
+
+    <div class="menu-colunas" id="menu-colunas">
+      {% for titulo, itens in menu_do_painel() %}
+        <section class="menu-secao" data-secao="{{ titulo }}">
+          <h3>{{ titulo }}</h3>
+          {% for item in itens %}
+            <div class="menu-linha {{ 'ativo' if item_do_menu_ativo(item) }}"
+                 data-busca="{{ (item.rotulo ~ ' ' ~ titulo)|lower }}">
+              <a href="{{ url_for(item.endpoint) }}" data-rotulo="{{ item.rotulo }}">
+                <span class="menu-icone" aria-hidden="true">{{ item.icone }}</span>{{ item.rotulo }}
+                {% if item.contador == 'insumos_para_repor' %}
+                  {% set n = insumos_para_repor() %}
+                  {% if n %}<b class="v17-nav-count" title="Insumos para repor">{{ n }}</b>{% endif %}
+                {% elif item.contador == 'comandas_na_fila' %}
+                  {% set n = comandas_na_fila() %}
+                  {% if n %}<b class="v17-nav-count" title="Comandas esperando a impressora">{{ n }}</b>{% endif %}
+                {% endif %}
+              </a>
+              <button type="button" class="menu-estrela" data-favoritar="{{ item.rotulo }}"
+                      aria-label="Favoritar {{ item.rotulo }}" title="Favoritar">☆</button>
+            </div>
+          {% endfor %}
+        </section>
+      {% endfor %}
+      <p class="muted menu-vazio" id="menu-vazio" hidden>Nenhuma página com esse nome.</p>
+    </div>
+  </div>
+</div>

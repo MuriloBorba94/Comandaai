@@ -33,14 +33,7 @@
         try {
           var t = localStorage.getItem("comandaai_tema");
           if (t) document.documentElement.setAttribute("data-theme", t);
-          // A gaveta nasce recolhida: é o padrão pedido, para o conteúdo ter a
-          // largura toda. Quem preferir fixá-la, a escolha fica guardada.
-          if (localStorage.getItem("comandaai_nav") !== "fixada") {
-            document.documentElement.classList.add("nav-recolhida");
-          }
-        } catch (e) {
-          document.documentElement.classList.add("nav-recolhida");
-        }
+        } catch (e) {}
       })();
     </script>
   {% endif %}
@@ -72,54 +65,50 @@
 <body class="{{ 'painel' if painel else 'vitrine' }}">
 
 {% if painel %}
-  <div class="v17-app-shell">
+  {# `com-lateral` só na plataforma: no painel do restaurante quem navega é o
+     painel de menu, e o shell é de uma coluna só. #}
+  <div class="v17-app-shell {{ 'com-lateral' if contexto != 'admin' }}">
+    {% if contexto != "admin" %}
     <button type="button" class="v17-fab-menu" id="v17-fab-menu" aria-label="Abrir menu">☰</button>
     <div class="v17-sidebar-backdrop" id="v17-sidebar-backdrop"></div>
 
-    <aside class="v17-sidebar" id="v17-sidebar" aria-label="Navegação da Gestão">
-      {# Caminho de volta: o botão da barra recolhe e chama a gaveta, mas nunca
-         a prenderia de novo. Só aparece quando ela está recolhida — fixada, ele
-         não teria o que fazer. #}
-      <button type="button" class="v17-fixar-nav" id="v17-fixar-nav"
-              title="Manter o menu sempre visível">Fixar menu</button>
-      {% if contexto == "admin" %}
-        <a class="v17-brand" href="{{ url_for('admin.dashboard') }}">
-          {% if logo_do_tenant() %}
-            <img src="{{ url_for('static', filename='uploads/' + logo_do_tenant()) }}"
-                 alt="{{ g.tenant.nome_fantasia }}">
-          {% else %}
-            <span class="v17-brand-inicial" aria-hidden="true">{{ inicial_do_tenant() }}</span>
-          {% endif %}
-          <span><strong>Gestão</strong><small>{{ g.tenant.nome_fantasia }}</small></span>
-        </a>
-        {% include "admin/_nav.html" %}
-
-        <div class="v17-sidebar-status">
-          <div>
-            <span class="v17-status-dot {{ 'online' if g.tenant.ativo else 'offline' }}"></span>
-            <span><small>Loja</small><strong>{{ 'Ativa' if g.tenant.ativo else 'Suspensa' }}</strong></span>
-          </div>
-          <a href="{{ url_for('public.index') }}" target="_blank" rel="noopener">
-            <span class="v17-status-dot online"></span>
-            <span><small>Cardápio</small><strong>Ver como cliente</strong></span>
-          </a>
-        </div>
-      {% else %}
-        <a class="v17-brand" href="{{ url_for('platform.inicio') }}">
-          <span class="v17-brand-inicial" aria-hidden="true">C</span>
-          <span><strong>Comanda ai</strong><small>Plataforma</small></span>
-        </a>
-        {% include "platform/_nav.html" %}
-      {% endif %}
+    <aside class="v17-sidebar" id="v17-sidebar" aria-label="Navegação da plataforma">
+      <a class="v17-brand" href="{{ url_for('platform.inicio') }}">
+        <span class="v17-brand-inicial" aria-hidden="true">C</span>
+        <span><strong>Comanda ai</strong><small>Plataforma</small></span>
+      </a>
+      {% include "platform/_nav.html" %}
     </aside>
+    {% endif %}
 
     <div class="v17-main">
       <header class="v17-commandbar">
         <div class="v17-commandbar-title">
+          {# A marca do restaurante vivia na lateral. Sem lateral, ela precisa de
+             casa — e a barra do topo é onde se espera encontrá-la. Também é o
+             que diz de qual loja é o painel, o que importa para quem dá suporte
+             entrando em restaurantes diferentes no mesmo dia. #}
+          {% if contexto == "admin" %}
+            <a class="v17-marca-topo" href="{{ url_for('admin.dashboard') }}" title="{{ g.tenant.nome_fantasia }}">
+              {% if logo_do_tenant() %}
+                <img src="{{ url_for('static', filename='uploads/' + logo_do_tenant()) }}"
+                     alt="{{ g.tenant.nome_fantasia }}">
+              {% else %}
+                <span class="v17-brand-inicial" aria-hidden="true">{{ inicial_do_tenant() }}</span>
+              {% endif %}
+              <strong>{{ g.tenant.nome_fantasia }}</strong>
+            </a>
+          {% endif %}
           <button type="button" class="v17-nav-toggle" id="v17-nav-toggle"
-                  aria-label="Mostrar ou esconder o menu" aria-expanded="false"
-                  aria-controls="v17-sidebar" title="Menu">
-            <span></span><span></span><span></span>
+                  aria-label="Abrir o menu" aria-expanded="false"
+                  aria-controls="menu-painel" title="Menu">
+            <svg viewBox="0 0 20 20" width="17" height="17" fill="currentColor" aria-hidden="true">
+              <rect x="1" y="1" width="7.4" height="7.4" rx="2"/>
+              <rect x="11.6" y="1" width="7.4" height="7.4" rx="2"/>
+              <rect x="1" y="11.6" width="7.4" height="7.4" rx="2"/>
+              <rect x="11.6" y="11.6" width="7.4" height="7.4" rx="2"/>
+            </svg>
+            <span class="v17-nav-toggle-txt">Menu</span>
           </button>
           <div>
             <small>{{ "Central de Gestão" if contexto == "admin" else "Administração" }}</small>
@@ -133,17 +122,19 @@
           <button type="button" class="v17-quick-link" id="theme-toggle"
                   title="Alternar tema claro/escuro">☀ Claro</button>
           {% if contexto == "admin" %}
-            <a class="v17-quick-link hide-mobile" href="{{ url_for('public.index') }}"
-               target="_blank" rel="noopener">Cardápio</a>
-            <span class="v17-user-chip">
+            {# O atalho "Cardápio" saiu: o painel de menu navega, e "Ver como
+               cliente" continua nos atalhos do dia. Eram três caminhos para a
+               mesma vitrine, e a barra não tinha largura para os três. #}
+            <span class="v17-user-chip" title="Logado como {{ session.get('username') or '—' }}">
               <b>{{ (session.get('username') or 'U')[0]|upper }}</b>
-              <span><small>Logado como</small><strong>{{ session.get('username') or '—' }}</strong></span>
+              <strong>{{ session.get('username') or '—' }}</strong>
             </span>
             <a class="v17-logout" href="{{ url_for('auth.logout') }}" title="Sair">↪</a>
           {% else %}
             <a class="v17-logout" href="{{ url_for('platform.logout') }}" title="Sair">↪</a>
           {% endif %}
         </div>
+        {% if contexto == "admin" %}{% include "admin/_menu.html" %}{% endif %}
       </header>
 
       <main class="v17-content">

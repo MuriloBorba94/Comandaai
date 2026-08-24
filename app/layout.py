@@ -192,6 +192,28 @@ def registrar(app) -> None:
         return caminho or None
 
     @app.template_global()
+    def menu_do_painel():
+        """Seções e itens do menu, já filtrados pelo plano do tenant.
+
+        Vive em `navegacao.py` como dado, e não como marcação, porque agora há
+        dois lugares que o desenham — o painel de menu e a lateral fixada. Menu
+        escrito duas vezes é menu que diverge.
+        """
+        from .navegacao import itens_do_menu
+        from .services.recursos import tenant_libera
+
+        tenant = g.get("tenant")
+        if tenant is None:
+            return []
+        return itens_do_menu(tenant, lambda slug: tenant_libera(tenant, slug))
+
+    @app.template_global()
+    def item_do_menu_ativo(item) -> bool:
+        from .navegacao import item_ativo
+
+        return item_ativo(item, request.endpoint or "")
+
+    @app.template_global()
     def controles_do_turno():
         """Estado da loja, tempos e caixa — para a barra de comando.
 

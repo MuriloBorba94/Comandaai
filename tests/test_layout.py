@@ -194,13 +194,19 @@ def test_vitrine_nao_tem_sidebar_do_painel(app, two_tenants):
     assert 'class="topbar"' in html
 
 
-def test_painel_do_restaurante_tem_sidebar(app, two_tenants):
+def test_painel_do_restaurante_navega_pelo_painel_de_menu(app, two_tenants):
+    """A lateral saiu: quem navega agora é o painel que abre no botão da barra.
+
+    Manter as duas seria o mesmo menu em dois lugares — e o que diverge some de
+    um deles sem ninguém perceber.
+    """
     client = app.test_client()
     _logar_a(client)
     html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
 
-    assert 'v17-app-shell' in html
-    assert 'class="v17-nav"' in html
+    assert "v17-app-shell" in html
+    assert 'id="menu-painel"' in html
+    assert 'class="v17-sidebar"' not in html
     assert "Restaurante A" in html
 
 
@@ -282,7 +288,7 @@ def test_enviar_so_a_logo_nao_apaga_a_cor_escolhida(app, two_tenants):
     assert _tenant(two_tenants["tenant_a"]).cor_marca == "#1e88e5"
 
 
-def test_logo_fica_na_pasta_do_tenant_e_aparece_na_sidebar(app, two_tenants):
+def test_logo_fica_na_pasta_do_tenant_e_aparece_na_barra(app, two_tenants):
     client = app.test_client()
     _logar_a(client)
     client.post(
@@ -302,7 +308,7 @@ def test_logo_fica_na_pasta_do_tenant_e_aparece_na_sidebar(app, two_tenants):
     assert 'v17-brand-inicial' not in html, "com logo não mostra a inicial"
 
 
-def test_sem_logo_a_sidebar_mostra_a_inicial_do_nome(app, two_tenants):
+def test_sem_logo_a_barra_mostra_a_inicial_do_nome(app, two_tenants):
     client = app.test_client()
     _logar_a(client)
     html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
