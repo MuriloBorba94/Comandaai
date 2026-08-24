@@ -1,0 +1,84 @@
+{# Controles do turno na barra de comando, ao lado do botão de tema.
+
+   Ficam em TODA página do painel, e não só no início: perceber às 22h que o
+   cardápio continua aberto é o tipo de coisa que acontece no meio de outra
+   tarefa, e obrigar a navegar até o painel inicial para desligar transforma um
+   toque em três.
+
+   São ajustes do ambiente, como o tema — por isso vivem ao lado dele, e não no
+   corpo da página. #}
+{% set turno = controles_do_turno() %}
+{% if turno %}
+  <span class="bd-estado {{ 'aberta' if turno.tenant.loja_aberta else 'fechada' }}"
+        title="{% if turno.caixa %}Aberta às {{ turno.caixa.aberto_em.strftime('%H:%M') }} com R$ {{ turno.caixa.valor_inicial|brl }} de troco{% if turno.caixa.aberto_por %}, por {{ turno.caixa.aberto_por }}{% endif %}{% elif turno.tenant.loja_aberta %}Recebendo pedidos pelo cardápio{% else %}O cardápio não está aceitando pedidos{% endif %}">
+    <span class="bd-luz" aria-hidden="true"></span>
+    {{ 'Aberta' if turno.tenant.loja_aberta else 'Fechada' }}
+  </span>
+
+  <form method="post" action="{{ url_for('admin.loja_tempos') }}" class="bd-tempos">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="bd-tempo" title="Tempo estimado para entrega">
+      <span aria-hidden="true">🛵</span>
+      <select name="entrega" aria-label="Tempo estimado para entrega" onchange="this.form.requestSubmit()">
+        {% for minimo, maximo in turno.faixas_entrega %}
+          <option value="{{ minimo }}-{{ maximo }}" {{ 'selected' if (minimo, maximo) == turno.escolha_entrega }}>
+            {{ turno.rotulo(minimo, maximo) }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="bd-tempo" title="Tempo estimado para retirada no balcão">
+      <span aria-hidden="true">🥡</span>
+      <select name="retirada" aria-label="Tempo estimado para retirada" onchange="this.form.requestSubmit()">
+        {% for minimo, maximo in turno.faixas_retirada %}
+          <option value="{{ minimo }}-{{ maximo }}" {{ 'selected' if (minimo, maximo) == turno.escolha_retirada }}>
+            {{ turno.rotulo(minimo, maximo) }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <noscript><button type="submit" class="v17-quick-link">Salvar</button></noscript>
+  </form>
+
+  {% if turno.tenant.loja_aberta %}
+    <details class="bd-acao">
+      <summary class="v17-quick-link">Fechar a loja</summary>
+      <form method="post" action="{{ url_for('admin.loja_fechar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if turno.resumo %}
+          {# A conferência mora aqui: é na hora de fechar que alguém precisa do
+             número, e o resto do dia ele só ocuparia espaço na barra. #}
+          <dl class="bd-conferencia">
+            <div><dt>Pedidos</dt><dd>{{ turno.resumo.pedidos }}</dd></div>
+            <div><dt>Faturamento</dt><dd>R$ {{ turno.resumo.faturamento|brl }}</dd></div>
+            <div title="Troco inicial mais o que entrou em dinheiro. Cartão e PIX não passam pela gaveta.">
+              <dt>Esperado na gaveta</dt><dd>R$ {{ turno.resumo.esperado_na_gaveta|brl }}</dd>
+            </div>
+          </dl>
+        {% endif %}
+        <label>
+          Quanto tem na gaveta agora?
+          <input type="text" name="valor_contado" inputmode="decimal" placeholder="opcional">
+        </label>
+        <label>
+          Alguma observação?
+          <input type="text" name="observacao" maxlength="300" placeholder="opcional">
+        </label>
+        <button type="submit" class="btn-danger">Fechar a loja</button>
+      </form>
+    </details>
+  {% else %}
+    <details class="bd-acao">
+      <summary class="v17-quick-link destaque">Abrir a loja</summary>
+      <form method="post" action="{{ url_for('admin.loja_abrir') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>
+          Valor inicial do caixa
+          <input type="text" name="valor_inicial" inputmode="decimal" value="0,00" autocomplete="off">
+        </label>
+        <p class="muted">O troco que está na gaveta agora. É com ele que o fechamento confere.</p>
+        <button type="submit" class="btn-save">Abrir a loja</button>
+      </form>
+    </details>
+  {% endif %}
+{% endif %}

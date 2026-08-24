@@ -104,8 +104,12 @@
   --panel: #ffffff;
   --panel-2: #f1f2f6;
   --superficie-topo: #ffffff;
-  --border: #e4e6ec;
-  --border-2: #d3d7e0;
+  /* Escurecidas de #e4e6ec/#d3d7e0. A borda do cartão media 1,14:1 contra a
+     própria superfície — abaixo do limiar em que o olho ainda enxerga uma
+     linha, ou seja, decorativa. Passou a importar quando as divisórias
+     internas saíram e ela virou a única separação entre um bloco e outro. */
+  --border: #cfd4e0;
+  --border-2: #b9c0cf;
 
   --text: #14161d;
   --text-2: #4d5464;
@@ -159,15 +163,21 @@ body {
 button, input, select, textarea { font: inherit; }
 a { color: inherit; }
 strong, b { font-weight: 700; }
-h1, h2, h3, h4 { font-weight: 800; letter-spacing: -.025em; line-height: 1.2; margin: 0; }
+/* 650 em vez de 800: o extra-negrito aplicado a todo título faz a página
+   inteira gritar, e quando tudo grita nada tem destaque. O espaçamento
+   negativo fica — é ele que dá o ar contemporâneo, não o peso. */
+h1, h2, h3, h4 { font-weight: 650; letter-spacing: -.025em; line-height: 1.25; margin: 0; }
 
 :focus-visible { outline: 2px solid var(--brand-texto); outline-offset: 2px; border-radius: var(--raio-xs); }
 
 .muted { color: var(--muted); }
 .scroll { overflow-x: auto; }
+/* Sem caixa alta forçada nem espaçamento largo. O recurso era o jeito de
+   marcar hierarquia quando não havia escala de tipo confiável; hoje ele só
+   deixa o texto mais difícil de ler e a tela mais antiga. */
 .eyebrow {
-  display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .14em;
-  color: var(--brand-texto); font-weight: 800;
+  display: block; font-size: .78rem; letter-spacing: 0;
+  color: var(--brand-texto); font-weight: 600;
 }
 .alta, .money-positive { color: var(--success); }
 .baixa, .alerta, .money-negative, .negative-value { color: var(--danger); }
@@ -230,8 +240,8 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
 
 .v17-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .v17-nav-label {
-  font-size: .66rem; text-transform: uppercase; letter-spacing: .12em;
-  color: var(--muted); font-weight: 700; padding: 16px 10px 5px;
+  font-size: .72rem; letter-spacing: 0;
+  color: var(--muted); font-weight: 600; padding: 18px 10px 6px;
 }
 .v17-nav .tab-btn {
   width: 100%; min-height: 36px; border: 0; border-radius: var(--raio-sm);
@@ -286,7 +296,7 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
 }
 .v17-commandbar-title { display: flex; align-items: center; gap: 12px; }
 .v17-commandbar-title > div { display: flex; flex-direction: column; line-height: 1.35; }
-.v17-commandbar-title small { font-size: .66rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.v17-commandbar-title small { font-size: .7rem; letter-spacing: 0; color: var(--muted); }
 .v17-commandbar-title strong { font-size: .95rem; font-weight: 700; letter-spacing: -.02em; }
 .v17-commandbar-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .v17-commandbar-actions form { margin: 0; }
@@ -326,19 +336,20 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
 
 .v17-content { padding: 26px 24px 80px; max-width: 1500px; margin: 0 auto; }
 
-.v17-page-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 0 0 24px; }
-.v17-page-intro h1 { font-size: clamp(1.5rem, 2.6vw, 2rem); margin: 6px 0 5px; }
+.v17-page-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 0 0 26px; }
+.v17-page-intro h1 { font-size: clamp(1.4rem, 2.2vw, 1.75rem); margin: 7px 0 6px; }
 .v17-page-intro p { margin: 0; color: var(--muted); }
 
+/* Sem moldura e sem divisória entre os números. Eram cinco linhas para
+   separar quatro valores que o espaço já separava — e o resultado parecia
+   uma planilha presa no alto da página. */
 .v17-overview-strip {
   display: grid; grid-template-columns: repeat(4, minmax(100px, 1fr));
-  border: 1px solid var(--border); background: var(--superficie);
-  border-radius: var(--raio); overflow: hidden; min-width: min(600px, 55vw);
+  gap: 4px; min-width: min(560px, 55vw);
 }
-.v17-overview-strip > span { padding: 13px 16px; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
-.v17-overview-strip > span:last-child { border-right: 0; }
-.v17-overview-strip small { font-size: .68rem; color: var(--muted); }
-.v17-overview-strip b { font-size: .95rem; margin-top: 3px; font-weight: 700; }
+.v17-overview-strip > span { padding: 8px 16px 8px 0; display: flex; flex-direction: column; }
+.v17-overview-strip small { font-size: .72rem; color: var(--muted); }
+.v17-overview-strip b { font-size: 1.15rem; margin-top: 2px; font-weight: 650; letter-spacing: -.02em; }
 .v17-overview-strip .attention b { color: var(--warning); }
 
 .v17-notice { margin: 0 0 18px; }
@@ -347,17 +358,23 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
 
 /* ===================== cards e superfícies ===================== */
 .admin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+/* Raio e padding menores. 18px de arredondamento com 22px de respiro por
+   dentro é o que dava o ar inflado — cada bloco parecia maior do que o
+   conteúdo pedia. A borda fica: sem ela, cartões vizinhos viram uma massa
+   só. O que muda é o peso dela, agora que há menos linhas competindo. */
 .card-admin, .finance-panel, .metric, .plano-bloco-superficie {
   background: var(--superficie);
   border: 1px solid var(--border);
-  border-radius: var(--raio-lg);
-  padding: 22px;
-  margin-bottom: 16px;
+  border-radius: var(--raio);
+  padding: 18px 20px;
+  margin-bottom: 14px;
   overflow: hidden;
 }
+/* Sem o traço sob o título. O cartão já é uma superfície delimitada; a
+   linha por dentro dele repartia de novo o que já estava separado, e era
+   o elemento que mais datava a tela. Quem separa agora é o espaço. */
 .card-admin h2, .card-admin h3 {
-  color: var(--text); border-bottom: 1px solid var(--border);
-  padding-bottom: 13px; margin: 0 0 16px; font-weight: 800;
+  color: var(--text); margin: 0 0 14px; font-weight: 650;
 }
 .card-admin h2 { font-size: 1.1rem; }
 .card-admin h3 { font-size: .98rem; }
@@ -367,7 +384,10 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
 .item-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .item-title { font-weight: 700; font-size: .98rem; }
 .item-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.admin-item-form { display: flex; flex-direction: column; background: rgba(255, 255, 255, .03); padding: 14px; border-radius: var(--raio); margin-bottom: 10px; border: 1px solid var(--border); }
+/* Sem borda: já está DENTRO de um cartão com borda, e caixa dentro de caixa
+   é o que faz uma tela parecer cheia sem ter mais conteúdo. O fundo levemente
+   destacado basta para dizer que é um agrupamento. */
+.admin-item-form { display: flex; flex-direction: column; background: rgba(255, 255, 255, .03); padding: 14px; border-radius: var(--raio-sm); margin-bottom: 10px; border: 0; }
 :root[data-theme="light"] .admin-item-form { background: var(--panel-2); }
 .extra-row { border-bottom: 1px solid var(--border); padding: 13px 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .extra-row:last-child { border-bottom: 0; }
@@ -460,10 +480,13 @@ button:disabled { opacity: .5; cursor: not-allowed; transform: none; filter: non
 
 /* ===================== tabelas ===================== */
 table { width: 100%; border-collapse: separate; border-spacing: 0; color: var(--text); }
+/* Cabeçalho sem preenchimento e sem caixa alta: a faixa cinza atrás do
+   título de coluna competia com os dados, que são o que se veio ler. Uma
+   linha só, e o texto em cinza, bastam para dizer 'isto é cabeçalho'. */
 table thead th {
-  background: rgba(255, 255, 255, .03); color: var(--muted);
-  font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
-  font-weight: 700; padding: 11px; border-bottom: 1px solid var(--border);
+  background: transparent; color: var(--muted);
+  font-size: .74rem; letter-spacing: 0;
+  font-weight: 600; padding: 10px 11px; border-bottom: 1px solid var(--border);
   white-space: nowrap; text-align: left;
 }
 :root[data-theme="light"] table thead th { background: var(--panel-2); }
@@ -511,7 +534,7 @@ form.inline { display: inline; }
 .metric { padding: 18px; margin-bottom: 0; }
 .metric-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 13px; margin-bottom: 22px; }
 .metric span { display: block; color: var(--muted); font-size: .8rem; }
-.metric strong { display: block; font-size: 1.5rem; margin-top: 6px; font-weight: 800; letter-spacing: -.03em; }
+.metric strong { display: block; font-size: 1.65rem; margin-top: 4px; font-weight: 650; letter-spacing: -.03em; }
 
 /* Mesma métrica com a marcação antiga (<p> + .stat), usada nas telas de ficha
    técnica, relatórios e na área da plataforma. Vive aqui em vez de virar

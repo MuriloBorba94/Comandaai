@@ -416,3 +416,29 @@ def test_vitrine_usa_a_logo_do_tenant_no_cabecalho(app, two_tenants):
     html = anonimo.get("/", base_url="http://tenant-a.localhost").get_data(as_text=True)
 
     assert caminho in html
+
+
+def test_a_marca_como_texto_passa_nas_DUAS_superficies_de_cada_tema():
+    """A calibragem tem de valer onde o texto está, não só onde é conveniente.
+
+    O `eyebrow` da introdução usa a marca como texto e fica sobre `--bg`, não
+    sobre o branco dos cartões. Calibrar contra `#ffffff` dava 4,67:1 no alvo e
+    4,29:1 no lugar real — reprovando por pouco, e sem ninguém notar, porque a
+    conta batia no papel.
+
+    No escuro a lógica se inverte: texto claro tem MAIS contraste quanto mais
+    escuro o fundo, então o pior caso é a superfície mais clara.
+    """
+    # Claro: --bg é o pior caso; o branco do cartão é o folgado.
+    CLARO_PIOR, CLARO_FOLGADO = "#f4f5f8", "#ffffff"
+    # Escuro: --panel-2 é o pior caso; o --bg quase preto é o folgado.
+    ESCURO_PIOR, ESCURO_FOLGADO = "#1a1d26", "#0a0b0e"
+
+    for cor in ("#e0243f", "#f6a723", "#2563eb", "#16a34a", "#111111", "#fefefe"):
+        claro = marca_para_texto(cor, escuro=False)
+        escuro = marca_para_texto(cor, escuro=True)
+
+        assert _contraste(claro, CLARO_PIOR) >= CONTRASTE_MINIMO, cor
+        assert _contraste(claro, CLARO_FOLGADO) >= CONTRASTE_MINIMO, cor
+        assert _contraste(escuro, ESCURO_PIOR) >= CONTRASTE_MINIMO, cor
+        assert _contraste(escuro, ESCURO_FOLGADO) >= CONTRASTE_MINIMO, cor

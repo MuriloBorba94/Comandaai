@@ -626,3 +626,42 @@ def test_a_gaveta_nao_usa_aparencia_nativa(client, loja):
     regra = css.split(".bd-tempo select {", 1)[1].split("}", 1)[0]
 
     assert "appearance: none" in regra
+
+
+def test_os_controles_ficam_em_todas_as_paginas_do_painel(client, loja):
+    """Perceber às 22h que o cardápio continua aberto acontece no meio de outra
+    tarefa. Obrigar a voltar ao painel inicial transforma um toque em três."""
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    for url in ("/admin/", "/admin/produtos", "/admin/categorias", "/admin/configuracoes"):
+        corpo = client.get(url, base_url=BASE_A).get_data(as_text=True)
+        barra = corpo.split('class="v17-commandbar-actions"', 1)[1].split("</header>", 1)[0]
+        assert "bd-estado" in barra, url
+        assert 'name="entrega"' in barra, url
+        assert "/admin/loja/" in barra, url
+
+
+def test_o_cliente_do_cardapio_nao_ve_os_controles(client, loja):
+    """A vitrine não tem barra de comando, e o botão de fechar a loja não pode
+    vazar para quem está pedindo um lanche."""
+    corpo = client.get("/", base_url=BASE_A).get_data(as_text=True)
+
+    assert "bd-estado" not in corpo
+    assert "/admin/loja/" not in corpo
+
+
+def test_a_conferencia_e_consultada_uma_vez_por_pagina(client, loja, monkeypatch):
+    """A memoização em `g` existe para isto: a conferência é uma consulta
+    agrupada sobre os pedidos, e um descuido de template cobraria o preço de
+    novo a cada chamada."""
+    from app.services import caixa as servico
+
+    caixa_service.abrir(loja, 100)
+    chamadas = []
+    original = servico.resumo
+    monkeypatch.setattr(servico, "resumo", lambda c: chamadas.append(1) or original(c))
+
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    client.get("/admin/produtos", base_url=BASE_A)
+
+    assert len(chamadas) == 1

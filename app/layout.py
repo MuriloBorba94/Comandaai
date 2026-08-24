@@ -90,8 +90,19 @@ TEXTO_ESCURO = "#0b0d10"
 
 # Fundos contra os quais a marca aparece como texto. São os mesmos --panel do
 # comanda.css; se mudarem lá, mudam aqui.
-FUNDO_CLARO = "#ffffff"
-FUNDO_ESCURO = "#14171d"
+# O fundo contra o qual a cor da marca é calibrada para virar texto.
+#
+# Não é o branco nem o preto do tema: é a superfície MENOS favorável em que
+# esse texto aparece de fato. No tema claro, a marca em texto (o "eyebrow" da
+# introdução) fica sobre `--bg: #f4f5f8`, e não sobre o branco dos cartões —
+# calibrar contra `#ffffff` dava 4,67:1 no alvo e 4,29:1 onde o texto estava
+# mesmo, reprovando por pouco e sem ninguém perceber.
+#
+# No tema escuro a lógica se inverte: texto claro tem MAIS contraste quanto
+# mais escuro o fundo, então o pior caso é a superfície mais clara —
+# `--panel-2: #1a1d26`, e não o `--bg` quase preto.
+FUNDO_CLARO = "#f4f5f8"
+FUNDO_ESCURO = "#1a1d26"
 
 # 4.5:1 é o mínimo da WCAG AA para texto normal.
 CONTRASTE_MINIMO = 4.5
@@ -179,6 +190,56 @@ def registrar(app) -> None:
         tenant = g.get("tenant")
         caminho = getattr(tenant, "logo", None) if tenant is not None else None
         return caminho or None
+
+    @app.template_global()
+    def controles_do_turno():
+        """Estado da loja, tempos e caixa — para a barra de comando.
+
+        Ficam em toda página do painel, e não só no início, porque abrir e
+        fechar a loja é a decisão mais urgente que existe ali: quem percebe às
+        22h que o cardápio continua no ar não deveria ter de navegar até o
+        painel inicial para desligá-lo.
+
+        Memoizado em `g`: a barra é renderizada uma vez por página, mas a
+        conferência é uma consulta agrupada sobre os pedidos, e um descuido de
+        template que chamasse isto duas vezes cobraria o preço duas vezes.
+        """
+        if "controles_do_turno" in g:
+            return g.controles_do_turno
+
+        from .services import caixa as caixa_service
+        from .services.pedidos import calcular_estimativa
+        from .models.pedido import TIPO_ENTREGA, TIPO_RETIRADA
+
+        tenant = g.get("tenant")
+        if tenant is None or not session.get("logged_in"):
+            g.controles_do_turno = None
+            return None
+
+        turno = caixa_service.caixa_aberto(tenant.id)
+        dados = {
+            "tenant": tenant,
+            "caixa": turno,
+            "resumo": caixa_service.resumo(turno) if turno else None,
+            "entrega": calcular_estimativa(tenant, TIPO_ENTREGA, 0),
+            "retirada": calcular_estimativa(tenant, TIPO_RETIRADA, 0),
+            "rotulo": caixa_service.rotulo_da_faixa,
+        }
+        # As opções da gaveta vêm dos valores CADASTRADOS, não dos calculados:
+        # `calcular_estimativa` soma a fila do momento, e a gaveta tem de
+        # mostrar o que a pessoa escolheu, não o que a fila fez com aquilo.
+        cadastrado_entrega = (tenant.tempo_estimado_min or 40, tenant.tempo_estimado_max or 60)
+        cadastrado_retirada = (
+            tenant.tempo_retirada_min or max(20, cadastrado_entrega[0] - 10),
+            tenant.tempo_retirada_max or max(cadastrado_entrega[0] + 10, cadastrado_entrega[1] - 10),
+        )
+        dados["escolha_entrega"] = cadastrado_entrega
+        dados["escolha_retirada"] = cadastrado_retirada
+        dados["faixas_entrega"] = caixa_service.faixas_com_a_atual(*cadastrado_entrega)
+        dados["faixas_retirada"] = caixa_service.faixas_com_a_atual(*cadastrado_retirada)
+
+        g.controles_do_turno = dados
+        return dados
 
     @app.template_global()
     def whatsapp_do_tenant() -> str | None:

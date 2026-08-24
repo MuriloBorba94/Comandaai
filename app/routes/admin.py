@@ -475,16 +475,11 @@ def _virgula(valor) -> str:
 @admin_bp.route("/")
 @admin_required
 def dashboard():
-    from ..services import caixa as caixa_service
     from ..services.pedidos import pedidos_ativos
 
-    turno = caixa_service.caixa_aberto(g.tenant.id)
-    entrega = (g.tenant.tempo_estimado_min or 40, g.tenant.tempo_estimado_max or 60)
-    retirada = (
-        g.tenant.tempo_retirada_min or max(20, entrega[0] - 10),
-        g.tenant.tempo_retirada_max or max(entrega[0] + 10, entrega[1] - 10),
-    )
-
+    # Estado da loja, caixa e tempos NÃO vêm daqui: são da barra de comando, que
+    # vive no layout e se serve sozinha pelo global `controles_do_turno()`.
+    # Passá-los também por aqui seria a mesma consulta feita duas vezes.
     return render_template(
         "admin/dashboard.html",
         tenant=g.tenant,
@@ -492,13 +487,6 @@ def dashboard():
         total_categorias=Categoria.query.filter_by(tenant_id=g.tenant.id).count(),
         total_adicionais=Adicional.query.filter_by(tenant_id=g.tenant.id).count(),
         total_ativos=len(pedidos_ativos(g.tenant.id)),
-        caixa=turno,
-        resumo_caixa=caixa_service.resumo(turno) if turno else None,
-        tempo_entrega=entrega,
-        tempo_retirada=retirada,
-        faixas_entrega=caixa_service.faixas_com_a_atual(*entrega),
-        faixas_retirada=caixa_service.faixas_com_a_atual(*retirada),
-        rotulo_da_faixa=caixa_service.rotulo_da_faixa,
     )
 
 
