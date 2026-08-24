@@ -207,6 +207,18 @@ body.nav-open { overflow: hidden; }
   box-shadow: var(--shadow-lg);
 }
 .v17-sidebar.open { transform: none; }
+/* Só existe na tela larga e com a lateral recolhida: no celular ela nunca teve
+   coluna para ocupar, e fixada o botão não teria o que fazer. */
+.v17-fixar-nav {
+  display: none; align-self: flex-end; margin: -4px 0 8px;
+  padding: 5px 10px; font-size: .72rem; font-weight: 600;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 999px; color: var(--muted); cursor: pointer;
+}
+.v17-fixar-nav:hover { color: var(--text); border-color: var(--border-2); }
+@media (min-width: 1100px) {
+  :root.nav-recolhida .v17-fixar-nav { display: block; }
+}
 .v17-sidebar-backdrop { display: none; }
 .v17-sidebar-backdrop.open {
   display: block; position: fixed; inset: 0; z-index: 70;
@@ -298,6 +310,21 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; padding: 8px 24px; flex-wrap: wrap;
 }
+/* Botão da gaveta, à esquerda do título — onde a mão vai procurar por ele.
+   Substitui o botão flutuante do canto inferior, que só existia no celular e
+   ficava por cima do conteúdo. Um controle só, em qualquer largura. */
+.v17-nav-toggle {
+  flex: none; width: 34px; height: 34px; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: var(--raio-sm); color: var(--text-2);
+  transition: background .15s, border-color .15s, color .15s;
+}
+.v17-nav-toggle:hover { background: rgba(255, 255, 255, .06); color: var(--text); border-color: var(--border-2); }
+:root[data-theme="light"] .v17-nav-toggle:hover { background: var(--panel-2); }
+.v17-nav-toggle span { display: block; width: 15px; height: 1.5px; background: currentColor; border-radius: 2px; }
+.v17-nav-toggle span + span { margin-top: 3.5px; }
+
 .v17-commandbar-title { display: flex; align-items: center; gap: 12px; }
 .v17-commandbar-title > div { display: flex; flex-direction: column; line-height: 1.35; }
 .v17-commandbar-title small { font-size: .7rem; letter-spacing: 0; color: var(--muted); }
@@ -1167,11 +1194,23 @@ body.vitrine { --price: var(--ambar); }
 
 /* ===================== responsivo ===================== */
 @media (min-width: 1100px) {
+  /* Fixada: a lateral ocupa a primeira coluna da grade. */
   .v17-app-shell { grid-template-columns: 246px 1fr; }
   .v17-sidebar { transform: none; box-shadow: none; }
   .v17-main { grid-column: 2; }
-  .v17-fab-menu, .v17-sidebar-backdrop { display: none !important; }
+  .v17-sidebar-backdrop { display: none !important; }
+
+  /* Recolhida: a grade volta a uma coluna e a lateral sai de cena. O conteúdo
+     ganha os 246px inteiros — que é o ponto de recolher. */
+  :root.nav-recolhida .v17-app-shell { grid-template-columns: 1fr; }
+  :root.nav-recolhida .v17-main { grid-column: 1; }
+  :root.nav-recolhida .v17-sidebar { transform: translateX(-105%); box-shadow: var(--shadow-lg); }
+  /* Recolhida mas aberta pelo botão: volta por cima, como gaveta. */
+  :root.nav-recolhida .v17-sidebar.open { transform: none; }
+  :root.nav-recolhida .v17-sidebar-backdrop.open { display: block !important; }
 }
+/* O botão flutuante sai de cena: quem chama a gaveta agora é o da barra. */
+.v17-fab-menu { display: none !important; }
 /* ===================== impressão na cozinha ===================== */
 /* O código de ativação é a peça delicada desta tela: aparece uma vez só e
    precisa ser copiado sem erro. Por isso fonte monoespaçada, quebra em

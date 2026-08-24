@@ -100,3 +100,55 @@ def test_o_teto_do_rotulo_so_alcanca_filho_direto(css):
     """
     assert "form > label" in css
     assert "\nform label," not in css
+
+
+# --------------------------------------------------------------------------- #
+# Gaveta lateral recolhível
+# --------------------------------------------------------------------------- #
+
+
+def test_o_botao_da_gaveta_fica_na_barra_de_comando(client, two_tenants):
+    """Substitui o botão flutuante do canto, que só existia no celular e ficava
+    por cima do conteúdo. Um controle só, em qualquer largura."""
+    from tests.conftest import login_tenant
+
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+    barra = corpo.split('class="v17-commandbar-title"', 1)[1].split("</div>", 1)[0]
+
+    assert 'id="v17-nav-toggle"' in barra
+    assert 'aria-controls="v17-sidebar"' in barra
+
+
+def test_o_estado_da_gaveta_e_aplicado_antes_de_pintar(client, two_tenants):
+    """No <head>, como o tema. Aplicado depois, a lateral apareceria e sumiria
+    na frente de quem está olhando."""
+    from tests.conftest import login_tenant
+
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+    cabeca = corpo.split("</head>", 1)[0]
+
+    assert "comandaai_nav" in cabeca
+    assert "nav-recolhida" in cabeca
+    # E o `catch` também recolhe: sem localStorage (navegação privada travada),
+    # o padrão continua valendo em vez de a tela nascer num terceiro estado.
+    assert cabeca.count("nav-recolhida") >= 2
+
+
+def test_ha_caminho_de_volta_para_fixar_a_gaveta(client, two_tenants):
+    """O botão da barra recolhe e chama a gaveta, mas nunca a prenderia de novo.
+    Sem este, recolher seria mão única."""
+    from tests.conftest import login_tenant
+
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+
+    assert 'id="v17-fixar-nav"' in corpo
+
+
+def test_a_classe_da_gaveta_vive_na_raiz(css):
+    """No <html>, não no <body>: é aplicada no <head>, quando o <body> ainda não
+    existe. Mesma razão do data-theme."""
+    assert ":root.nav-recolhida" in css
+    assert "body.nav-recolhida" not in css

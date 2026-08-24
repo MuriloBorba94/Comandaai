@@ -32,6 +32,57 @@
   window.openNav = openNav;
   window.closeNav = closeNav;
 
+  const NAV_FIXA = "(min-width: 1100px)";
+  const raiz = document.documentElement;
+
+  function estaRecolhida() { return raiz.classList.contains("nav-recolhida"); }
+
+  function marcarBotao() {
+    const botao = el("v17-nav-toggle");
+    if (!botao) { return; }
+    // Aberta = a lateral está visível, seja fixada na grade ou por cima.
+    const visivel = window.matchMedia(NAV_FIXA).matches
+      ? !estaRecolhida() || el("v17-sidebar")?.classList.contains("open")
+      : el("v17-sidebar")?.classList.contains("open");
+    botao.setAttribute("aria-expanded", visivel ? "true" : "false");
+  }
+
+  /* Um botão, dois comportamentos, porque são duas situações diferentes.
+   *
+   * Numa tela larga, esconder a lateral devolve 246px ao conteúdo — é uma
+   * preferência, e fica guardada. Num celular ela nunca ocupou coluna: ali o
+   * botão só chama e dispensa a gaveta, e guardar isso não significaria nada. */
+  function alternarNav() {
+    if (!window.matchMedia(NAV_FIXA).matches) {
+      el("v17-sidebar")?.classList.contains("open") ? closeNav() : openNav();
+      marcarBotao();
+      return;
+    }
+    if (!estaRecolhida()) {
+      raiz.classList.add("nav-recolhida");
+      closeNav();
+    } else if (el("v17-sidebar")?.classList.contains("open")) {
+      closeNav();
+    } else {
+      openNav();
+    }
+    try {
+      localStorage.setItem("comandaai_nav", estaRecolhida() ? "recolhida" : "fixada");
+    } catch (e) {}
+    marcarBotao();
+  }
+
+  /* Fixar de volta: um toque longo não serve, e um segundo botão poluiria a
+   * barra. Quem quiser a lateral presa outra vez usa o mesmo botão com a
+   * gaveta já aberta — clicar no item de menu navega e ela se fecha sozinha. */
+  function fixarNav() {
+    raiz.classList.remove("nav-recolhida");
+    closeNav();
+    try { localStorage.setItem("comandaai_nav", "fixada"); } catch (e) {}
+    marcarBotao();
+  }
+  window.fixarNav = fixarNav;
+
   // ---------------------------------------------------------------- tema ----
   /* O escuro é o padrão — é a cara da página inicial do produto —, então
      ausência de atributo significa escuro e o claro é que se declara. */
@@ -227,7 +278,7 @@
   }
 
   // ---------------------------------------------------------------- boot ----
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeNav(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeNav(); marcarBotao(); } });
 
   // --------------------------------------------------------------------- //
   // Janelinha da barra do dia
@@ -261,12 +312,15 @@
   document.addEventListener('DOMContentLoaded', () => {
     ligarJanelinhas();
     el('v17-fab-menu')?.addEventListener('click', openNav);
-    el('v17-sidebar-backdrop')?.addEventListener('click', closeNav);
+    el('v17-nav-toggle')?.addEventListener('click', alternarNav);
+    el('v17-sidebar-backdrop')?.addEventListener('click', () => { closeNav(); marcarBotao(); });
+    el('v17-fixar-nav')?.addEventListener('click', fixarNav);
+    marcarBotao();
     el('theme-toggle')?.addEventListener('click', toggleTheme);
     aplicarRotuloTema();
 
     // Fecha a gaveta ao navegar, senão ela fica aberta por cima da página nova.
-    document.querySelectorAll('.v17-nav .tab-btn').forEach(link => link.addEventListener('click', closeNav));
+    document.querySelectorAll('.v17-nav .tab-btn').forEach(link => link.addEventListener('click', () => { closeNav(); marcarBotao(); }));
 
     loadFinanceData();
     setupCashFlowFilters();

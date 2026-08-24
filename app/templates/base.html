@@ -33,7 +33,14 @@
         try {
           var t = localStorage.getItem("comandaai_tema");
           if (t) document.documentElement.setAttribute("data-theme", t);
-        } catch (e) {}
+          // A gaveta nasce recolhida: é o padrão pedido, para o conteúdo ter a
+          // largura toda. Quem preferir fixá-la, a escolha fica guardada.
+          if (localStorage.getItem("comandaai_nav") !== "fixada") {
+            document.documentElement.classList.add("nav-recolhida");
+          }
+        } catch (e) {
+          document.documentElement.classList.add("nav-recolhida");
+        }
       })();
     </script>
   {% endif %}
@@ -70,6 +77,11 @@
     <div class="v17-sidebar-backdrop" id="v17-sidebar-backdrop"></div>
 
     <aside class="v17-sidebar" id="v17-sidebar" aria-label="Navegação da Gestão">
+      {# Caminho de volta: o botão da barra recolhe e chama a gaveta, mas nunca
+         a prenderia de novo. Só aparece quando ela está recolhida — fixada, ele
+         não teria o que fazer. #}
+      <button type="button" class="v17-fixar-nav" id="v17-fixar-nav"
+              title="Manter o menu sempre visível">Fixar menu</button>
       {% if contexto == "admin" %}
         <a class="v17-brand" href="{{ url_for('admin.dashboard') }}">
           {% if logo_do_tenant() %}
@@ -104,6 +116,11 @@
     <div class="v17-main">
       <header class="v17-commandbar">
         <div class="v17-commandbar-title">
+          <button type="button" class="v17-nav-toggle" id="v17-nav-toggle"
+                  aria-label="Mostrar ou esconder o menu" aria-expanded="false"
+                  aria-controls="v17-sidebar" title="Menu">
+            <span></span><span></span><span></span>
+          </button>
           <div>
             <small>{{ "Central de Gestão" if contexto == "admin" else "Administração" }}</small>
             <strong id="v17-current-section">{% block secao %}{{ g.tenant.nome_fantasia if contexto == "admin" else "Comanda ai" }}{% endblock %}</strong>
