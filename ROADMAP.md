@@ -265,6 +265,21 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
     específico, e jogar isso no meio da tela faria a pessoa perder de vista o
     que clicou. Fecha ao clicar fora e no Esc, devolvendo o foco ao botão.
 
+    **Terceira passada:** os controles foram para a barra de comando, ao lado
+    do botão de tema — são ajustes do ambiente, como ele, e não conteúdo da
+    página. "Cardápio" não veio junto porque a barra já tinha um.
+
+    E ali apareceu o defeito que importava: **no tema escuro não dava para ler
+    as opções da gaveta**. `color-scheme` nunca havia sido declarado, então o
+    navegador desenhava a lista nativa com a cara clara — branco — enquanto o
+    CSS mandava o texto em quase branco. Valia para TODO `select` do painel, e
+    era invisível para quem desenvolve no tema claro. Duas metades: `color-
+    scheme` na raiz resolve a lista, e `appearance: none` resolve o controle
+    fechado — com a aparência nativa, alternar o tema **não repintava** o fundo
+    (1,07:1 medido, texto escuro sobre fundo escuro, só normalizando ao
+    recarregar). Depois: 17,4:1 no escuro e 18,1:1 no claro, estáveis ao
+    alternar sem recarregar.
+
     Junto saiu `utils.reais()`: metade das mensagens de dinheiro nasce em
     Python (flash de fechamento, linha de auditoria) e escrevia "R$ 150.00",
     com o ponto do inglês, na tela de um restaurante brasileiro. O filtro `brl`

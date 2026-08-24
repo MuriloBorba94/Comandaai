@@ -110,6 +110,11 @@
           </div>
         </div>
         <div class="v17-commandbar-actions">
+          {# Os controles do turno entram por bloco, e não fixos aqui, porque
+             a conferência do caixa é uma consulta agrupada sobre os pedidos —
+             deixá-la na barra de TODA página do painel cobraria esse preço em
+             telas que nem mostram o número. Hoje só o painel inicial preenche. #}
+          {% block acoes_loja %}{% endblock %}
           {# Escuro é o padrão, então o botão nasce oferecendo o claro. O JS
              corrige o rótulo se a pessoa já tiver escolhido outro tema. #}
           <button type="button" class="v17-quick-link" id="theme-toggle"

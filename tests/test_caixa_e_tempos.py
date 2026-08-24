@@ -251,24 +251,36 @@ def test_a_faixa_salva_fora_da_lista_continua_aparecendo_na_gaveta(loja):
 # --------------------------------------------------------------------------- #
 
 
-def test_painel_mostra_a_barra_do_dia(client, loja):
+def test_os_controles_do_turno_ficam_junto_do_botao_de_tema(client, loja):
+    """São ajustes do ambiente, como o tema — não conteúdo da página."""
     login_tenant(client, "tenant-a", "admin", "senha-a-123")
 
     corpo = client.get("/admin/", base_url=BASE_A).get_data(as_text=True)
+    barra = corpo.split('class="v17-commandbar-actions"', 1)[1].split("</header>", 1)[0]
 
-    assert "barra-do-dia" in corpo
-    # As gavetas pelo `name`, não pelo rótulo visível: o rótulo virou ícone
-    # mais `aria-label` para a barra caber numa linha, e um teste preso ao
-    # texto quebraria a cada ajuste de layout sem nada ter deixado de funcionar.
-    assert 'name="entrega"' in corpo
-    assert 'name="retirada"' in corpo
+    assert "bd-estado" in barra
+    # As gavetas pelo `name`, não pelo rótulo visível: o rótulo virou ícone,
+    # e um teste preso ao texto quebraria a cada ajuste de layout sem nada
+    # ter deixado de funcionar.
+    assert 'name="entrega"' in barra
+    assert 'name="retirada"' in barra
     # Toda gaveta precisa de nome acessível: sem rótulo visível, é ele que
     # sobra para quem usa leitor de tela.
-    assert 'aria-label="Tempo estimado para entrega"' in corpo
-    assert 'aria-label="Tempo estimado para retirada"' in corpo
-    # Os atalhos subiram para a barra, ao lado das gavetas.
-    assert "bd-atalhos" in corpo
-    assert "Ver como cliente" in corpo
+    assert 'aria-label="Tempo estimado para entrega"' in barra
+    assert 'aria-label="Tempo estimado para retirada"' in barra
+    # E antes do botão de tema, que é o vizinho pedido.
+    assert barra.index("bd-estado") < barra.index('id="theme-toggle"')
+
+
+def test_o_cardapio_nao_aparece_duas_vezes_na_barra(client, loja):
+    """A barra de comando já tem "Cardápio"; repetir seria o mesmo botão duas
+    vezes a três centímetros de distância."""
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    corpo = client.get("/admin/", base_url=BASE_A).get_data(as_text=True)
+    barra = corpo.split('class="v17-commandbar-actions"', 1)[1].split("</header>", 1)[0]
+
+    assert barra.count(">Cardápio<") == 1
 
 
 def test_abrir_a_loja_pela_tela(client, loja):
@@ -570,3 +582,47 @@ def test_a_janelinha_nao_nasce_aberta(client, loja):
 
     assert '<details class="bd-acao" open' not in corpo
     assert '<details class="bd-acao">' in corpo
+
+
+def test_a_lista_da_gaveta_tem_fundo_opaco(client, loja):
+    """Foi o defeito reportado: no tema escuro não dava para ler as opções.
+
+    A `option` herdava fundo transparente do select, e quem pintava a lista era
+    o sistema — de branco — com o texto quase branco por cima. Sem fundo
+    declarado aqui, o problema volta e ninguém percebe no tema claro.
+    """
+    from pathlib import Path
+
+    css = Path("app/static/css/comanda.css").read_text(encoding="utf-8")
+    regra = css.split(".bd-tempo select option", 1)[1].split("}", 1)[0]
+
+    assert "background-color: var(--panel-2)" in regra
+    assert "color: var(--text)" in regra
+
+
+def test_o_tema_declara_color_scheme():
+    """A metade da correção que vale para TODO select do painel.
+
+    Sem `color-scheme`, o navegador desenha a lista nativa, a barra de rolagem
+    e o seletor de data com a cara clara enquanto a página é escura.
+    """
+    from pathlib import Path
+
+    css = Path("app/static/css/comanda.css").read_text(encoding="utf-8")
+
+    assert "color-scheme: dark" in css
+    assert "color-scheme: light" in css
+
+
+def test_a_gaveta_nao_usa_aparencia_nativa(client, loja):
+    """Com aparência nativa, alternar o tema não repintava o fundo do controle.
+
+    Media 1,07:1 de contraste — texto escuro sobre fundo escuro — e só voltava
+    ao normal recarregando a página.
+    """
+    from pathlib import Path
+
+    css = Path("app/static/css/comanda.css").read_text(encoding="utf-8")
+    regra = css.split(".bd-tempo select {", 1)[1].split("}", 1)[0]
+
+    assert "appearance: none" in regra

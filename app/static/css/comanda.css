@@ -25,6 +25,19 @@
 
 /* ===================== tokens: escuro (padrão, igual à landing) ===================== */
 :root {
+  /* Diz ao navegador com que cara desenhar o que NÃO é nosso: a lista que
+   * abre num <select>, a barra de rolagem, o seletor de data.
+   *
+   * Sem esta linha o navegador assume "claro" e pinta a lista de opções de
+   * branco — enquanto o CSS daqui manda o texto em quase branco, porque a
+   * página é escura. O resultado era branco sobre branco: a gaveta abria e
+   * não dava para ler nada. Valia para TODO select do painel, não só os do
+   * caixa, e era invisível para quem desenvolve no tema claro.
+   *
+   * `color-scheme` resolve na raiz, e de uma vez, o que remendar cor de
+   * `option` resolveria um controle por vez — e nem sempre: o Safari ignora
+   * cor em `option` e desenha o que este valor mandar. */
+  color-scheme: dark;
   --topbar-h: 67px;
   --margem-lateral: 26px;
   --preto: #0a0b0e;
@@ -86,6 +99,7 @@
 
 /* ===================== tokens: claro ===================== */
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #f4f5f8;
   --panel: #ffffff;
   --panel-2: #f1f2f6;
@@ -1417,55 +1431,66 @@ body.vitrine { --price: var(--ambar); }
 }
 
 /* ---------------------------------------------------------------------------
- * Barra do dia: estado, tempo prometido e atalhos, em uma linha só.
+ * Controles do turno, dentro da barra de comando do painel.
  *
- * Nasceu alta demais — cada gaveta de tempo tinha um rótulo em cima, o estado
- * ocupava duas linhas e a conferência do caixa ficava exposta o dia inteiro no
- * alto da tela. Aqui o ícone faz o papel do rótulo, e a conferência foi para
- * dentro da janelinha de fechar, que é a hora em que alguém precisa dela.
+ * Vivem ao lado do botão de tema porque são da mesma natureza: ajustes do
+ * ambiente, não conteúdo da página. Antes ocupavam uma faixa própria no corpo,
+ * empurrando para baixo o que a pessoa veio ver.
  *
  * O estado aberto/fechado nunca é dito só pela cor da luz: vem sempre com a
  * palavra ao lado, porque verde e vermelho são a dupla que mais gente confunde.
  * ------------------------------------------------------------------------- */
-.barra-do-dia {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
-  padding: 10px 14px; margin-bottom: 18px;
-  background: var(--superficie-topo);
-  border: 1px solid var(--border); border-radius: var(--raio);
-  border-left: 4px solid var(--muted);
-}
-.barra-do-dia.aberta { border-left-color: var(--success); }
-.barra-do-dia.fechada { border-left-color: var(--danger); }
-
 .bd-estado {
-  display: inline-flex; align-items: center; gap: 8px; flex: none;
-  font-size: .86rem; font-weight: 700; letter-spacing: -.01em;
-  padding-right: 4px;
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  padding: 7px 12px; border-radius: 999px;
+  font-size: .76rem; font-weight: 700; letter-spacing: -.01em;
+  border: 1px solid var(--border); color: var(--text-2);
 }
-.bd-luz { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--muted); }
-.barra-do-dia.aberta .bd-luz { background: var(--success); box-shadow: 0 0 0 3px var(--success-bg); }
-.barra-do-dia.fechada .bd-luz { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-bg); }
+.bd-estado.aberta { color: var(--success); border-color: var(--success-border); background: var(--success-bg); }
+.bd-estado.fechada { color: var(--danger); border-color: var(--danger-border); background: var(--danger-bg); }
+.bd-luz { width: 8px; height: 8px; border-radius: 50%; flex: none; background: currentColor; }
 
 .bd-tempos { display: flex; gap: 8px; flex-wrap: wrap; margin: 0; }
 .bd-tempo {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 0 4px 0 10px; border-radius: 999px;
-  background: rgba(255, 255, 255, .05); border: 1px solid var(--border);
+  display: inline-flex; align-items: center; gap: 5px;
+  padding-left: 9px; border-radius: var(--raio-sm);
+  background: rgba(255, 255, 255, .03); border: 1px solid var(--border);
   font-size: .78rem;
 }
-:root[data-theme="light"] .bd-tempo { background: var(--panel-2); }
-/* A gaveta perde a moldura própria: quem desenha a borda é a pílula em volta,
-   senão são duas bordas concêntricas no mesmo controle. */
+:root[data-theme="light"] .bd-tempo { background: var(--panel); }
+.bd-tempo:focus-within { border-color: var(--brand); }
+/* A gaveta não desenha moldura própria: quem desenha é a pílula em volta,
+   senão são duas bordas concêntricas no mesmo controle.
+
+   `background-color` explícito, e não `transparent`: a lista de opções herda
+   o fundo do select, e um select transparente no tema escuro abria uma lista
+   que o sistema pintava de branco — com o texto quase branco por cima. Junto
+   com `color-scheme: dark` na raiz, são as duas metades da mesma correção. */
+/* `appearance: none` desenha o controle por CSS em vez de deixar o sistema
+   desenhar. Não é preciosismo: com a aparência nativa, alternar o tema pelo
+   botão NÃO repintava o fundo do select — media 1,07:1 de contraste, texto
+   escuro sobre fundo escuro, e só voltava ao normal recarregando a página.
+   Um controle pintado por CSS repinta como qualquer outra caixa.
+
+   A lista que abre continua nativa, e quem cuida dela é o `color-scheme` na
+   raiz — as duas metades da mesma correção. */
 .bd-tempo select {
-  margin: 0; width: auto; min-width: 0; padding: 6px 8px;
-  background: transparent; border: 0; border-radius: 999px;
-  font-size: .78rem; font-weight: 600; color: var(--text);
+  appearance: none; -webkit-appearance: none;
+  margin: 0; width: auto; min-width: 0; padding: 7px 2px 7px 6px;
+  background-color: transparent; color: var(--text);
+  border: 0; border-radius: var(--raio-sm);
+  font-size: .78rem; font-weight: 600;
 }
 .bd-tempo select:focus { box-shadow: none; }
-.bd-tempo:focus-within { border-color: var(--brand); }
-
-.bd-atalhos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
-.bd-atalhos > a, .bd-acao > summary { font-size: .8rem; padding: 8px 13px; }
+/* A lista precisa de fundo OPACO. Herdando `transparent` do select, ela era
+   pintada pelo sistema — branco — com o texto quase branco por cima. */
+.bd-tempo select option { background-color: var(--panel-2); color: var(--text); }
+/* A seta que o `appearance: none` levou embora. No wrapper, para não brigar
+   com o padding do select. */
+.bd-tempo:after {
+  content: "▾"; padding-right: 9px; margin-left: -2px;
+  color: var(--muted); font-size: .7rem; pointer-events: none;
+}
 
 /* A janelinha: sai do fluxo e nasce colada embaixo do próprio botão.
  *
@@ -1475,12 +1500,16 @@ body.vitrine { --price: var(--ambar); }
 .bd-acao { position: relative; }
 .bd-acao > summary { list-style: none; cursor: pointer; display: inline-flex; }
 .bd-acao > summary::-webkit-details-marker { display: none; }
+.v17-quick-link.destaque { color: var(--success); border-color: var(--success-border); background: var(--success-bg); }
 .bd-acao > form {
-  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  position: absolute; right: 0; top: calc(100% + 9px); z-index: 60;
   width: min(288px, calc(100vw - 40px)); padding: 15px;
   background: var(--panel-2); border: 1px solid var(--border-2);
   border-radius: var(--raio); box-shadow: 0 18px 40px rgba(0, 0, 0, .45);
   animation: bd-aparecer .13s ease-out;
+  /* A barra de comando é `sticky` e fica acima de quase tudo; sem alinhar o
+     texto aqui, a janelinha herdaria o alinhamento dela. */
+  text-align: left; cursor: default;
 }
 @keyframes bd-aparecer { from { opacity: 0; transform: translateY(-5px); } }
 @media (prefers-reduced-motion: reduce) { .bd-acao > form { animation: none; } }
@@ -1503,11 +1532,11 @@ body.vitrine { --price: var(--ambar); }
 .bd-conferencia dd { margin: 0; font-weight: 700; font-size: .84rem; }
 
 @media (max-width: 720px) {
-  .bd-atalhos { margin-left: 0; width: 100%; }
-  .bd-acao { flex: 1; }
-  .bd-acao > summary { width: 100%; justify-content: center; }
-  /* Ancorada à esquerda no celular: à direita ela sairia da tela quando o
-     botão é o primeiro da linha. */
+  /* Na barra estreita do celular o rótulo do estado sai e sobra a luz, que
+     continua acompanhada do texto no `title` e no leitor de tela. */
+  .bd-estado { padding: 7px 9px; font-size: 0; gap: 0; }
+  .bd-estado .bd-luz { width: 9px; height: 9px; }
+  /* Ancorada à esquerda: à direita ela sairia da tela numa barra que quebra. */
   .bd-acao > form { right: auto; left: 0; }
   .bd-acao > form:before { right: auto; left: 18px; }
 }
