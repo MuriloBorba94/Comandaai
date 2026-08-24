@@ -293,6 +293,41 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
     antes de ser usado por cliente, e quem quer falar quer falar, não decorar
     dez dígitos.
 
+13. **Passada de aparência no painel.** *24/08/2026, sem mudar comportamento.*
+
+    Duas rodadas, ambas no CSS compartilhado — nenhum dos 18 templates do
+    painel foi tocado por gosto. O que fazia a tela parecer pesada eram padrões
+    repetidos, não casos isolados: `font-weight: 800` em todo título, um
+    `border-bottom` sob cada título de cartão, caixa alta com espaçamento largo
+    em quatro lugares, preenchimento cinza atrás do cabeçalho de tabela, e
+    moldura mais divisórias numa faixa que o espaço já separava.
+
+    Os controles do turno saíram do painel inicial e passaram a viver no
+    layout, via `controles_do_turno()` memoizado em `g` — perceber às 22h que o
+    cardápio continua aberto acontece no meio de outra tarefa.
+
+    **O achado que valeu a rodada:** os `label` eram inline. O campo de largura
+    total quebrava linha por conta própria, e o empilhamento era acidente de
+    fluxo, não layout — medido, o topo do campo ficava ACIMA do topo do próprio
+    rótulo (262px contra 277px), e qualquer margem posta no campo não separava
+    nada. Era daí que vinha o "paredão". Com `display: block` o formulário
+    passou a ter ritmo de verdade: 5px entre rótulo e campo, 18px entre grupos.
+    É seguro porque todo uso em linha declara o próprio `display`, e há teste
+    que exige isso de cada um deles.
+
+    Junto: teto de largura (`--campo-max`) para campo, rótulo e texto de apoio
+    terminarem no mesmo lugar — um "Preço" de 900px é o que mais denuncia
+    formulário não desenhado. Duas exceções medidas, a busca do cardápio (que é
+    barra sobre a grade toda, e encolhia para metade da tela) e o código PIX
+    (que se quebra em muitas linhas se apertado); e o teto vale só para filho
+    direto, senão o cartão de Entrega/Retirada parava antes da própria célula.
+
+    E dois defeitos de contraste que só apareceram porque foram medidos:
+    `marca_para_texto` calibrava contra `#ffffff` enquanto o texto fica sobre
+    `--bg` (4,67:1 no alvo, 4,29:1 no lugar real), e a borda dos cartões media
+    1,14:1 no tema claro — decorativa, e virou a única separação quando as
+    divisórias saíram. Depois: zero elementos abaixo de 4,5:1 nos dois temas.
+
 10. **Hardening e operação.** *Em andamento.*
 
     ~~**Feature-gating por plano**~~ — feito junto com a Fase 4.

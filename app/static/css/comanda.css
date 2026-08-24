@@ -90,6 +90,10 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, .4);
   --shadow-lg: 0 40px 80px -30px rgba(0, 0, 0, .9), 0 8px 24px -12px rgba(0, 0, 0, .6);
 
+  /* Largura da coluna de um formulário empilhado. Um número só, porque
+     campo, rótulo e texto de apoio precisam terminar no mesmo lugar —
+     repetido em quatro regras, ele desalinharia na primeira mudança. */
+  --campo-max: 560px;
   --raio-xs: 8px;
   --raio-sm: 10px;
   --raio: 14px;
@@ -393,7 +397,23 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
 .extra-row:last-child { border-bottom: 0; }
 
 /* ===================== formulários ===================== */
-label { color: var(--text-2); font-weight: 600; font-size: .84rem; }
+/* Rótulo é apoio, não manchete: quieto, e o valor digitado é que tem peso.
+   `display: block` fica de fora de propósito — `label` também embrulha
+   caixas de seleção e interruptores, que precisam ficar em linha. Quem
+   precisa de bloco declara (.field label, .check-inline, .checks label). */
+/* `display: block` é o que faz o formulário empilhar de verdade.
+ *
+ * Sem ele o rótulo é inline e o campo de largura total quebra linha por conta
+ * própria — o resultado é um empilhamento acidental, em que o topo do campo
+ * fica ACIMA do topo do próprio rótulo (medido: campo em 262px, rótulo em
+ * 277px) e a margem que se põe no campo não separa nada. Era daí que vinha a
+ * sensação de paredão: não havia grupo "rótulo + campo", havia texto e caixas
+ * se acomodando em linhas.
+ *
+ * É seguro porque TODO uso em linha declara o próprio display: .check-inline,
+ * .checks label, .recursos label, .option-item, .bd-tempo, .switch,
+ * .comanda-rotulo, .field label e .finance-custom-period label. */
+label { display: block; color: var(--text-2); font-weight: 600; font-size: .82rem; letter-spacing: -.005em; }
 
 /* O `:not()` vive dentro de `:where()` de propósito.
  *
@@ -409,13 +429,25 @@ label { color: var(--text-2); font-weight: 600; font-size: .84rem; }
 input:where(:not([type=checkbox]):not([type=radio]):not([type=hidden])), select, textarea {
   background: rgba(255, 255, 255, .04);
   color: var(--text);
-  border: 1px solid var(--border-2);
+  /* --border, e não --border-2: a borda forte em TODO campo transformava o
+     formulário numa grade de caixas de igual peso. A borda de um campo em
+     repouso só precisa dizer onde se clica; quem chama atenção é o foco. */
+  border: 1px solid var(--border);
   border-radius: var(--raio-sm);
-  padding: 10px 12px;
+  padding: 11px 13px;
   outline: none;
   transition: border-color .15s, box-shadow .15s, background .15s;
-  margin: 7px 0;
+  /* Ritmo assimétrico: 5px acima (colado no próprio rótulo) e 18px abaixo
+     (separando do campo seguinte). Antes eram 7px dos dois lados, e espaço
+     igual em cima e embaixo faz o olho não saber qual rótulo pertence a qual
+     campo — a pilha vira um paredão em vez de uma sequência de perguntas. */
+  margin: 5px 0 18px;
   width: 100%;
+  /* Um campo de "Preço" com 900px de largura é o que mais denuncia formulário
+     não desenhado. `max-width` com `width: 100%` mantém o campo fluido no
+     celular e o impede de esticar numa tela larga. Não afeta quem já tem
+     largura própria (`.input-small`) nem quem está dentro de uma coluna. */
+  max-width: var(--campo-max);
 }
 :root[data-theme="light"] .admin-input,
 :root[data-theme="light"] input:where(:not([type=checkbox]):not([type=radio]):not([type=hidden])),
@@ -430,9 +462,22 @@ input:focus, select:focus, textarea:focus {
 input[type=checkbox] { width: auto; margin: 0 7px 0 0; accent-color: var(--brand); }
 input[type=color] { width: 58px; height: 38px; padding: 3px; cursor: pointer; }
 input[type=file] { padding: 9px 11px; color: var(--text-2); font-size: .84rem; }
-.check-inline { font-weight: 400; display: flex; align-items: center; margin: 8px 0; color: var(--text); }
+.check-inline { font-weight: 400; display: flex; align-items: center; gap: 2px; margin: 0 0 12px; color: var(--text); font-size: .88rem; }
 .field { margin-bottom: 15px; }
-.field label { display: block; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+.field label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-2); font-size: .82rem; }
+/* Rótulo e texto de apoio terminam onde o campo termina. Sem isto o campo
+   media 560px e a frase que o explica esticava até 929px, e a coluna
+   deixava de existir como coluna. */
+/* `form > label`, e não `form label`: o teto vale para o rótulo empilhado,
+   que é filho direto do formulário. Aninhados (.radio-cards, .checks,
+   colunas de .grid-2) já são medidos pelo contêiner deles — e limitá-los
+   faria o cartão de Entrega/Retirada parar antes da própria célula numa
+   tela larga, descolando da grade. */
+form > label, form > p.muted, form > .muted { max-width: var(--campo-max); }
+/* O texto de apoio pertence ao campo ACIMA dele: colado nele, e com o
+   respiro maior vindo depois. */
+form > p.muted { margin: -13px 0 18px; font-size: .78rem; line-height: 1.45; }
+
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .switch { position: relative; display: inline-block; width: 44px; height: 23px; flex-shrink: 0; }
@@ -907,7 +952,14 @@ form.inline { display: inline; }
 .plano-cabeca input { margin: 0; width: auto; }
 .prefixo { color: var(--muted); font-size: .84rem; }
 .row-actions { display: flex; gap: 7px; flex-wrap: wrap; }
-.checks { display: flex; flex-wrap: wrap; gap: 9px 20px; margin-bottom: 12px; }
+/* A lista de adicionais é um grupo, e agora se parece com um: fundo próprio
+   e respiro, em vez de caixinhas soltas encostadas no campo de cima. */
+.checks {
+  display: flex; flex-wrap: wrap; gap: 10px 20px;
+  margin: 5px 0 18px; padding: 13px 14px; max-width: var(--campo-max);
+  background: rgba(255, 255, 255, .03); border-radius: var(--raio-sm);
+}
+:root[data-theme="light"] .checks { background: var(--panel-2); }
 .checks label { font-weight: 400; color: var(--text); display: flex; align-items: center; gap: 7px; margin: 0; }
 .recursos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 11px 20px; margin: 10px 0 14px; }
 .recursos label { display: flex; gap: 9px; align-items: flex-start; font-weight: 400; color: var(--text); margin: 0; font-size: .84rem; }
@@ -992,7 +1044,10 @@ body.vitrine { --price: var(--ambar); }
 .menu-toolbar { position: sticky; top: var(--topbar-h); z-index: 45; background: var(--bg); padding-top: 16px; }
 .menu-search-wrap { position: relative; margin-bottom: 12px; }
 .menu-search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); opacity: .6; pointer-events: none; }
-.menu-search { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: var(--raio); padding: 14px 15px 14px 42px; font-size: .95rem; margin: 0; }
+/* `max-width: none` escapa do teto de 560px do formulário: a busca do
+   cardápio é uma barra de navegação sobre a grade toda, não um campo de
+   digitação confortável. Com o teto ela encolhia para metade da tela. */
+.menu-search { width: 100%; max-width: none; background: var(--panel); border: 1px solid var(--border); border-radius: var(--raio); padding: 14px 15px 14px 42px; font-size: .95rem; margin: 0; }
 .menu-search:focus { border-color: var(--price); box-shadow: 0 0 0 3px rgba(246, 167, 35, .15); }
 .category-nav { display: flex; gap: 9px; overflow: auto; margin: 0; padding: 0 0 16px; scroll-behavior: smooth; }
 .category-nav button {
@@ -1161,7 +1216,9 @@ body.vitrine { --price: var(--ambar); }
 .pix-qr path { fill: #000000; }
 .pix-copia { display: grid; gap: 8px; min-width: 0; }
 .pix-copia textarea {
-  width: 100%; resize: vertical; word-break: break-all;
+  /* Escapa do teto de 560px: aqui a largura não é conforto de leitura, é um
+     código de pagamento que se quebra em muitas linhas se apertado. */
+  width: 100%; max-width: none; resize: vertical; word-break: break-all;
   font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
   font-size: .78rem; line-height: 1.5;
 }
