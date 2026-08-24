@@ -254,6 +254,23 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
       celular contra uma barra de topo de **67px** nos dois. O cardápio
       aparecia por essa fresta ao rolar. Agora os três leem `--topbar-h`.
 
+    **A barra virou uma linha só (24/08, segunda passada).** Nasceu com 102px:
+    cada gaveta de tempo tinha um rótulo em cima, o estado ocupava duas linhas
+    e a conferência do caixa ficava exposta o dia inteiro no alto da tela. Caiu
+    para **60px** — o ícone faz o papel do rótulo, os atalhos (Cozinha,
+    Cardápio, Ver como cliente) subiram para a mesma linha, e a conferência foi
+    para dentro da janelinha de fechar, que é a hora em que alguém precisa
+    dela. O formulário do caixa é um `<details>` ancorado embaixo do próprio
+    botão, e não um modal centralizado: o valor é resposta a um clique
+    específico, e jogar isso no meio da tela faria a pessoa perder de vista o
+    que clicou. Fecha ao clicar fora e no Esc, devolvendo o foco ao botão.
+
+    Junto saiu `utils.reais()`: metade das mensagens de dinheiro nasce em
+    Python (flash de fechamento, linha de auditoria) e escrevia "R$ 150.00",
+    com o ponto do inglês, na tela de um restaurante brasileiro. O filtro `brl`
+    do Jinja passou a delegar para ela — eram duas implementações da mesma
+    regra, e só uma estava certa.
+
     E o cabeçalho do cardápio no celular caiu de **199px para 106px**: as três
     tarjas empilhavam uma sob a outra e a primeira comida só aparecia depois de
     rolar. Agora elas são uma faixa única que rola de lado. O telefone saiu da

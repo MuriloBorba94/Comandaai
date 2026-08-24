@@ -229,7 +229,37 @@
   // ---------------------------------------------------------------- boot ----
   document.addEventListener('keydown', event => { if (event.key === 'Escape') closeNav(); });
 
+  // --------------------------------------------------------------------- //
+  // Janelinha da barra do dia
+  //
+  // <details> abre e fecha no clique, mas nao fecha quando a pessoa clica em
+  // outro lugar — e uma caixa flutuante que so fecha no mesmo botao nao parece
+  // uma aparicao, parece um painel que travou aberto por cima da pagina.
+  // --------------------------------------------------------------------- //
+  function fecharJanelinhas(exceto) {
+    document.querySelectorAll('.bd-acao[open]').forEach(item => {
+      if (item !== exceto) { item.open = false; }
+    });
+  }
+
+  function ligarJanelinhas() {
+    document.addEventListener('click', evento => {
+      const dentro = evento.target.closest('.bd-acao');
+      fecharJanelinhas(dentro);
+    });
+    document.addEventListener('keydown', evento => {
+      if (evento.key !== 'Escape') { return; }
+      const aberta = document.querySelector('.bd-acao[open]');
+      if (!aberta) { return; }
+      fecharJanelinhas(null);
+      // Devolve o foco ao botao: quem fechou com o teclado precisa saber onde
+      // parou, senao o foco volta para o inicio do documento.
+      aberta.querySelector('summary')?.focus();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    ligarJanelinhas();
     el('v17-fab-menu')?.addEventListener('click', openNav);
     el('v17-sidebar-backdrop')?.addEventListener('click', closeNav);
     el('theme-toggle')?.addEventListener('click', toggleTheme);

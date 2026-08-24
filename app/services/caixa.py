@@ -17,6 +17,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
+from ..utils import reais
 from ..models.auditoria import ACAO_CAIXA_ABERTO, ACAO_CAIXA_FECHADO
 from ..models.caixa import Caixa
 from ..models.pedido import STATUS_CANCELADO, Pedido
@@ -110,7 +111,7 @@ def abrir(tenant, valor_inicial=0.0, *, actor: str | None = None) -> Caixa:
     registrar(
         ACAO_CAIXA_ABERTO,
         alvo="Caixa",
-        detalhes=f"Abertura com R$ {valor:.2f} em caixa",
+        detalhes=f"Abertura com R$ {reais(valor)} em caixa",
         tenant=tenant,
         ator=actor or None,
     )
@@ -181,9 +182,9 @@ def fechar(caixa: Caixa, valor_contado=None, *, observacao=None, actor: str | No
 
     conferencia = resumo(caixa)
     diferenca = conferencia["diferenca"]
-    detalhe = f"Fechamento: {conferencia['pedidos']} pedidos, R$ {conferencia['faturamento']:.2f}"
+    detalhe = f"Fechamento: {conferencia['pedidos']} pedidos, R$ {reais(conferencia['faturamento'])}"
     if diferenca is not None:
-        rotulo = "confere" if abs(diferenca) < 0.01 else f"diferença de R$ {diferenca:.2f}"
+        rotulo = "confere" if abs(diferenca) < 0.01 else f"diferença de R$ {reais(diferenca)}"
         detalhe = f"{detalhe} — {rotulo}"
     registrar(ACAO_CAIXA_FECHADO, alvo="Caixa", detalhes=detalhe, tenant=caixa.tenant, ator=actor or None)
     return conferencia

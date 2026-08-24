@@ -23,7 +23,7 @@ from ..models.produto import Produto
 from ..services.cupons import normalizar_codigo
 from ..services.imagens import remover_imagem, salvar_imagem_produto, salvar_logo_tenant
 from ..services.recursos import requer_recurso, tenant_libera
-from ..utils import para_float, para_int
+from ..utils import para_float, para_int, reais
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -558,8 +558,8 @@ def loja_fechar():
     else:
         sinal = "sobrou" if diferenca > 0 else "faltou"
         flash(
-            f"Loja fechada. Na gaveta {sinal} R$ {abs(diferenca):.2f} "
-            f"em relação aos R$ {conferencia['esperado_na_gaveta']:.2f} esperados.",
+            f"Loja fechada. Na gaveta {sinal} R$ {reais(abs(diferenca))} "
+            f"em relação aos R$ {reais(conferencia['esperado_na_gaveta'])} esperados.",
             "erro",
         )
     return redirect(url_for("admin.dashboard"))

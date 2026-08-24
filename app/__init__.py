@@ -286,13 +286,9 @@ def create_app(config_object=Config) -> Flask:
     @app.template_filter("brl")
     def brl(valor) -> str:
         """Formata número no padrão brasileiro: 1234.5 -> "1.234,50"."""
-        try:
-            numero = float(valor or 0)
-        except (TypeError, ValueError):
-            numero = 0.0
-        # Formata no padrão en_US e troca os separadores, evitando depender de
-        # locale instalado no sistema (que varia entre Windows e Linux).
-        return f"{numero:,.2f}".replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+        from .utils import reais
+
+        return reais(valor)
 
     @app.after_request
     def security_headers(response):

@@ -5,103 +5,94 @@
 {% block intro_texto %}Informações, configurações e decisões do negócio em um só lugar.{% endblock %}
 {% block content %}
   {# ---------------------------------------------------------------------- #}
-  {# A barra do dia: abrir a loja, o troco da gaveta e o tempo prometido.    #}
-  {# Fica no topo porque é a primeira coisa que alguém faz ao chegar, e a    #}
-  {# última antes de ir embora.                                             #}
+  {# A barra do dia: estado da loja, o tempo prometido e os atalhos, tudo em  #}
+  {# uma linha. Os controles do turno ficam ao lado dos atalhos porque sao a  #}
+  {# mesma decisao — chegar e abrir, ir embora e fechar.                      #}
   {# ---------------------------------------------------------------------- #}
   <div class="barra-do-dia {{ 'aberta' if tenant.loja_aberta else 'fechada' }}">
-    <div class="bd-estado">
+    <span class="bd-estado" title="{% if caixa %}Aberta às {{ caixa.aberto_em.strftime('%H:%M') }} com R$ {{ caixa.valor_inicial|brl }} de troco{% if caixa.aberto_por %}, por {{ caixa.aberto_por }}{% endif %}{% elif tenant.loja_aberta %}Recebendo pedidos pelo cardápio{% else %}O cardápio não está aceitando pedidos{% endif %}">
       <span class="bd-luz" aria-hidden="true"></span>
-      <div>
-        <strong>{{ 'Loja aberta' if tenant.loja_aberta else 'Loja fechada' }}</strong>
-        <small>
-          {% if caixa %}
-            Aberta às {{ caixa.aberto_em.strftime('%H:%M') }}
-            · troco de R$ {{ '%.2f'|format(caixa.valor_inicial or 0) }}
-            {%- if caixa.aberto_por %} · por {{ caixa.aberto_por }}{% endif %}
-          {% elif tenant.loja_aberta %}
-            Recebendo pedidos pelo cardápio
-          {% else %}
-            O cardápio não está aceitando pedidos
-          {% endif %}
-        </small>
-      </div>
-    </div>
+      {{ 'Loja aberta' if tenant.loja_aberta else 'Loja fechada' }}
+    </span>
 
-    {% if tenant.loja_aberta %}
-      {% if resumo_caixa %}
-        <div class="bd-numeros">
-          <div><span>Pedidos</span><strong>{{ resumo_caixa.pedidos }}</strong></div>
-          <div><span>Faturamento</span><strong>R$ {{ '%.2f'|format(resumo_caixa.faturamento) }}</strong></div>
-          <div title="Troco inicial mais o que entrou em dinheiro. Cartão e PIX não passam pela gaveta.">
-            <span>Esperado na gaveta</span>
-            <strong>R$ {{ '%.2f'|format(resumo_caixa.esperado_na_gaveta) }}</strong>
-          </div>
-        </div>
-      {% endif %}
-      <details class="bd-acao">
-        <summary class="btn-secondary">Fechar a loja</summary>
-        <form method="post" action="{{ url_for('admin.loja_fechar') }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <label>
-            Quanto tem na gaveta agora?
-            <input type="text" name="valor_contado" inputmode="decimal" placeholder="opcional">
-          </label>
-          <label>
-            Alguma observação?
-            <input type="text" name="observacao" maxlength="300" placeholder="opcional">
-          </label>
-          <p class="muted" style="margin:0 0 8px">
-            Deixar em branco encerra o turno sem conferir. Preenchendo, o sistema
-            mostra a diferença em relação ao esperado.
-          </p>
-          <button type="submit" class="btn-danger">Fechar a loja</button>
-        </form>
-      </details>
-    {% else %}
-      <details class="bd-acao" open>
-        <summary class="btn-save">Abrir a loja</summary>
-        <form method="post" action="{{ url_for('admin.loja_abrir') }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <label>
-            Valor inicial do caixa
-            <input type="text" name="valor_inicial" inputmode="decimal" value="0,00" autocomplete="off">
-          </label>
-          <p class="muted" style="margin:0 0 8px">
-            O troco que está na gaveta agora. É com ele que o fechamento confere.
-          </p>
-          <button type="submit" class="btn-save">Abrir a loja</button>
-        </form>
-      </details>
-    {% endif %}
-
+    {# Gaveta compacta: o ícone faz o papel do rótulo, que ocupava uma linha
+       inteira acima de cada uma. Os mesmos ícones do cardápio, para a pessoa
+       reconhecer sem ler. #}
     <form method="post" action="{{ url_for('admin.loja_tempos') }}" class="bd-tempos">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label>
-        Tempo de entrega
-        <select name="entrega" onchange="this.form.requestSubmit()">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="bd-tempo" title="Tempo estimado para entrega">
+        <span aria-hidden="true">🛵</span>
+        <select name="entrega" aria-label="Tempo estimado para entrega" onchange="this.form.requestSubmit()">
           {% for minimo, maximo in faixas_entrega %}
-            <option value="{{ minimo }}-{{ maximo }}"
-              {{ 'selected' if (minimo, maximo) == tempo_entrega }}>
+            <option value="{{ minimo }}-{{ maximo }}" {{ 'selected' if (minimo, maximo) == tempo_entrega }}>
               {{ rotulo_da_faixa(minimo, maximo) }}
             </option>
           {% endfor %}
         </select>
       </label>
-      <label>
-        Tempo de retirada
-        <select name="retirada" onchange="this.form.requestSubmit()">
+      <label class="bd-tempo" title="Tempo estimado para retirada no balcão">
+        <span aria-hidden="true">🥡</span>
+        <select name="retirada" aria-label="Tempo estimado para retirada" onchange="this.form.requestSubmit()">
           {% for minimo, maximo in faixas_retirada %}
-            <option value="{{ minimo }}-{{ maximo }}"
-              {{ 'selected' if (minimo, maximo) == tempo_retirada }}>
+            <option value="{{ minimo }}-{{ maximo }}" {{ 'selected' if (minimo, maximo) == tempo_retirada }}>
               {{ rotulo_da_faixa(minimo, maximo) }}
             </option>
           {% endfor %}
         </select>
       </label>
-      {# Sem JS o onchange não dispara; o botão é a saída para esse caso. #}
-      <noscript><button type="submit" class="btn-secondary">Salvar tempos</button></noscript>
+      <noscript><button type="submit" class="btn-secondary">Salvar</button></noscript>
     </form>
+
+    <div class="bd-atalhos">
+      {% if tenant.loja_aberta %}
+        <details class="bd-acao">
+          <summary class="btn-secondary">Fechar a loja</summary>
+          <form method="post" action="{{ url_for('admin.loja_fechar') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if resumo_caixa %}
+              {# A conferência mora aqui, e não na barra: é na hora de fechar
+                 que alguém precisa do número, e o resto do dia ele só ocupava
+                 espaço no alto da tela. #}
+              <dl class="bd-conferencia">
+                <div><dt>Pedidos</dt><dd>{{ resumo_caixa.pedidos }}</dd></div>
+                <div><dt>Faturamento</dt><dd>R$ {{ resumo_caixa.faturamento|brl }}</dd></div>
+                <div title="Troco inicial mais o que entrou em dinheiro. Cartão e PIX não passam pela gaveta.">
+                  <dt>Esperado na gaveta</dt><dd>R$ {{ resumo_caixa.esperado_na_gaveta|brl }}</dd>
+                </div>
+              </dl>
+            {% endif %}
+            <label>
+              Quanto tem na gaveta agora?
+              <input type="text" name="valor_contado" inputmode="decimal" placeholder="opcional">
+            </label>
+            <label>
+              Alguma observação?
+              <input type="text" name="observacao" maxlength="300" placeholder="opcional">
+            </label>
+            <button type="submit" class="btn-danger">Fechar a loja</button>
+          </form>
+        </details>
+      {% else %}
+        <details class="bd-acao">
+          <summary class="btn-save">Abrir a loja</summary>
+          <form method="post" action="{{ url_for('admin.loja_abrir') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>
+              Valor inicial do caixa
+              <input type="text" name="valor_inicial" inputmode="decimal" value="0,00" autocomplete="off">
+            </label>
+            <p class="muted">O troco que está na gaveta agora. É com ele que o fechamento confere.</p>
+            <button type="submit" class="btn-save">Abrir a loja</button>
+          </form>
+        </details>
+      {% endif %}
+
+      {% if libera('cozinha') %}
+        <a class="btn-secondary" href="{{ url_for('operacao.cozinha') }}">Cozinha</a>
+      {% endif %}
+      <a class="btn-secondary" href="{{ url_for('admin.produtos') }}">Cardápio</a>
+      <a class="btn-secondary" href="{{ url_for('public.index') }}" target="_blank" rel="noopener">Ver como cliente</a>
+    </div>
   </div>
 
   <div class="metric-grid">
@@ -126,20 +117,4 @@
     </div>
   </div>
 
-  <div class="card-admin">
-    <div class="item-header" style="flex-wrap:wrap;gap:10px">
-      <h2 style="margin:0;border:0;padding:0">🔥 Atalhos do dia</h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        {% if libera('cozinha') %}
-          <a class="btn-save" href="{{ url_for('operacao.cozinha') }}">Abrir a cozinha</a>
-        {% endif %}
-        <a class="btn-secondary" href="{{ url_for('admin.produtos') }}">Cardápio</a>
-        <a class="btn-secondary" href="{{ url_for('public.index') }}" target="_blank" rel="noopener">Ver como cliente</a>
-      </div>
-    </div>
-    <p class="muted" style="margin:0">
-      A fila de pedidos fica na Cozinha, que se atualiza sozinha. Este painel é o
-      resumo de cadastro e operação da loja.
-    </p>
-  </div>
 {% endblock %}

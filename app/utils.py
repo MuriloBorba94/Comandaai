@@ -55,3 +55,26 @@ def para_int(valor) -> int:
         return int(str(valor or "0").strip())
     except ValueError:
         return 0
+
+
+def reais(valor) -> str:
+    """Dinheiro no padrão brasileiro: 1234.5 -> "1.234,50".
+
+    Vive aqui, e não só como filtro do Jinja, porque metade das mensagens de
+    dinheiro do sistema nasce em Python — o flash do fechamento de caixa, a
+    linha de auditoria — e essas escreviam "R$ 150.00", com o ponto do inglês,
+    na tela de um restaurante brasileiro.
+
+    Não usa `locale`: o pt_BR não vem instalado por padrão nem no Windows nem
+    no Ubuntu enxuto do servidor, e depender dele faria o número sair certo
+    aqui e errado lá.
+    """
+    try:
+        numero = float(valor or 0)
+    except (TypeError, ValueError):
+        numero = 0.0
+    # Formata em en_US e troca os papéis dos separadores. `partition` em vez de
+    # um sentinela no meio da string: é a mesma troca, sem depender de um
+    # caractere que não pode aparecer no texto.
+    inteiro, _, centavos = f"{numero:,.2f}".partition(".")
+    return inteiro.replace(",", ".") + "," + centavos

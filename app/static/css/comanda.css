@@ -1417,15 +1417,19 @@ body.vitrine { --price: var(--ambar); }
 }
 
 /* ---------------------------------------------------------------------------
- * Barra do dia (topo do painel): abrir/fechar a loja, gaveta e tempo estimado.
+ * Barra do dia: estado, tempo prometido e atalhos, em uma linha só.
  *
- * É a primeira coisa da tela porque é a primeira coisa do turno. O estado
- * aberto/fechado nunca é dito só pela cor da luz: vem sempre com a palavra ao
- * lado, porque verde e vermelho são a dupla que mais gente confunde.
+ * Nasceu alta demais — cada gaveta de tempo tinha um rótulo em cima, o estado
+ * ocupava duas linhas e a conferência do caixa ficava exposta o dia inteiro no
+ * alto da tela. Aqui o ícone faz o papel do rótulo, e a conferência foi para
+ * dentro da janelinha de fechar, que é a hora em que alguém precisa dela.
+ *
+ * O estado aberto/fechado nunca é dito só pela cor da luz: vem sempre com a
+ * palavra ao lado, porque verde e vermelho são a dupla que mais gente confunde.
  * ------------------------------------------------------------------------- */
 .barra-do-dia {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px;
-  padding: 16px 20px; margin-bottom: 18px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding: 10px 14px; margin-bottom: 18px;
   background: var(--superficie-topo);
   border: 1px solid var(--border); border-radius: var(--raio);
   border-left: 4px solid var(--muted);
@@ -1433,42 +1437,79 @@ body.vitrine { --price: var(--ambar); }
 .barra-do-dia.aberta { border-left-color: var(--success); }
 .barra-do-dia.fechada { border-left-color: var(--danger); }
 
-.bd-estado { display: flex; align-items: center; gap: 11px; min-width: 200px; }
-.bd-estado strong { display: block; font-size: .98rem; letter-spacing: -.01em; }
-.bd-estado small { display: block; color: var(--muted); font-size: .78rem; margin-top: 2px; }
-.bd-luz { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--muted); }
-.barra-do-dia.aberta .bd-luz { background: var(--success); box-shadow: 0 0 0 4px var(--success-bg); }
-.barra-do-dia.fechada .bd-luz { background: var(--danger); box-shadow: 0 0 0 4px var(--danger-bg); }
+.bd-estado {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  font-size: .86rem; font-weight: 700; letter-spacing: -.01em;
+  padding-right: 4px;
+}
+.bd-luz { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--muted); }
+.barra-do-dia.aberta .bd-luz { background: var(--success); box-shadow: 0 0 0 3px var(--success-bg); }
+.barra-do-dia.fechada .bd-luz { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-bg); }
 
-.bd-numeros { display: flex; gap: 20px; flex-wrap: wrap; }
-.bd-numeros span { display: block; color: var(--muted); font-size: .72rem; }
-.bd-numeros strong { display: block; font-size: 1.05rem; font-weight: 800; letter-spacing: -.02em; margin-top: 2px; }
+.bd-tempos { display: flex; gap: 8px; flex-wrap: wrap; margin: 0; }
+.bd-tempo {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 4px 0 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, .05); border: 1px solid var(--border);
+  font-size: .78rem;
+}
+:root[data-theme="light"] .bd-tempo { background: var(--panel-2); }
+/* A gaveta perde a moldura própria: quem desenha a borda é a pílula em volta,
+   senão são duas bordas concêntricas no mesmo controle. */
+.bd-tempo select {
+  margin: 0; width: auto; min-width: 0; padding: 6px 8px;
+  background: transparent; border: 0; border-radius: 999px;
+  font-size: .78rem; font-weight: 600; color: var(--text);
+}
+.bd-tempo select:focus { box-shadow: none; }
+.bd-tempo:focus-within { border-color: var(--brand); }
 
-/* O formulário sai de dentro do <details> como painel flutuante para não
-   empurrar a página inteira para baixo quando alguém só quer conferir. */
-.bd-acao { position: relative; margin-left: auto; }
+.bd-atalhos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.bd-atalhos > a, .bd-acao > summary { font-size: .8rem; padding: 8px 13px; }
+
+/* A janelinha: sai do fluxo e nasce colada embaixo do próprio botão.
+ *
+ * `position: absolute` dentro de `.bd-acao` (que é `relative`), e não um modal
+ * no centro da tela — o valor do caixa é resposta a um clique específico, e
+ * jogar isso no meio da tela faria a pessoa perder de vista o que clicou. */
+.bd-acao { position: relative; }
 .bd-acao > summary { list-style: none; cursor: pointer; display: inline-flex; }
 .bd-acao > summary::-webkit-details-marker { display: none; }
 .bd-acao > form {
-  position: absolute; right: 0; top: calc(100% + 8px); z-index: 30;
-  width: min(300px, 84vw); padding: 16px;
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  width: min(288px, calc(100vw - 40px)); padding: 15px;
   background: var(--panel-2); border: 1px solid var(--border-2);
   border-radius: var(--raio); box-shadow: 0 18px 40px rgba(0, 0, 0, .45);
+  animation: bd-aparecer .13s ease-out;
 }
-.bd-acao label { display: block; font-size: .8rem; color: var(--text-2); margin-bottom: 10px; }
+@keyframes bd-aparecer { from { opacity: 0; transform: translateY(-5px); } }
+@media (prefers-reduced-motion: reduce) { .bd-acao > form { animation: none; } }
+/* A setinha que amarra a janelinha ao botão. Sem ela a caixa parece solta na
+   página, e é justamente esse "de onde isto veio?" que se quer evitar. */
+.bd-acao > form:before {
+  content: ""; position: absolute; top: -6px; right: 18px;
+  width: 10px; height: 10px; transform: rotate(45deg);
+  background: var(--panel-2);
+  border-left: 1px solid var(--border-2); border-top: 1px solid var(--border-2);
+}
+.bd-acao label { display: block; font-size: .78rem; color: var(--text-2); margin-bottom: 10px; }
 .bd-acao input { width: 100%; margin-top: 5px; }
 .bd-acao button { width: 100%; }
+.bd-acao .muted { margin: -4px 0 10px; font-size: .74rem; }
 
-.bd-tempos { display: flex; gap: 12px; flex-wrap: wrap; }
-.bd-tempos label { font-size: .72rem; color: var(--muted); }
-.bd-tempos select { display: block; margin-top: 4px; min-width: 132px; }
+.bd-conferencia { display: grid; gap: 7px; margin: 0 0 13px; }
+.bd-conferencia > div { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.bd-conferencia dt { color: var(--muted); font-size: .76rem; }
+.bd-conferencia dd { margin: 0; font-weight: 700; font-size: .84rem; }
 
 @media (max-width: 720px) {
-  .bd-acao { margin-left: 0; }
+  .bd-atalhos { margin-left: 0; width: 100%; }
+  .bd-acao { flex: 1; }
+  .bd-acao > summary { width: 100%; justify-content: center; }
+  /* Ancorada à esquerda no celular: à direita ela sairia da tela quando o
+     botão é o primeiro da linha. */
   .bd-acao > form { right: auto; left: 0; }
-  .bd-tempos { width: 100%; }
-  .bd-tempos label { flex: 1; }
-  .bd-tempos select { width: 100%; }
+  .bd-acao > form:before { right: auto; left: 18px; }
 }
 
 /* Botão do WhatsApp no banner da loja.

@@ -257,8 +257,18 @@ def test_painel_mostra_a_barra_do_dia(client, loja):
     corpo = client.get("/admin/", base_url=BASE_A).get_data(as_text=True)
 
     assert "barra-do-dia" in corpo
-    assert "Tempo de entrega" in corpo
-    assert "Tempo de retirada" in corpo
+    # As gavetas pelo `name`, não pelo rótulo visível: o rótulo virou ícone
+    # mais `aria-label` para a barra caber numa linha, e um teste preso ao
+    # texto quebraria a cada ajuste de layout sem nada ter deixado de funcionar.
+    assert 'name="entrega"' in corpo
+    assert 'name="retirada"' in corpo
+    # Toda gaveta precisa de nome acessível: sem rótulo visível, é ele que
+    # sobra para quem usa leitor de tela.
+    assert 'aria-label="Tempo estimado para entrega"' in corpo
+    assert 'aria-label="Tempo estimado para retirada"' in corpo
+    # Os atalhos subiram para a barra, ao lado das gavetas.
+    assert "bd-atalhos" in corpo
+    assert "Ver como cliente" in corpo
 
 
 def test_abrir_a_loja_pela_tela(client, loja):
@@ -529,3 +539,34 @@ def test_sem_telefone_cadastrado_o_cabecalho_nao_inventa_botao(client, loja):
     corpo = client.get("/", base_url=BASE_A).get_data(as_text=True)
 
     assert "wa.me" not in corpo
+
+
+def test_a_conferencia_mora_dentro_da_janelinha_de_fechar(client, loja):
+    """O número só interessa na hora de fechar; o resto do dia ele ocupa a tela."""
+    caixa_service.abrir(loja, 150)
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    corpo = client.get("/admin/", base_url=BASE_A).get_data(as_text=True)
+    janelinha = corpo.split('action="/admin/loja/fechar"', 1)[1].split("</form>", 1)[0]
+
+    assert "Esperado na gaveta" in janelinha
+    # E em português: era "R$ 150.00", com o ponto do inglês.
+    assert "R$ 150,00" in janelinha
+
+
+def test_o_dinheiro_sai_no_formato_brasileiro(loja):
+    from app.utils import reais
+
+    assert reais(1234.5) == "1.234,50"
+    assert reais(150) == "150,00"
+    assert reais(None) == "0,00"
+
+
+def test_a_janelinha_nao_nasce_aberta(client, loja):
+    """`<details open>` mostraria o formulário sem ninguém ter clicado."""
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    corpo = client.get("/admin/", base_url=BASE_A).get_data(as_text=True)
+
+    assert '<details class="bd-acao" open' not in corpo
+    assert '<details class="bd-acao">' in corpo
