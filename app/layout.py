@@ -181,6 +181,21 @@ def registrar(app) -> None:
         return caminho or None
 
     @app.template_global()
+    def whatsapp_do_tenant() -> str | None:
+        """Link que abre a conversa do restaurante no WhatsApp.
+
+        O número em si não vai para a tela. Escrito por extenso ele é copiado
+        por robô de spam antes de ser usado por cliente, e a pessoa que quer
+        falar quer falar — não decorar dez dígitos. O botão leva direto à
+        conversa, que é o que ela ia fazer com o número de qualquer jeito.
+        """
+        from .services.notificacoes.link import numero_internacional
+
+        tenant = g.get("tenant")
+        numero = numero_internacional(getattr(tenant, "telefone_contato", "") or "")
+        return f"https://wa.me/{numero}" if numero else None
+
+    @app.template_global()
     def inicial_do_tenant() -> str:
         """Primeira letra do nome, usada quando não há logo enviada."""
         tenant = g.get("tenant")

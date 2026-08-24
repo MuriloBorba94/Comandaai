@@ -24,13 +24,35 @@
       <div class="store-banner-info">
         <h1>{{ tenant.nome_fantasia }}</h1>
         <div class="store-banner-meta">
-          <span class="status-pill status-open">● Aberto agora</span>
-          <span class="store-meta-item">⏱️ {{ tenant.tempo_estimado_min }}–{{ tenant.tempo_estimado_max }} min</span>
-          {% if tenant.telefone_contato %}
-            <span class="store-meta-item">📞 {{ tenant.telefone_contato }}</span>
+          {# O estado vem do painel. Antes era a palavra "Aberto" escrita fixa
+             no HTML, que dizia a mesma coisa às três da manhã. #}
+          {% if loja_aberta %}
+            <span class="status-pill status-open">● Aberto agora</span>
+          {% else %}
+            <span class="status-pill status-closed">● Fechado no momento</span>
           {% endif %}
+
+          {# Os dois prazos, separados: quem vai buscar no balcão não espera o
+             tempo de quem recebe em casa, e mostrar um número só fazia metade
+             dos clientes ouvir uma promessa que não era a deles. #}
+          <span class="store-meta-item" title="Tempo estimado para entrega">
+            🛵 Entrega {{ prazo_entrega[0] }}–{{ prazo_entrega[1] }} min
+          </span>
+          <span class="store-meta-item" title="Tempo estimado para retirada no balcão">
+            🥡 Retirada {{ prazo_retirada[0] }}–{{ prazo_retirada[1] }} min
+          </span>
         </div>
       </div>
+
+      {% if whatsapp_do_tenant() %}
+        <a class="store-zap" href="{{ whatsapp_do_tenant() }}" target="_blank" rel="noopener"
+           title="Falar no WhatsApp" aria-label="Falar com o restaurante no WhatsApp">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+            <path d="M6.6 10.8c.9 1.8 2.4 3.3 4.2 4.2l1.4-1.4c.2-.2.5-.3.7-.2 .8.3 1.7.4 2.6.4 .4 0 .7.3.7.7v2.2c0 .4-.3.7-.7.7C9.6 17.4 4.6 12.4 4.6 6.2c0-.4.3-.7.7-.7h2.2c.4 0 .7.3.7.7 0 .9.1 1.8.4 2.6 .1.3 0 .5-.2.7l-1.4 1.3z"/>
+          </svg>
+          <span class="store-zap-label">Falar no WhatsApp</span>
+        </a>
+      {% endif %}
     </div>
   </section>
 

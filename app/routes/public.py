@@ -156,10 +156,19 @@ def index():
     if sem_categoria:
         grupos.append((GRUPO_SEM_CATEGORIA, sem_categoria))
 
+    from ..services.caixa import loja_esta_aberta
+    from ..services.pedidos import calcular_estimativa
+
+    # Os dois prazos saem de calcular_estimativa, e não dos campos crus, porque
+    # é ela que soma a fila do momento. O banner prometendo 40 min enquanto a
+    # tela do pedido diz 70 é a mesma loja se contradizendo na mesma visita.
     return render_template(
         "public/index.html",
         tenant=g.tenant,
         grupos=grupos,
+        loja_aberta=loja_esta_aberta(g.tenant),
+        prazo_entrega=calcular_estimativa(g.tenant, TIPO_ENTREGA),
+        prazo_retirada=calcular_estimativa(g.tenant, TIPO_RETIRADA),
         qtd_carrinho=sum(int(linha.get("quantidade", 1)) for linha in _carrinho_da_sessao()),
         # Adicionais vão por produto: no original a tela oferecia a lista inteira
         # e o servidor recusava depois. Aqui só aparece o que o produto aceita.
@@ -400,6 +409,19 @@ def carrinho_remover():
 def pedido_criar():
     if g.tenant is None:
         abort(404)
+
+    # A trava fica aqui, e não em criar_pedido(), porque quem fecha a loja fecha
+    # o CARDÁPIO. O atendente continua lançando comanda de mesa e pedido de
+    # balcão com a porta fechada — é justamente assim que se termina a noite,
+    # atendendo quem já está dentro sem receber pedido novo pela internet.
+    #
+    # Sem esta linha a tarja "Fechado no momento" seria enfeite: o cliente
+    # leria "fechado", pediria assim mesmo, e o pedido cairia na cozinha.
+    from ..services.caixa import loja_esta_aberta
+
+    if not loja_esta_aberta(g.tenant):
+        flash("A loja está fechada no momento e não está recebendo pedidos.", "erro")
+        return redirect(url_for("public.carrinho"))
 
     linhas = _carrinho_da_sessao()
     payload = {

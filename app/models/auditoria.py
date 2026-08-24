@@ -37,6 +37,9 @@ ACAO_LOGIN = "login"
 ACAO_LOGIN_FALHOU = "login_falhou"
 ACAO_PEDIDO_CANCELADO = "pedido_cancelado"
 ACAO_PAGAMENTO_CONFIRMADO = "pagamento_confirmado"
+ACAO_PAGAMENTO_CORRIGIDO = "pagamento_corrigido"
+ACAO_CAIXA_ABERTO = "caixa_aberto"
+ACAO_CAIXA_FECHADO = "caixa_fechado"
 ACAO_PIX_ALTERADO = "pix_alterado"
 ACAO_WHATSAPP_ALTERADO = "whatsapp_alterado"
 ACAO_AGENTE_PAREADO = "agente_pareado"
@@ -54,6 +57,9 @@ ROTULO_DA_ACAO = {
     ACAO_LOGIN_FALHOU: "Tentativa de login recusada",
     ACAO_PEDIDO_CANCELADO: "Cancelou um pedido",
     ACAO_PAGAMENTO_CONFIRMADO: "Confirmou o recebimento de um PIX",
+    ACAO_PAGAMENTO_CORRIGIDO: "Corrigiu a forma de pagamento",
+    ACAO_CAIXA_ABERTO: "Abriu a loja e o caixa",
+    ACAO_CAIXA_FECHADO: "Fechou a loja e conferiu o caixa",
     ACAO_PIX_ALTERADO: "Alterou a chave PIX",
     ACAO_WHATSAPP_ALTERADO: "Alterou o envio de WhatsApp",
     ACAO_AGENTE_PAREADO: "Gerou código do agente de impressão",

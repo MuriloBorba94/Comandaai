@@ -19,7 +19,7 @@ from flask import (
     url_for,
 )
 
-from ..decorators import login_required
+from ..decorators import admin_required, login_required
 from ..services.recursos import requer_recurso
 from ..models.categoria import Categoria
 from ..models.pedido import (
@@ -99,6 +99,7 @@ def cozinha():
         proximos_status=proximos_status,
         versao=versao_da_fila(g.tenant.id),
         aguardando=total_aguardando(g.tenant.id),
+        formas_pagamento=FORMAS_PAGAMENTO,
     )
 
 
@@ -157,6 +158,34 @@ def pedido_confirmar_pagamento(pedido_id: int):
             flash(f"Pedido #{pedido.numero}: pagamento confirmado e liberado para a cozinha.", "sucesso")
         else:
             flash(f"O pagamento do pedido #{pedido.numero} já estava confirmado.", "sucesso")
+    except ValueError as exc:
+        flash(str(exc), "erro")
+
+    return redirect(request.referrer or url_for("operacao.cozinha"))
+
+
+@operacao_bp.route("/cozinha/pedidos/<int:pedido_id>/pagamento/corrigir", methods=["POST"])
+@admin_required
+@requer_recurso("cozinha")
+def pedido_corrigir_pagamento(pedido_id: int):
+    """Troca a forma de pagamento de um pedido já registrado.
+
+    Só admin, de propósito: é o atendente que erra a escolha, e deixar quem
+    errou desfazer sozinho tira o único registro de que houve correção. Fica no
+    diário de auditoria com o valor de antes e o de depois.
+    """
+    from ..services.pedidos import corrigir_pagamento
+
+    pedido = Pedido.query.filter_by(id=pedido_id, tenant_id=g.tenant.id).first()
+    if pedido is None:
+        flash("Pedido não encontrado.", "erro")
+        return redirect(url_for("operacao.cozinha"))
+
+    try:
+        anterior = pedido.pagamento
+        corrigir_pagamento(pedido, request.form.get("pagamento", ""), actor=session.get("username"))
+        if pedido.pagamento != anterior:
+            flash(f"Pedido #{pedido.numero}: pagamento corrigido para {pedido.pagamento}.", "sucesso")
     except ValueError as exc:
         flash(str(exc), "erro")
 

@@ -23,7 +23,15 @@ from app.services.faturamento_saas import (
 from tests.conftest import login_tenant
 
 BASE = "http://loja.localhost"
-HOJE = date(2026, 8, 20)
+
+# Relativo ao dia em que o teste roda, e não uma data fixa.
+#
+# O aviso é renderizado pelo painel contra a data REAL, enquanto a cobrança era
+# gerada contra 20/08/2026. Enquanto o calendário não passou do vencimento, os
+# dois concordavam; depois disso a mesma cobrança "em dia" virava atrasada e o
+# teste quebrava sozinho, sem ninguém ter tocado no código. Os casos que
+# precisam de atraso continuam dizendo isso explicitamente, com `date.today()`.
+HOJE = date.today()
 
 
 def _cenario(preco=99.90, contato="WhatsApp (81) 99999-0000"):
@@ -34,7 +42,7 @@ def _cenario(preco=99.90, contato="WhatsApp (81) 99999-0000"):
         email_contato="loja@example.com",
         plano="starter",
         status="active",
-        trial_termina_em=datetime(2026, 8, 1),
+        trial_termina_em=datetime.now() - timedelta(days=30),
     )
     db.session.add(tenant)
     db.session.flush()

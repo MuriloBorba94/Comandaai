@@ -53,6 +53,26 @@
               </ul>
               {% if pedido.observacao %}<p class="muted">Pedido: {{ pedido.observacao }}</p>{% endif %}
               <p class="muted">R$ {{ pedido.total|brl }} · {{ pedido.pagamento }}</p>
+              {% if session.get('role') == 'admin' and pedido.pagamento != 'Comanda Aberta' %}
+                {# Escolher a forma de pagamento é feito correndo, no balcão, e
+                   o erro só aparece no fechamento do caixa — quando ninguém
+                   lembra qual pedido foi. Corrigir aqui, com o pedido na tela. #}
+                <details class="corrigir-pagamento">
+                  <summary>Corrigir pagamento</summary>
+                  <form method="post" action="{{ url_for('operacao.pedido_corrigir_pagamento', pedido_id=pedido.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <select name="pagamento" aria-label="Forma de pagamento do pedido {{ pedido.numero }}">
+                      {% for forma in formas_pagamento %}
+                        <option value="{{ forma }}" {{ 'selected' if forma == pedido.pagamento }}>{{ forma }}</option>
+                      {% endfor %}
+                      {% if pedido.pagamento not in formas_pagamento %}
+                        <option value="{{ pedido.pagamento }}" selected>{{ pedido.pagamento }}</option>
+                      {% endif %}
+                    </select>
+                    <button type="submit" class="btn-secondary">Salvar</button>
+                  </form>
+                </details>
+              {% endif %}
               {% if pedido.pagamento_online %}
                 {% if pedido.pagamento_online.status == "aguardando" %}
                   <p class="aviso-pagamento">Ainda não pago — não comece a produzir.</p>

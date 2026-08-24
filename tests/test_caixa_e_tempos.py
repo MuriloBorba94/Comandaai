@@ -1,0 +1,444 @@
+"""Abrir e fechar a loja, o dinheiro da gaveta e o tempo prometido ao cliente.
+
+O teste que mais importa aqui é o do restaurante que nunca abriu caixa nenhum:
+o Borba's vende hoje sem saber que este código existe, e subir uma regra que
+exija turno aberto fecharia a porta dele no primeiro deploy.
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import datetime, timedelta
+
+import pytest
+
+from app.extensions import db
+from app.models.auditoria import ACAO_CAIXA_ABERTO, ACAO_CAIXA_FECHADO, Auditoria
+from app.models.caixa import Caixa
+from app.models.pedido import STATUS_CANCELADO, TIPO_RETIRADA
+from app.models.produto import Produto
+from app.models.tenant import Tenant
+from app.services import caixa as caixa_service
+from app.services.pedidos import calcular_estimativa, criar_pedido, transicionar
+from tests.conftest import login_tenant
+
+BASE_A = "http://tenant-a.localhost"
+
+
+@pytest.fixture()
+def loja(app, two_tenants):
+    tenant = db.session.get(Tenant, two_tenants["tenant_a"])
+    db.session.add(Produto(tenant_id=tenant.id, nome="X-Tudo", preco=30.0))
+    db.session.commit()
+    return tenant
+
+
+def _pedido(tenant, pagamento="Dinheiro"):
+    produto = Produto.query.filter_by(tenant_id=tenant.id).first()
+    return criar_pedido(
+        tenant,
+        {
+            "cliente": "Maria",
+            "telefone": "81999998888",
+            "tipo": TIPO_RETIRADA,
+            "pagamento": pagamento,
+            "carrinho": [{"produto_id": produto.id, "quantidade": 1}],
+        },
+    )
+
+
+# --------------------------------------------------------------------------- #
+# A loja aberta
+# --------------------------------------------------------------------------- #
+
+
+def test_restaurante_que_nunca_abriu_caixa_continua_vendendo(loja):
+    """A regra nova não pode fechar a porta de quem já vendia."""
+    assert Caixa.query.filter_by(tenant_id=loja.id).count() == 0
+    assert loja.loja_aberta is True
+    assert caixa_service.loja_esta_aberta(loja) is True
+
+
+def test_abrir_a_loja_registra_o_troco_da_gaveta(loja):
+    caixa = caixa_service.abrir(loja, "150,50", actor="murilo")
+
+    assert caixa.valor_inicial == 150.50
+    assert caixa.aberto_por == "murilo"
+    assert caixa.aberto is True
+    assert loja.loja_aberta is True
+
+
+def test_abrir_duas_vezes_nao_cria_dois_turnos(loja):
+    """Dois cliques no botão contariam as vendas do dia duas vezes."""
+    primeiro = caixa_service.abrir(loja, 100)
+    segundo = caixa_service.abrir(loja, 999)
+
+    assert primeiro.id == segundo.id
+    assert segundo.valor_inicial == 100
+    assert Caixa.query.filter_by(tenant_id=loja.id).count() == 1
+
+
+def test_fechar_a_loja_tira_o_cardapio_do_ar(loja):
+    caixa = caixa_service.abrir(loja, 100)
+    caixa_service.fechar(caixa)
+
+    assert loja.loja_aberta is False
+    assert caixa_service.loja_esta_aberta(loja) is False
+    assert caixa_service.caixa_aberto(loja.id) is None
+
+
+def test_valor_inicial_negativo_e_recusado(loja):
+    with pytest.raises(ValueError, match="não pode ser negativo"):
+        caixa_service.abrir(loja, -10)
+
+
+def test_valor_inicial_com_letra_e_recusado(loja):
+    with pytest.raises(ValueError, match="inválido"):
+        caixa_service.abrir(loja, "cem reais")
+
+
+# --------------------------------------------------------------------------- #
+# A conferência da gaveta
+# --------------------------------------------------------------------------- #
+
+
+def test_so_o_dinheiro_passa_pela_gaveta(loja):
+    """Cartão e PIX entram no faturamento, mas não na gaveta."""
+    caixa_service.abrir(loja, 100)
+    _pedido(loja, pagamento="Dinheiro")
+    _pedido(loja, pagamento="Cartão na entrega")
+
+    conferencia = caixa_service.resumo(caixa_service.caixa_aberto(loja.id))
+
+    assert conferencia["faturamento"] == 60.0
+    assert conferencia["em_especie"] == 30.0
+    assert conferencia["esperado_na_gaveta"] == 130.0
+
+
+def test_pedido_cancelado_nao_conta_na_conferencia(loja):
+    caixa_service.abrir(loja, 100)
+    pedido = _pedido(loja)
+    transicionar(pedido, STATUS_CANCELADO)
+
+    conferencia = caixa_service.resumo(caixa_service.caixa_aberto(loja.id))
+
+    assert conferencia["pedidos"] == 0
+    assert conferencia["esperado_na_gaveta"] == 100.0
+
+
+def test_pedido_de_antes_da_abertura_nao_entra_no_turno(loja):
+    """O turno começa quando a gaveta é montada, não quando o banco foi criado."""
+    antigo = _pedido(loja)
+    antigo.created_at = datetime.now() - timedelta(days=2)
+    db.session.commit()
+
+    caixa_service.abrir(loja, 100)
+    _pedido(loja)
+
+    conferencia = caixa_service.resumo(caixa_service.caixa_aberto(loja.id))
+    assert conferencia["pedidos"] == 1
+
+
+def test_fechamento_calcula_a_diferenca(loja):
+    caixa = caixa_service.abrir(loja, 100)
+    _pedido(loja, pagamento="Dinheiro")
+
+    conferencia = caixa_service.fechar(caixa, "125,00")
+
+    # Esperado: 100 de troco + 30 de venda = 130. Contados 125 → faltam 5.
+    assert conferencia["esperado_na_gaveta"] == 130.0
+    assert conferencia["diferenca"] == -5.0
+
+
+def test_fechar_sem_contar_nao_inventa_diferenca(loja):
+    caixa = caixa_service.abrir(loja, 100)
+
+    conferencia = caixa_service.fechar(caixa, "")
+
+    assert conferencia["diferenca"] is None
+    assert caixa.valor_contado is None
+
+
+def test_fechar_caixa_ja_fechado_e_recusado(loja):
+    caixa = caixa_service.abrir(loja, 100)
+    caixa_service.fechar(caixa)
+
+    with pytest.raises(ValueError, match="Não há caixa aberto"):
+        caixa_service.fechar(caixa)
+
+
+def test_abertura_e_fechamento_ficam_no_diario(loja):
+    caixa = caixa_service.abrir(loja, 100, actor="murilo")
+    caixa_service.fechar(caixa, "130", actor="murilo")
+
+    assert Auditoria.query.filter_by(acao=ACAO_CAIXA_ABERTO).count() == 1
+    fechamento = Auditoria.query.filter_by(acao=ACAO_CAIXA_FECHADO).one()
+    assert "R$" in fechamento.detalhes
+
+
+def test_caixa_de_um_restaurante_nao_ve_o_pedido_do_outro(loja, two_tenants):
+    outro = db.session.get(Tenant, two_tenants["tenant_b"])
+    db.session.add(Produto(tenant_id=outro.id, nome="Pizza", preco=40.0))
+    db.session.commit()
+
+    caixa_service.abrir(loja, 0)
+    _pedido(outro)
+
+    conferencia = caixa_service.resumo(caixa_service.caixa_aberto(loja.id))
+    assert conferencia["pedidos"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# Os dois tempos
+# --------------------------------------------------------------------------- #
+
+
+def test_retirada_usa_o_tempo_proprio_quando_definido(loja):
+    loja.tempo_estimado_min, loja.tempo_estimado_max = 40, 60
+    loja.tempo_retirada_min, loja.tempo_retirada_max = 15, 25
+    db.session.commit()
+
+    assert calcular_estimativa(loja, TIPO_RETIRADA) == (15, 25)
+
+
+def test_sem_tempo_proprio_a_retirada_continua_derivada(loja):
+    """Quem nunca preencheu o campo novo não pode ver o prazo mudar sozinho."""
+    loja.tempo_estimado_min, loja.tempo_estimado_max = 40, 60
+    loja.tempo_retirada_min = loja.tempo_retirada_max = None
+    db.session.commit()
+
+    assert calcular_estimativa(loja, TIPO_RETIRADA) == (30, 50)
+
+
+def test_as_duas_gavetas_salvam_tempos_diferentes(client, loja):
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    client.post(
+        "/admin/loja/tempos",
+        data={"entrega": "50-70", "retirada": "20-30"},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert (loja.tempo_estimado_min, loja.tempo_estimado_max) == (50, 70)
+    assert (loja.tempo_retirada_min, loja.tempo_retirada_max) == (20, 30)
+
+
+def test_faixa_invalida_nao_salva_nada(client, loja):
+    loja.tempo_estimado_min, loja.tempo_estimado_max = 40, 60
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    client.post(
+        "/admin/loja/tempos",
+        data={"entrega": "sei-la", "retirada": "20-30"},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert (loja.tempo_estimado_min, loja.tempo_estimado_max) == (40, 60)
+
+
+def test_a_faixa_salva_fora_da_lista_continua_aparecendo_na_gaveta(loja):
+    """Um restaurante com 35–55 salvo não pode ver a gaveta apontar outra coisa."""
+    opcoes = caixa_service.faixas_com_a_atual(35, 55)
+
+    assert (35, 55) in opcoes
+
+
+# --------------------------------------------------------------------------- #
+# Pelas telas
+# --------------------------------------------------------------------------- #
+
+
+def test_painel_mostra_a_barra_do_dia(client, loja):
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    corpo = client.get("/admin/", base_url=BASE_A).get_data(as_text=True)
+
+    assert "barra-do-dia" in corpo
+    assert "Tempo de entrega" in corpo
+    assert "Tempo de retirada" in corpo
+
+
+def test_abrir_a_loja_pela_tela(client, loja):
+    loja.loja_aberta = False
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    client.post(
+        "/admin/loja/abrir",
+        data={"valor_inicial": "200"},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert loja.loja_aberta is True
+    assert caixa_service.caixa_aberto(loja.id).valor_inicial == 200.0
+
+
+def test_fechar_a_loja_sem_caixa_aberto_ainda_funciona(client, loja):
+    """O interruptor existe desde antes do caixa; fechar tem de valer mesmo assim."""
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    client.post("/admin/loja/fechar", base_url=BASE_A, follow_redirects=True)
+
+    assert loja.loja_aberta is False
+
+
+def test_atendente_nao_abre_nem_fecha_a_loja(client, loja):
+    from app.models.usuario import ROLE_ATENDENTE, Usuario
+
+    ana = Usuario(tenant_id=loja.id, nome="Ana", username="ana", role=ROLE_ATENDENTE)
+    ana.set_password("senha-da-ana")
+    loja.loja_aberta = False
+    db.session.add(ana)
+    db.session.commit()
+
+    login_tenant(client, "tenant-a", "ana", "senha-da-ana")
+    client.post(
+        "/admin/loja/abrir", data={"valor_inicial": "500"}, base_url=BASE_A, follow_redirects=True
+    )
+
+    assert loja.loja_aberta is False
+
+
+def test_loja_fechada_recusa_pedido_pelo_cardapio(client, loja):
+    """Sem isto a tarja "Fechado" seria enfeite, e o pedido cairia na cozinha."""
+    from app.models.pedido import Pedido
+
+    produto = Produto.query.filter_by(tenant_id=loja.id).first()
+    loja.loja_aberta = False
+    db.session.commit()
+
+    client.post(
+        "/carrinho/adicionar",
+        data={"produto_id": produto.id, "quantidade": 1},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+    client.post(
+        "/pedido",
+        data={
+            "cliente": "Maria",
+            "telefone": "81999998888",
+            "tipo": TIPO_RETIRADA,
+            "pagamento": "Dinheiro",
+        },
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert Pedido.query.filter_by(tenant_id=loja.id).count() == 0
+
+
+def test_loja_fechada_nao_impede_o_atendente(loja):
+    """Fechar a porta é parar de receber pela internet, não parar de atender."""
+    loja.loja_aberta = False
+    db.session.commit()
+
+    pedido = _pedido(loja)
+
+    assert pedido.id is not None
+
+
+def test_cardapio_fechado_mostra_a_tarja_certa(client, loja):
+    loja.loja_aberta = False
+    db.session.commit()
+
+    corpo = client.get("/", base_url=BASE_A).get_data(as_text=True)
+
+    assert "status-closed" in corpo
+    assert "Fechado no momento" in corpo
+
+
+def test_os_formularios_da_barra_levam_csrf(client, loja):
+    """O cliente de teste roda com CSRF desligado, então só a marcação denuncia.
+
+    Sem esta verificação o formulário sobe sem o campo, passa em todos os
+    testes, e quebra com 400 na primeira vez que alguém clica de verdade — foi
+    exatamente o que aconteceu ao abrir a tela no navegador.
+    """
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    # Os dois estados, porque "abrir" e "fechar" nunca aparecem juntos: testar
+    # só um deixaria o outro subir sem o campo.
+    vistas = set()
+    for aberta in (True, False):
+        loja.loja_aberta = aberta
+        db.session.commit()
+
+        corpo = client.get("/admin/", base_url=BASE_A).get_data(as_text=True)
+        formularios = re.findall(
+            r'<form method="post" action="/admin/loja/(\w+)"[^>]*>(.*?)</form>', corpo, re.S
+        )
+
+        assert len(formularios) == 2, "a barra tem a ação do estado e os tempos"
+        for acao, corpo_do_form in formularios:
+            vistas.add(acao)
+            assert 'name="csrf_token"' in corpo_do_form, acao
+
+    assert vistas == {"abrir", "fechar", "tempos"}
+
+
+def test_configuracoes_salva_a_janela_de_retirada(client, loja):
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    client.post(
+        "/admin/configuracoes",
+        data={
+            "qtd_mesas": 0,
+            "tempo_estimado_min": 40,
+            "tempo_estimado_max": 60,
+            "tempo_retirada_min": 15,
+            "tempo_retirada_max": 25,
+        },
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert (loja.tempo_retirada_min, loja.tempo_retirada_max) == (15, 25)
+
+
+def test_retirada_em_branco_volta_ao_calculo_derivado(client, loja):
+    """Vazio é "calcule pela entrega", e não zero minuto."""
+    loja.tempo_retirada_min, loja.tempo_retirada_max = 15, 25
+    db.session.commit()
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    client.post(
+        "/admin/configuracoes",
+        data={
+            "qtd_mesas": 0,
+            "tempo_estimado_min": 40,
+            "tempo_estimado_max": 60,
+            "tempo_retirada_min": "",
+            "tempo_retirada_max": "",
+        },
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert loja.tempo_retirada_min is None
+    assert calcular_estimativa(loja, TIPO_RETIRADA) == (30, 50)
+
+
+def test_meia_janela_de_retirada_nao_e_janela(client, loja):
+    """Só o mínimo preenchido prometeria um teto que ninguém definiu."""
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    client.post(
+        "/admin/configuracoes",
+        data={
+            "qtd_mesas": 0,
+            "tempo_estimado_min": 40,
+            "tempo_estimado_max": 60,
+            "tempo_retirada_min": 15,
+            "tempo_retirada_max": "",
+        },
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    assert loja.tempo_retirada_min is None
+    assert loja.tempo_retirada_max is None

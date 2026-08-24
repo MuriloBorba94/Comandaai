@@ -107,6 +107,22 @@ def configuracoes():
         minimo = max(1, _to_int(request.form.get("tempo_estimado_min")) or 40)
         maximo = max(minimo, _to_int(request.form.get("tempo_estimado_max")) or 60)
 
+        # Vazio quer dizer "calcule pela entrega", e é diferente de zero. Por
+        # isso a checagem é pelo texto do campo, e não pelo inteiro convertido:
+        # _to_int("") devolve 0, que gravaria uma promessa de zero minuto.
+        def _retirada(campo):
+            bruto = (request.form.get(campo) or "").strip()
+            return max(1, _to_int(bruto)) if bruto else None
+
+        retirada_min = _retirada("tempo_retirada_min")
+        retirada_max = _retirada("tempo_retirada_max")
+        if retirada_min and retirada_max:
+            retirada_max = max(retirada_min, retirada_max)
+        elif retirada_min or retirada_max:
+            # Metade preenchida não é uma janela. Sem os dois, volta ao cálculo
+            # derivado — que é honesto — em vez de inventar o lado que falta.
+            retirada_min = retirada_max = None
+
         # O salão é um número, não uma contagem de linhas: o teto do plano vale
         # sobre o valor pedido, e não "cabe mais uma".
         teto_mesas = limite_do_tenant(g.tenant, "max_mesas")
@@ -132,6 +148,8 @@ def configuracoes():
         g.tenant.qtd_mesas = qtd_mesas
         g.tenant.tempo_estimado_min = minimo
         g.tenant.tempo_estimado_max = maximo
+        g.tenant.tempo_retirada_min = retirada_min
+        g.tenant.tempo_retirada_max = retirada_max
         db.session.commit()
         flash("Configurações salvas.", "sucesso")
         return redirect(url_for("admin.configuracoes"))
@@ -457,7 +475,15 @@ def _virgula(valor) -> str:
 @admin_bp.route("/")
 @admin_required
 def dashboard():
+    from ..services import caixa as caixa_service
     from ..services.pedidos import pedidos_ativos
+
+    turno = caixa_service.caixa_aberto(g.tenant.id)
+    entrega = (g.tenant.tempo_estimado_min or 40, g.tenant.tempo_estimado_max or 60)
+    retirada = (
+        g.tenant.tempo_retirada_min or max(20, entrega[0] - 10),
+        g.tenant.tempo_retirada_max or max(entrega[0] + 10, entrega[1] - 10),
+    )
 
     return render_template(
         "admin/dashboard.html",
@@ -466,7 +492,105 @@ def dashboard():
         total_categorias=Categoria.query.filter_by(tenant_id=g.tenant.id).count(),
         total_adicionais=Adicional.query.filter_by(tenant_id=g.tenant.id).count(),
         total_ativos=len(pedidos_ativos(g.tenant.id)),
+        caixa=turno,
+        resumo_caixa=caixa_service.resumo(turno) if turno else None,
+        tempo_entrega=entrega,
+        tempo_retirada=retirada,
+        faixas_entrega=caixa_service.faixas_com_a_atual(*entrega),
+        faixas_retirada=caixa_service.faixas_com_a_atual(*retirada),
+        rotulo_da_faixa=caixa_service.rotulo_da_faixa,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Abrir e fechar a loja
+# --------------------------------------------------------------------------- #
+
+
+@admin_bp.route("/loja/abrir", methods=["POST"])
+@admin_required
+def loja_abrir():
+    from ..services import caixa as caixa_service
+
+    try:
+        caixa_service.abrir(
+            g.tenant,
+            request.form.get("valor_inicial"),
+            actor=session.get("username"),
+        )
+    except ValueError as erro:
+        flash(str(erro), "erro")
+    else:
+        flash("Loja aberta. Bom movimento!", "sucesso")
+    return redirect(url_for("admin.dashboard"))
+
+
+@admin_bp.route("/loja/fechar", methods=["POST"])
+@admin_required
+def loja_fechar():
+    from ..services import caixa as caixa_service
+
+    turno = caixa_service.caixa_aberto(g.tenant.id)
+    if turno is None:
+        # Sem turno registrado ainda é um estado legítimo: o interruptor existe
+        # desde antes do caixa. Fechar a loja tem de funcionar mesmo assim.
+        g.tenant.loja_aberta = False
+        db.session.commit()
+        flash("Loja fechada.", "sucesso")
+        return redirect(url_for("admin.dashboard"))
+
+    try:
+        conferencia = caixa_service.fechar(
+            turno,
+            request.form.get("valor_contado"),
+            observacao=request.form.get("observacao"),
+            actor=session.get("username"),
+        )
+    except ValueError as erro:
+        flash(str(erro), "erro")
+        return redirect(url_for("admin.dashboard"))
+
+    diferenca = conferencia["diferenca"]
+    if diferenca is None:
+        flash("Loja fechada. O caixa foi encerrado sem conferência.", "sucesso")
+    elif abs(diferenca) < 0.01:
+        flash("Loja fechada e o caixa bateu certinho.", "sucesso")
+    else:
+        sinal = "sobrou" if diferenca > 0 else "faltou"
+        flash(
+            f"Loja fechada. Na gaveta {sinal} R$ {abs(diferenca):.2f} "
+            f"em relação aos R$ {conferencia['esperado_na_gaveta']:.2f} esperados.",
+            "erro",
+        )
+    return redirect(url_for("admin.dashboard"))
+
+
+@admin_bp.route("/loja/tempos", methods=["POST"])
+@admin_required
+def loja_tempos():
+    """As duas gavetas de tempo estimado, entrega e retirada."""
+
+    def _faixa(campo):
+        bruto = (request.form.get(campo) or "").split("-")
+        if len(bruto) != 2:
+            raise ValueError("Escolha uma faixa de tempo válida.")
+        minimo, maximo = (int(v) for v in bruto)
+        if minimo < 1 or maximo < minimo:
+            raise ValueError("Escolha uma faixa de tempo válida.")
+        return minimo, maximo
+
+    try:
+        entrega = _faixa("entrega")
+        retirada = _faixa("retirada")
+    except (TypeError, ValueError):
+        flash("Escolha uma faixa de tempo válida.", "erro")
+        return redirect(url_for("admin.dashboard"))
+
+    g.tenant.tempo_estimado_min, g.tenant.tempo_estimado_max = entrega
+    g.tenant.tempo_retirada_min, g.tenant.tempo_retirada_max = retirada
+    db.session.commit()
+    flash("Tempo estimado atualizado no cardápio.", "sucesso")
+    return redirect(url_for("admin.dashboard"))
 
 
 # --------------------------------------------------------------------------- #

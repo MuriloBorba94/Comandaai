@@ -82,9 +82,21 @@ class Tenant(TimestampMixin, db.Model):
     # tem um salão diferente.
     qtd_mesas = db.Column(db.Integer, default=0, nullable=False)
 
-    # Janela de tempo estimado informada ao cliente, por tenant.
+    # A loja está atendendo agora?
+    #
+    # Padrão True para não fechar a porta de quem já vende: ligar um
+    # interruptor novo não pode tirar do ar quem nunca soube que ele existia.
+    # Quem passar a usar o caixa controla isto pelo painel.
+    loja_aberta = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Janela de tempo informada ao cliente. A de ENTREGA é a base; a de retirada
+    # é separada porque o cliente que busca no balcão não espera o deslocamento
+    # — e, quando não preenchida, continua sendo derivada da de entrega, como
+    # era antes de existirem os dois campos.
     tempo_estimado_min = db.Column(db.Integer, default=40, nullable=False)
     tempo_estimado_max = db.Column(db.Integer, default=60, nullable=False)
+    tempo_retirada_min = db.Column(db.Integer)
+    tempo_retirada_max = db.Column(db.Integer)
 
     # Kill-switch manual do super-admin da plataforma, independente do
     # status de cobrança (ex.: suspender por abuso sem tocar na assinatura).

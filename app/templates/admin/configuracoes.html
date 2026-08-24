@@ -250,14 +250,24 @@
         Deixe em <strong>0</strong> se você não atende mesa — o fluxo de comanda fica indisponível.
       </p>
 
-      <label for="tempo_estimado_min">Tempo estimado mínimo (minutos)</label>
+      <label for="tempo_estimado_min">Tempo de entrega — mínimo (minutos)</label>
       <input id="tempo_estimado_min" name="tempo_estimado_min" type="number" min="1" value="{{ tenant.tempo_estimado_min }}">
 
-      <label for="tempo_estimado_max">Tempo estimado máximo (minutos)</label>
+      <label for="tempo_estimado_max">Tempo de entrega — máximo (minutos)</label>
       <input id="tempo_estimado_max" name="tempo_estimado_max" type="number" min="1" value="{{ tenant.tempo_estimado_max }}">
+
+      <label for="tempo_retirada_min">Tempo de retirada — mínimo (minutos)</label>
+      <input id="tempo_retirada_min" name="tempo_retirada_min" type="number" min="1"
+             value="{{ tenant.tempo_retirada_min or '' }}" placeholder="deixe vazio para calcular pelo de entrega">
+
+      <label for="tempo_retirada_max">Tempo de retirada — máximo (minutos)</label>
+      <input id="tempo_retirada_max" name="tempo_retirada_max" type="number" min="1"
+             value="{{ tenant.tempo_retirada_max or '' }}" placeholder="deixe vazio para calcular pelo de entrega">
       <p class="muted">
-        Essa janela é o que o cliente vê ao acompanhar o pedido. Ela aumenta
-        automaticamente quando há muitos pedidos na fila.
+        Essas janelas são o que o cliente vê no cardápio e ao acompanhar o pedido.
+        Elas aumentam automaticamente quando há muitos pedidos na fila. Deixando a
+        retirada em branco, ela continua sendo calculada a partir da entrega.
+        Para o ajuste do dia a dia, use as duas gavetas no topo do painel.
       </p>
 
       <button type="submit">Salvar</button>

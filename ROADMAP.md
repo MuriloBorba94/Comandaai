@@ -212,6 +212,55 @@ Borba's Burguer), adaptando cada peça para o modelo multi-tenant.
    dinheiro contado duas vezes. Aqui não existe categoria de despesa para
    insumo: a compra é entrada de estoque.
 
+12. **Turno de caixa, e a loja que abre e fecha.** *CONCLUÍDA em 24/08/2026.*
+
+    A tela inicial do painel ganhou uma barra do dia: abrir a loja informando o
+    troco que está na gaveta, fechar informando o que foi contado, e duas
+    gavetas de tempo estimado — uma para entrega, outra para retirada.
+
+    **A loja aberta é o interruptor, e só ele.** Chegou a ser "interruptor
+    ligado E caixa aberto", que é mais bonito no papel; a regra fecharia a
+    porta de todo restaurante que já vende, porque nenhum deles nunca abriu
+    caixa nenhum. `Tenant.loja_aberta` nasce `True` com `server_default`, e
+    quem nunca tocar no botão não percebe que ele existe.
+
+    Fechada, a loja **recusa pedido pelo cardápio** — sem isso a tarja
+    "Fechado no momento" seria enfeite, e o cliente que lesse "fechado" pediria
+    assim mesmo. A trava fica na rota pública, não em `criar_pedido`: o
+    atendente continua lançando mesa e balcão com a porta fechada, que é
+    justamente como se termina a noite.
+
+    A conferência do fim mostra os dois números lado a lado — o que o sistema
+    somou e o que a pessoa contou — e guarda a diferença. **Só dinheiro entra
+    na conta da gaveta**: cartão e PIX não passam por ela, e somá-los faria
+    toda conferência acusar uma falta que não existe. Um índice parcial
+    (`fechado_em IS NULL`) garante um turno aberto por restaurante, porque dois
+    cliques no botão contariam as vendas do dia duas vezes.
+
+    O tempo de retirada é um par próprio, e **nulo significa "calcule pela
+    entrega"** — o comportamento que existia antes do campo. Quem nunca
+    preencher não vê o prazo mudar sozinho.
+
+    Junto vieram duas correções de tela achadas medindo, não olhando:
+
+    - `input:not([type=checkbox]):not([type=radio]):not([type=hidden])` pesa
+      **(0,3,1)** — cada `:not()` conta como seletor de atributo, e o conjunto
+      vence QUALQUER classe. O estilo base derrotava as classes que existiam
+      para sobrescrevê-lo: `.menu-search` pedia 42px de recuo para caber a
+      lupa, recebia 12px, e "Buscar no cardápio" saía por baixo do ícone.
+      `:where()` zera o peso do filtro sem mudar o que ele filtra. É o mesmo
+      defeito que os botões tinham com `button:not(...)`.
+    - A barra de categorias grudava em `top: 66px` no desktop e `60px` no
+      celular contra uma barra de topo de **67px** nos dois. O cardápio
+      aparecia por essa fresta ao rolar. Agora os três leem `--topbar-h`.
+
+    E o cabeçalho do cardápio no celular caiu de **199px para 106px**: as três
+    tarjas empilhavam uma sob a outra e a primeira comida só aparecia depois de
+    rolar. Agora elas são uma faixa única que rola de lado. O telefone saiu da
+    tela e virou botão — escrito por extenso ele é copiado por robô de spam
+    antes de ser usado por cliente, e quem quer falar quer falar, não decorar
+    dez dígitos.
+
 10. **Hardening e operação.** *Em andamento.*
 
     ~~**Feature-gating por plano**~~ — feito junto com a Fase 4.

@@ -25,6 +25,7 @@
 
 /* ===================== tokens: escuro (padrão, igual à landing) ===================== */
 :root {
+  --topbar-h: 67px;
   --preto: #0a0b0e;
   --bg: #0a0b0e;
   --panel: #14161d;
@@ -359,8 +360,18 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
 /* ===================== formulários ===================== */
 label { color: var(--text-2); font-weight: 600; font-size: .84rem; }
 
+/* O `:not()` vive dentro de `:where()` de propósito.
+ *
+ * Cada `:not([type=...])` conta como um seletor de atributo, então
+ * `input:not():not():not()` pesa (0,3,1) — mais que QUALQUER classe. O efeito
+ * era o estilo base vencer as classes que existiam justamente para
+ * sobrescrevê-lo: `.menu-search` pedia 42px de recuo à esquerda para caber a
+ * lupa, levava os 12px daqui, e o texto "Buscar no cardápio" saía por baixo do
+ * ícone. `:where()` zera o peso do que está dentro dele, o filtro continua
+ * valendo, e o seletor cai para (0,0,1) — que é o que um estilo base deve
+ * pesar. Mesmo problema que os botões tinham com `button:not(...)`. */
 .admin-input, .input-small, .input,
-input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea {
+input:where(:not([type=checkbox]):not([type=radio]):not([type=hidden])), select, textarea {
   background: rgba(255, 255, 255, .04);
   color: var(--text);
   border: 1px solid var(--border-2);
@@ -372,7 +383,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textare
   width: 100%;
 }
 :root[data-theme="light"] .admin-input,
-:root[data-theme="light"] input:not([type=checkbox]):not([type=radio]):not([type=hidden]),
+:root[data-theme="light"] input:where(:not([type=checkbox]):not([type=radio]):not([type=hidden])),
 :root[data-theme="light"] select, :root[data-theme="light"] textarea { background: var(--panel); }
 input::placeholder, textarea::placeholder { color: var(--muted); }
 input:hover, select:hover, textarea:hover { border-color: var(--muted); }
@@ -936,7 +947,11 @@ body.vitrine { --price: var(--ambar); }
 :root[data-theme="light"] .store-meta-item { background: var(--panel-2); }
 .store-banner-notice { margin-top: 12px; font-size: .82rem; color: var(--warning); background: var(--warning-bg); border: 1px solid var(--warning-border); padding: 10px 14px; border-radius: var(--raio-sm); max-width: 520px; }
 
-.menu-toolbar { position: sticky; top: 66px; z-index: 45; background: var(--bg); padding-top: 16px; }
+/* `top` casado com a altura real da barra do topo (--topbar-h). Estava em
+   66px contra uma barra de 67px, e o cardápio passava por essa fresta de 1px
+   ao rolar. Uma variável em vez de dois números soltos porque foi assim que
+   eles se desencontraram. */
+.menu-toolbar { position: sticky; top: var(--topbar-h); z-index: 45; background: var(--bg); padding-top: 16px; }
 .menu-search-wrap { position: relative; margin-bottom: 12px; }
 .menu-search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); opacity: .6; pointer-events: none; }
 .menu-search { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: var(--raio); padding: 14px 15px 14px 42px; font-size: .95rem; margin: 0; }
@@ -1282,6 +1297,19 @@ body.vitrine { --price: var(--ambar); }
   width: 100%; padding: 15px; font-size: 1.02rem; font-weight: 800;
   margin-top: 6px;
 }
+/* ===================== corrigir pagamento na cozinha ===================== */
+/* Fechado por padrão: é conserto de exceção, e um seletor sempre aberto em cada
+   cartão faria a fila da cozinha parecer um formulário. */
+.corrigir-pagamento { margin: 6px 0 0; }
+.corrigir-pagamento summary {
+  cursor: pointer; font-size: .72rem; color: var(--muted); font-weight: 600;
+  list-style: none; padding: 2px 0;
+}
+.corrigir-pagamento summary:hover { color: var(--text-2); }
+.corrigir-pagamento form { display: flex; gap: 6px; margin: 6px 0 0; }
+.corrigir-pagamento select { margin: 0; font-size: .78rem; padding: 6px 8px; }
+.corrigir-pagamento button { margin: 0; padding: 6px 11px; font-size: .74rem; white-space: nowrap; }
+
 @media (max-width: 560px) {
   .grid-2 { grid-template-columns: 1fr; }
 }
@@ -1355,10 +1383,24 @@ body.vitrine { --price: var(--ambar); }
   .grid-2, .radio-cards { grid-template-columns: 1fr; }
   .btn-label { display: none; }
   .modal, .modal-content { padding: 18px; }
-  .store-banner-inner { padding: 22px 0 20px; gap: 14px; }
-  .store-banner-logo { width: 64px; height: 64px; }
+  /* Cabeçalho compacto: no celular ele ocupava 199px — logo, nome e TRÊS
+     tarjas empilhadas uma sob a outra — e a primeira comida só aparecia
+     depois de rolar. Agora logo, nome e WhatsApp dividem a primeira linha, e
+     as tarjas viram uma faixa única que rola de lado se não couber. */
+  .store-banner-inner { padding: 18px 0 16px; gap: 12px; align-items: flex-start; }
+  .store-banner-logo { width: 56px; height: 56px; }
+  .store-banner-info { min-width: 0; }
+  .store-banner-info h1 { margin: 0 0 8px; }
+  .store-banner-meta {
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    /* Sem a margem negativa a última tarja encosta na borda e parece cortada
+       por engano, em vez de continuar. */
+    margin-right: -16px; padding-right: 16px;
+  }
+  .store-banner-meta::-webkit-scrollbar { display: none; }
+  .store-banner-meta > * { flex: none; }
   .product-thumb { width: 80px; height: 80px; }
-  .menu-toolbar { top: 60px; }
+  .menu-toolbar { top: var(--topbar-h); }
   .floating-cart { left: 14px; right: 14px; bottom: 14px; justify-content: space-between; }
   .tracking-hero { grid-template-columns: 1fr; padding: 20px; }
   .tracking-number { align-items: flex-start; min-width: 0; }
@@ -1368,4 +1410,83 @@ body.vitrine { --price: var(--ambar); }
   .finance-kpis, .metric-grid, .admin-grid { grid-template-columns: 1fr; }
   .v17-commandbar-title small { display: none; }
   .v17-sidebar { width: min(280px, 88vw); }
+}
+
+/* ---------------------------------------------------------------------------
+ * Barra do dia (topo do painel): abrir/fechar a loja, gaveta e tempo estimado.
+ *
+ * É a primeira coisa da tela porque é a primeira coisa do turno. O estado
+ * aberto/fechado nunca é dito só pela cor da luz: vem sempre com a palavra ao
+ * lado, porque verde e vermelho são a dupla que mais gente confunde.
+ * ------------------------------------------------------------------------- */
+.barra-do-dia {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px;
+  padding: 16px 20px; margin-bottom: 18px;
+  background: var(--superficie-topo);
+  border: 1px solid var(--border); border-radius: var(--raio);
+  border-left: 4px solid var(--muted);
+}
+.barra-do-dia.aberta { border-left-color: var(--success); }
+.barra-do-dia.fechada { border-left-color: var(--danger); }
+
+.bd-estado { display: flex; align-items: center; gap: 11px; min-width: 200px; }
+.bd-estado strong { display: block; font-size: .98rem; letter-spacing: -.01em; }
+.bd-estado small { display: block; color: var(--muted); font-size: .78rem; margin-top: 2px; }
+.bd-luz { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--muted); }
+.barra-do-dia.aberta .bd-luz { background: var(--success); box-shadow: 0 0 0 4px var(--success-bg); }
+.barra-do-dia.fechada .bd-luz { background: var(--danger); box-shadow: 0 0 0 4px var(--danger-bg); }
+
+.bd-numeros { display: flex; gap: 20px; flex-wrap: wrap; }
+.bd-numeros span { display: block; color: var(--muted); font-size: .72rem; }
+.bd-numeros strong { display: block; font-size: 1.05rem; font-weight: 800; letter-spacing: -.02em; margin-top: 2px; }
+
+/* O formulário sai de dentro do <details> como painel flutuante para não
+   empurrar a página inteira para baixo quando alguém só quer conferir. */
+.bd-acao { position: relative; margin-left: auto; }
+.bd-acao > summary { list-style: none; cursor: pointer; display: inline-flex; }
+.bd-acao > summary::-webkit-details-marker { display: none; }
+.bd-acao > form {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 30;
+  width: min(300px, 84vw); padding: 16px;
+  background: var(--panel-2); border: 1px solid var(--border-2);
+  border-radius: var(--raio); box-shadow: 0 18px 40px rgba(0, 0, 0, .45);
+}
+.bd-acao label { display: block; font-size: .8rem; color: var(--text-2); margin-bottom: 10px; }
+.bd-acao input { width: 100%; margin-top: 5px; }
+.bd-acao button { width: 100%; }
+
+.bd-tempos { display: flex; gap: 12px; flex-wrap: wrap; }
+.bd-tempos label { font-size: .72rem; color: var(--muted); }
+.bd-tempos select { display: block; margin-top: 4px; min-width: 132px; }
+
+@media (max-width: 720px) {
+  .bd-acao { margin-left: 0; }
+  .bd-acao > form { right: auto; left: 0; }
+  .bd-tempos { width: 100%; }
+  .bd-tempos label { flex: 1; }
+  .bd-tempos select { width: 100%; }
+}
+
+/* Botão do WhatsApp no banner da loja.
+ *
+ * Ícone com rótulo ao lado no desktop e só o ícone no celular, onde a largura
+ * é disputada. O rótulo não some do documento nem lá: continua no aria-label,
+ * porque um link cujo nome acessível é "" é um link que o leitor de tela
+ * anuncia como "link". */
+.store-zap {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  margin-left: auto; padding: 11px 16px;
+  border-radius: 999px; text-decoration: none;
+  font-size: .85rem; font-weight: 700;
+  color: var(--success); background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  transition: transform .12s ease, filter .12s ease;
+}
+.store-zap:hover { transform: translateY(-1px); filter: brightness(1.12); }
+.store-zap:focus-visible { outline: 2px solid var(--success); outline-offset: 2px; }
+
+@media (max-width: 720px) {
+  /* Só o ícone: o rótulo empurraria os prazos para uma terceira linha. */
+  .store-zap { padding: 11px; margin-left: 0; }
+  .store-zap-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 }

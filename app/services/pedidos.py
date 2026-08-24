@@ -206,8 +206,15 @@ def calcular_estimativa(tenant, tipo: str, prazo_adicional: int = 0) -> tuple[in
     if tipo == TIPO_MESA:
         base_min, base_max = max(15, base_min - 20), max(30, base_max - 20)
     elif tipo == TIPO_RETIRADA:
-        base_min = max(20, base_min - 10)
-        base_max = max(base_min + 10, base_max - 10)
+        if tenant.tempo_retirada_min and tenant.tempo_retirada_max:
+            # O restaurante disse quanto demora para retirar. Vale isso.
+            base_min = int(tenant.tempo_retirada_min)
+            base_max = max(base_min, int(tenant.tempo_retirada_max))
+        else:
+            # Sem o valor próprio, continua derivado da entrega — que é como
+            # funcionava antes de o campo existir.
+            base_min = max(20, base_min - 10)
+            base_max = max(base_min + 10, base_max - 10)
 
     extra = extra_fila + max(0, int(prazo_adicional or 0))
     return base_min + extra, base_max + extra
@@ -440,7 +447,18 @@ def transicionar(pedido: Pedido, novo_status: str, actor: str | None = None) -> 
     if campo:
         setattr(pedido, campo, datetime.now())
 
-    if novo_status in (STATUS_ENTREGUE, STATUS_CANCELADO):
+    # Quem fecha comanda de mesa é o atendente, no fechamento — nunca a cozinha.
+    #
+    # Para mesa, "Entregue" quer dizer que o prato chegou à mesa: as pessoas
+    # continuam ali, e vão pedir sobremesa. Liberar a mesa nesse momento tirava
+    # a comanda do mapa do salão com gente ainda sentada, e o próximo item
+    # lançado abriria uma comanda nova — o consumo da mesma mesa partido em
+    # duas contas.
+    #
+    # Cancelado continua fechando: pedido cancelado é mesa livre de verdade.
+    if novo_status == STATUS_CANCELADO:
+        pedido.comanda_aberta = False
+    elif novo_status == STATUS_ENTREGUE and pedido.tipo != TIPO_MESA:
         pedido.comanda_aberta = False
 
     # Cancelar devolve a vaga; qualquer outro avanço consome a reserva.
@@ -589,6 +607,43 @@ def pedir_conta(pedido: Pedido, pedida: bool = True) -> Pedido:
         raise ValueError("Esta comanda não está aberta.")
     pedido.conta_pedida_em = datetime.now() if pedida else None
     db.session.commit()
+    return pedido
+
+
+def corrigir_pagamento(pedido: Pedido, forma: str, *, actor: str | None = None) -> Pedido:
+    """Troca a forma de pagamento registrada num pedido.
+
+    Existe porque o atendente escolhe isso correndo, no balcão, e escolhe errado
+    — e o número errado vai parar no relatório de vendas e no fechamento do
+    caixa, onde só aparece no fim do dia, quando ninguém mais lembra qual pedido
+    foi.
+
+    Não mexe em NADA além do texto: não estorna, não reabre comanda, não desfaz
+    pagamento online. Se houve PIX confirmado pelo site, o registro do
+    recebimento continua valendo — trocar o rótulo não desfaz dinheiro que
+    entrou.
+    """
+    nova = _texto(forma, 80)
+    if not nova:
+        raise ValueError("Escolha a forma de pagamento.")
+
+    anterior = pedido.pagamento
+    if nova == anterior:
+        return pedido
+
+    pedido.pagamento = nova
+    db.session.commit()
+
+    from ..models.auditoria import ACAO_PAGAMENTO_CORRIGIDO
+    from .auditoria import registrar as registrar_auditoria
+
+    registrar_auditoria(
+        ACAO_PAGAMENTO_CORRIGIDO,
+        tenant=pedido.tenant,
+        alvo=f"Pedido #{pedido.numero}",
+        detalhes=f"{anterior} → {nova}",
+        ator=actor,
+    )
     return pedido
 
 
