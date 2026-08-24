@@ -26,6 +26,7 @@
 /* ===================== tokens: escuro (padrão, igual à landing) ===================== */
 :root {
   --topbar-h: 67px;
+  --margem-lateral: 26px;
   --preto: #0a0b0e;
   --bg: #0a0b0e;
   --panel: #14161d;
@@ -911,12 +912,12 @@ form.inline { display: inline; }
 body.vitrine { --price: var(--ambar); }
 
 .topbar { position: sticky; top: 0; z-index: 50; background: var(--commandbar-bg); backdrop-filter: saturate(180%) blur(16px); border-bottom: 1px solid var(--border); }
-.topbar-inner { width: min(1160px, calc(100% - 32px)); margin: auto; min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.topbar-inner { width: min(1160px, calc(100% - var(--margem-lateral) * 2)); margin: auto; min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .marca-loja { display: flex; align-items: center; gap: 12px; text-decoration: none; }
 .marca-loja img { height: 40px; max-width: 160px; object-fit: contain; border-radius: var(--raio-sm); }
 .marca-loja strong { font-size: 1.1rem; font-weight: 800; letter-spacing: -.02em; }
 .acoes-topbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.container { width: min(1160px, calc(100% - 32px)); margin: 0 auto; padding: 26px 0 90px; }
+.container { width: min(1160px, calc(100% - var(--margem-lateral) * 2)); margin: 0 auto; padding: 26px 0 90px; }
 
 .status-pill { display: inline-flex; width: max-content; border-radius: 999px; padding: 7px 13px; font-weight: 700; font-size: .8rem; }
 .status-open { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
@@ -924,15 +925,15 @@ body.vitrine { --price: var(--ambar); }
 .empty { text-align: center; color: var(--muted); padding: 45px 15px; }
 
 .store-banner {
-  position: relative; overflow: hidden; margin: -26px 0 0;
-  border-bottom: 1px solid var(--border);
+  position: relative; overflow: hidden; margin: 0 0 4px;
+  border: 1px solid var(--border); border-radius: var(--raio);
   background: linear-gradient(135deg, var(--panel-2), var(--bg));
 }
 .store-banner:before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(circle at 12% -25%, var(--brand-bg), transparent 58%);
 }
-.store-banner-inner { position: relative; padding: 30px 0 26px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.store-banner-inner { position: relative; padding: 26px 24px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .store-banner-logo {
   width: 78px; height: 78px; border-radius: var(--raio-lg);
   background: var(--panel); border: 3px solid var(--bg);
@@ -1382,12 +1383,15 @@ body.vitrine { --price: var(--ambar); }
   .mesas-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
   .grid-2, .radio-cards { grid-template-columns: 1fr; }
   .btn-label { display: none; }
+  /* 20px em vez dos 26px do desktop: numa tela de 375px a margem cheia
+     comeria largura que o cardápio precisa, mas 16px estava colado. */
+  :root { --margem-lateral: 20px; }
   .modal, .modal-content { padding: 18px; }
   /* Cabeçalho compacto: no celular ele ocupava 199px — logo, nome e TRÊS
      tarjas empilhadas uma sob a outra — e a primeira comida só aparecia
      depois de rolar. Agora logo, nome e WhatsApp dividem a primeira linha, e
      as tarjas viram uma faixa única que rola de lado se não couber. */
-  .store-banner-inner { padding: 18px 0 16px; gap: 12px; align-items: flex-start; }
+  .store-banner-inner { padding: 18px 16px; gap: 12px; align-items: flex-start; }
   .store-banner-logo { width: 56px; height: 56px; }
   .store-banner-info { min-width: 0; }
   .store-banner-info h1 { margin: 0 0 8px; }
@@ -1395,7 +1399,7 @@ body.vitrine { --price: var(--ambar); }
     flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
     /* Sem a margem negativa a última tarja encosta na borda e parece cortada
        por engano, em vez de continuar. */
-    margin-right: -16px; padding-right: 16px;
+    margin-right: -16px; padding-right: 16px;  /* casado com o padding do cartão */
   }
   .store-banner-meta::-webkit-scrollbar { display: none; }
   .store-banner-meta > * { flex: none; }
@@ -1490,3 +1494,15 @@ body.vitrine { --price: var(--ambar); }
   .store-zap { padding: 11px; margin-left: 0; }
   .store-zap-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 }
+
+/* Loja fechada: dito antes de o cliente montar a sacola, e não depois. */
+.loja-fechada-aviso {
+  margin: 0 0 16px; padding: 13px 16px;
+  border: 1px solid var(--danger-border); border-radius: var(--raio-sm);
+  background: var(--danger-bg); color: var(--danger);
+  font-size: .86rem; line-height: 1.5;
+}
+.loja-fechada-aviso strong { display: block; }
+/* A foto continua clicável — o cliente pode olhar o cardápio à vontade. O que
+   sai é o convite a pedir. */
+.loja-fechada .product-card { cursor: default; }

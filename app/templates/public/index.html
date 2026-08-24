@@ -2,6 +2,12 @@
 {% block title %}{{ tenant.nome_fantasia }} — Cardápio{% endblock %}
 {% block header_title %}{{ tenant.nome_fantasia }}{% endblock %}
 {% block header_actions %}
+  {% if whatsapp_do_tenant() %}
+    <a class="btn btn-muted btn-ghost-mobile" href="{{ whatsapp_do_tenant() }}"
+       target="_blank" rel="noopener" aria-label="Falar com o restaurante no WhatsApp">
+      📞<span class="btn-label"> WhatsApp</span>
+    </a>
+  {% endif %}
   <a class="btn btn-muted btn-ghost-mobile" href="{{ url_for('auth.login') }}" aria-label="Painel administrativo">
     👤<span class="btn-label"> Painel</span>
   </a>
@@ -44,19 +50,20 @@
         </div>
       </div>
 
-      {% if whatsapp_do_tenant() %}
-        <a class="store-zap" href="{{ whatsapp_do_tenant() }}" target="_blank" rel="noopener"
-           title="Falar no WhatsApp" aria-label="Falar com o restaurante no WhatsApp">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-            <path d="M6.6 10.8c.9 1.8 2.4 3.3 4.2 4.2l1.4-1.4c.2-.2.5-.3.7-.2 .8.3 1.7.4 2.6.4 .4 0 .7.3.7.7v2.2c0 .4-.3.7-.7.7C9.6 17.4 4.6 12.4 4.6 6.2c0-.4.3-.7.7-.7h2.2c.4 0 .7.3.7.7 0 .9.1 1.8.4 2.6 .1.3 0 .5-.2.7l-1.4 1.3z"/>
-          </svg>
-          <span class="store-zap-label">Falar no WhatsApp</span>
-        </a>
-      {% endif %}
     </div>
   </section>
 
-  <section id="cardapio">
+  {% if not loja_aberta %}
+    {# O cliente precisa saber ANTES de montar a sacola. Descobrir só no envio
+       é gastar o tempo dele para depois dizer não — e a recusa no servidor,
+       sozinha, produzia exatamente isso. #}
+    <p class="loja-fechada-aviso">
+      <strong>Estamos fechados no momento.</strong>
+      Você pode ver o cardápio à vontade, mas ainda não dá para enviar pedido.
+    </p>
+  {% endif %}
+
+  <section id="cardapio" {% if not loja_aberta %}class="loja-fechada"{% endif %}>
     <div class="menu-toolbar" id="menu-toolbar">
       <div class="menu-search-wrap">
         <span class="menu-search-icon" aria-hidden="true">🔍</span>
@@ -104,7 +111,9 @@
                 {% else %}
                   <div class="thumb-vazia" style="width:100%;height:100%">sem foto</div>
                 {% endif %}
-                <button type="button" class="product-add" aria-label="Adicionar {{ produto.nome }}">+</button>
+                {% if loja_aberta %}
+                  <button type="button" class="product-add" aria-label="Adicionar {{ produto.nome }}">+</button>
+                {% endif %}
               </div>
             </article>
           {% endfor %}
@@ -157,7 +166,13 @@
           <button type="button" class="qty-btn" data-passo="1" aria-label="Aumentar quantidade">+</button>
         </div>
       </div>
-      <button id="add-to-cart-btn" class="btn btn-primary" style="width:100%" type="button">Adicionar</button>
+      {% if loja_aberta %}
+        <button id="add-to-cart-btn" class="btn btn-primary" style="width:100%" type="button">Adicionar</button>
+      {% else %}
+        <p class="loja-fechada-aviso" style="margin:0">
+          Fechados no momento — este item volta a ficar disponível na próxima abertura.
+        </p>
+      {% endif %}
     </section>
   </div>
 
@@ -170,7 +185,15 @@
       </div>
       <div id="cart-list"></div>
       <div class="cart-total"><span>Subtotal</span><span id="cart-total">R$ 0,00</span></div>
-      <a class="btn btn-success" style="width:100%" href="{{ url_for('public.carrinho') }}">Continuar pedido</a>
+      {% if loja_aberta %}
+        <a class="btn btn-success" style="width:100%" href="{{ url_for('public.carrinho') }}">Continuar pedido</a>
+      {% else %}
+        {# A sacola pode ter itens de antes do fechamento. Olhar tudo bem;
+           seguir para o checkout levaria à recusa do servidor lá no fim. #}
+        <p class="loja-fechada-aviso" style="margin:0">
+          Fechados no momento. Sua sacola fica guardada para quando reabrirmos.
+        </p>
+      {% endif %}
     </section>
   </div>
 {% endblock %}
@@ -341,7 +364,10 @@
       }));
   }
 
-  el('add-to-cart-btn').addEventListener('click', async function () {
+  // Com a loja fechada o botão não é renderizado — `?.` em vez de assumir
+  // que ele está lá, senão o script morre aqui e leva junto tudo o que vem
+  // depois (busca, categorias, sacola).
+  el('add-to-cart-btn')?.addEventListener('click', async function () {
     if (!produtoAtual) return;
     this.disabled = true;
     const corpo = new FormData();

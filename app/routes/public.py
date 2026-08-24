@@ -211,6 +211,8 @@ def carrinho():
     if g.tenant is None:
         abort(404)
 
+    from ..services.caixa import loja_esta_aberta
+
     linhas = _carrinho_da_sessao()
     itens, subtotal, erro = _itens_calculados(linhas)
     if erro:
@@ -232,6 +234,7 @@ def carrinho():
     return render_template(
         "public/carrinho.html",
         tenant=g.tenant,
+        loja_aberta=loja_esta_aberta(g.tenant),
         itens=itens,
         subtotal=subtotal,
         desconto=desconto,

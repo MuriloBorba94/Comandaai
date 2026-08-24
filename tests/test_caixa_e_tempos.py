@@ -442,3 +442,90 @@ def test_meia_janela_de_retirada_nao_e_janela(client, loja):
 
     assert loja.tempo_retirada_min is None
     assert loja.tempo_retirada_max is None
+
+
+# --------------------------------------------------------------------------- #
+# A loja fechada precisa PARECER fechada, e não só recusar no fim
+# --------------------------------------------------------------------------- #
+
+
+def _fechar(loja):
+    loja.loja_aberta = False
+    db.session.commit()
+
+
+def test_cardapio_fechado_esconde_o_botao_de_adicionar(client, loja):
+    """Botão que existe para não funcionar é convite à frustração."""
+    _fechar(loja)
+
+    corpo = client.get("/", base_url=BASE_A).get_data(as_text=True)
+
+    # O botão em si, não a menção no script — o JS continua referenciando a
+    # classe (com `?.`), e casar pelo nome solto daria um teste sempre verde.
+    assert 'class="product-add"' not in corpo
+    assert "Estamos fechados no momento" in corpo
+
+
+def test_cardapio_fechado_nao_oferece_adicionar_no_modal(client, loja):
+    _fechar(loja)
+
+    corpo = client.get("/", base_url=BASE_A).get_data(as_text=True)
+
+    assert 'id="add-to-cart-btn"' not in corpo
+
+
+def test_carrinho_fechado_nao_mostra_o_formulario_de_finalizar(client, loja):
+    """A página é alcançável por link direto; esconder só no cardápio não basta."""
+    produto = Produto.query.filter_by(tenant_id=loja.id).first()
+    client.post(
+        "/carrinho/adicionar",
+        data={"produto_id": produto.id, "quantidade": 1},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+    _fechar(loja)
+
+    corpo = client.get("/carrinho", base_url=BASE_A).get_data(as_text=True)
+
+    assert 'id="form-pedido"' not in corpo
+    assert "Estamos fechados no momento" in corpo
+    # E os itens continuam lá: fechar a loja não é esvaziar a sacola de ninguém.
+    assert produto.nome in corpo
+
+
+def test_carrinho_aberto_continua_com_o_formulario(client, loja):
+    produto = Produto.query.filter_by(tenant_id=loja.id).first()
+    client.post(
+        "/carrinho/adicionar",
+        data={"produto_id": produto.id, "quantidade": 1},
+        base_url=BASE_A,
+        follow_redirects=True,
+    )
+
+    corpo = client.get("/carrinho", base_url=BASE_A).get_data(as_text=True)
+
+    assert 'id="form-pedido"' in corpo
+
+
+def test_botao_do_whatsapp_fica_no_cabecalho_com_o_visual_do_painel(client, loja):
+    loja.telefone_contato = "81996353503"
+    db.session.commit()
+
+    corpo = client.get("/", base_url=BASE_A).get_data(as_text=True)
+    cabecalho = corpo.split('class="acoes-topbar"', 1)[1].split("</div>", 1)[0]
+
+    assert "https://wa.me/5581996353503" in cabecalho
+    # Mesmas classes do botão Painel: é isso que "igual ao botão painel" quer
+    # dizer, e um visual próprio voltaria a divergir na primeira mudança de tema.
+    assert cabecalho.count("btn btn-muted btn-ghost-mobile") == 2
+    # O número em si não aparece escrito na tela.
+    assert "81996353503" not in cabecalho.replace("wa.me/5581996353503", "")
+
+
+def test_sem_telefone_cadastrado_o_cabecalho_nao_inventa_botao(client, loja):
+    loja.telefone_contato = None
+    db.session.commit()
+
+    corpo = client.get("/", base_url=BASE_A).get_data(as_text=True)
+
+    assert "wa.me" not in corpo

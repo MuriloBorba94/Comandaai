@@ -69,6 +69,16 @@
   <div class="card-admin">
     <h1>Fechar pedido</h1>
 
+    {% if not loja_aberta %}
+      {# Esta página é alcançável por link direto, então não basta esconder o
+         botão no cardápio. Sem isto o cliente preencheria nome, telefone e
+         endereço para só então ouvir que estamos fechados. #}
+      <p class="loja-fechada-aviso">
+        <strong>Estamos fechados no momento.</strong>
+        Seus itens ficam guardados aqui. Quando reabrirmos, é só voltar e
+        finalizar.
+      </p>
+    {% else %}
     <form method="post" action="{{ url_for('public.pedido_criar') }}" id="form-pedido">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {# Torna o envio idempotente: clicar duas vezes não gera dois pedidos. #}
@@ -140,12 +150,13 @@
         <p class="muted" id="aviso-taxa">A taxa do bairro escolhido entra no total.</p>
       {% endif %}
     </form>
+    {% endif %}
   </div>
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
-{% if itens %}
+{% if itens and loja_aberta %}
 <script>
   "use strict";
 
