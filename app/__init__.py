@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from logging.handlers import RotatingFileHandler
@@ -300,6 +301,22 @@ def create_app(config_object=Config) -> Flask:
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         return response
 
+    app.config["ESTATICOS_VERSAO"] = _versao_dos_estaticos(app)
+
+    @app.url_defaults
+    def versionar_estaticos(endpoint: str, values: dict) -> None:
+        if endpoint != "static" or "v" in values:
+            return
+        nome = str(values.get("filename") or "")
+        if not nome.startswith(("css/", "js/")):
+            return
+        # Em desenvolvimento o valor é recalculado a cada link, senão editar o
+        # CSS e recarregar continuaria mostrando a versão anterior — o mesmo
+        # sintoma, só que na própria máquina.
+        values["v"] = (
+            _versao_dos_estaticos(app) if app.debug else app.config["ESTATICOS_VERSAO"]
+        )
+
     @app.errorhandler(CSRFError)
     def csrf_error(error):
         message = "Sua página ficou desatualizada. Atualize a tela e tente novamente."
@@ -340,6 +357,37 @@ def create_app(config_object=Config) -> Flask:
         return render_template("error.html", code=500, message="Ocorreu um erro interno."), 500
 
     return app
+
+
+def _versao_dos_estaticos(app: Flask) -> str:
+    """Marca que muda quando o CSS ou o JS mudam.
+
+    Existe por causa de um problema real, não teórico: em 24/08/2026 uma
+    correção de CSS subiu para o servidor e simplesmente não apareceu. O
+    arquivo estava lá (90.283 bytes, modificado às 12:32), mas o visitante
+    recebia o de dois dias antes (83.002 bytes) — a borda da Cloudflare
+    guardara a versão velha com `max-age=604800`, ou seja, **sete dias**.
+
+    Como a URL era sempre a mesma, nada avisava ninguém de que o conteúdo
+    mudou. Limpar o cache na mão resolveria uma vez e o problema voltaria no
+    deploy seguinte; a URL versionada resolve para sempre, porque um arquivo
+    novo passa a ser um endereço novo — e endereço novo nenhum cache tem.
+
+    Só CSS e JS. As fotos do cardápio ficam de fora de propósito: elas não
+    quebram a tela quando ficam velhas, e versioná-las faria todo cliente
+    baixar o cardápio inteiro de novo a cada publicação — no celular, na rua,
+    pagando dados.
+    """
+    marca = hashlib.sha256()
+    raiz = Path(app.static_folder or "")
+    for subpasta in ("css", "js"):
+        for caminho in sorted((raiz / subpasta).glob("*")):
+            try:
+                info = caminho.stat()
+            except OSError:  # pragma: no cover - arquivo sumindo no meio
+                continue
+            marca.update(f"{caminho.name}:{info.st_mtime_ns}:{info.st_size}".encode())
+    return marca.hexdigest()[:10]
 
 
 def _configure_logging(app: Flask) -> None:
