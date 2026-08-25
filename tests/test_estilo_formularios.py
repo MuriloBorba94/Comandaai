@@ -167,3 +167,49 @@ def test_o_painel_tem_teto_de_largura_e_de_altura(css):
     assert "width: min(" in regra
     assert "max-height: min(" in regra
     assert "overflow: auto" in regra
+
+
+# --------------------------------------------------------------------------- #
+# Cozinha
+# --------------------------------------------------------------------------- #
+
+
+def test_a_lista_de_itens_nao_e_bloco_pre_formatado(css):
+    """`white-space: pre-wrap` num <ul> com <li> preserva a INDENTAÇÃO DO
+    TEMPLATE — o espaço entre as tags vira conteúdo.
+
+    Media 170px de caixa, com barra de rolagem, para exibir um item só; o card
+    inteiro ia a 346px. Sem isso: 31px de caixa e 207px de card, 139px a menos
+    por pedido.
+    """
+    regra = _regra(css, ".order-items")
+
+    assert "white-space: pre-wrap" not in regra
+    assert "list-style: none" in regra
+
+
+def test_as_seis_fases_cabem_sem_largura_minima_fixa(css):
+    """`minmax(240px, 1fr)` somava 1440px de colunas numa tela de 1366 e
+    empurrava as duas últimas fases para fora."""
+    regra = _regra(css, ".v17-kanban")
+
+    assert "repeat(6, minmax(0, 1fr))" in regra
+
+
+def test_os_botoes_da_cozinha_sao_chapados(css):
+    """Um degradê por botão × quatro botões × seis colunas é ruído demais numa
+    tela que se olha de longe."""
+    regra = _regra(css, ".order-actions button")
+
+    assert "background-image: none" in regra
+    assert "line-height: 1.15" in regra
+
+
+def test_as_seis_fases_sobrevivem_ate_1240px(css):
+    """Monitor de 19" é 1280x1024 ou 1440x900 na maioria dos balcões.
+
+    A quebra estava em 1350px, o que jogava justamente o 1280 para três colunas
+    em duas fileiras — a cozinha perdia metade do quadro de vista.
+    """
+    assert "@media (max-width: 1240px)" in css
+    assert "@media (max-width: 1350px)" not in css

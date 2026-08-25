@@ -664,29 +664,65 @@ form.inline { display: inline; }
 }
 
 /* ===================== cozinha (kanban) ===================== */
-.v17-kanban { display: grid; grid-template-columns: repeat(6, minmax(240px, 1fr)); gap: 13px; overflow-x: auto; padding-bottom: 10px; }
-.v17-kanban-column { background: rgba(255, 255, 255, .02); border: 1px solid var(--border); border-radius: var(--raio); min-height: 290px; padding: 12px; }
+/* Seis fases têm de caber numa tela de 19" (1366px) sem rolagem lateral: quem
+   está na cozinha olha de longe e não vai arrastar barra. `minmax(0, 1fr)` em
+   vez de `minmax(240px, 1fr)` — o mínimo fixo somava 1440px de colunas numa
+   tela de 1366 e empurrava as duas últimas fases para fora. */
+.v17-kanban { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; overflow-x: auto; padding-bottom: 8px; }
+.v17-kanban-column { background: rgba(255, 255, 255, .02); border: 1px solid var(--border); border-radius: var(--raio-sm); min-height: 150px; padding: 9px; min-width: 0; }
 :root[data-theme="light"] .v17-kanban-column { background: var(--panel-2); }
-.v17-kanban-title { display: flex; justify-content: space-between; align-items: center; font-weight: 700; margin-bottom: 11px; font-size: .82rem; color: var(--text-2); }
+.v17-kanban-title { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-weight: 650; margin-bottom: 8px; font-size: .78rem; color: var(--text-2); }
+.v17-kanban-title > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .order-card {
   background: var(--superficie); border: 1px solid var(--border);
-  border-left: 3px solid var(--brand); border-radius: var(--raio-sm);
-  padding: 13px; margin-bottom: 9px;
+  border-left: 3px solid var(--brand); border-radius: var(--raio-xs);
+  padding: 9px; margin-bottom: 7px; min-width: 0;
 }
-.order-card h3 { margin: 0 0 7px; font-size: .92rem; }
-.order-meta { color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.order-card h3 { margin: 0 0 4px; font-size: .84rem; font-weight: 650; }
+.order-meta { color: var(--muted); font-size: .74rem; line-height: 1.35; margin: 0; }
+.order-card .muted { font-size: .74rem; margin: 5px 0 0; line-height: 1.35; }
+
+/* Lista de verdade, não bloco de texto pré-formatado.
+ *
+ * Aqui havia `white-space: pre-wrap` num <ul> com <li> — o recurso é para
+ * texto solto, e num elemento de lista ele preserva a INDENTAÇÃO DO TEMPLATE.
+ * O resultado era uma caixa alta e com barra de rolagem para exibir um item
+ * só: o espaço em branco entre as tags virava conteúdo. */
 .order-items {
-  white-space: pre-wrap; background: rgba(255, 255, 255, .04); padding: 10px;
-  border-radius: var(--raio-xs); margin: 10px 0;
-  font-family: ui-monospace, Consolas, monospace; color: var(--code-text);
-  max-height: 170px; overflow: auto; font-size: .78rem;
+  list-style: none; margin: 7px 0 0; padding: 7px 9px;
+  background: rgba(255, 255, 255, .04); border-radius: var(--raio-xs);
+  color: var(--text); font-size: .76rem; line-height: 1.4;
+  /* Teto alto o bastante para uma comanda de mesa comprida rolar por dentro,
+     e não para o card empurrar a coluna inteira. */
+  max-height: 190px; overflow: auto; scrollbar-width: thin;
 }
 :root[data-theme="light"] .order-items { background: var(--panel-2); }
-.order-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
-.order-actions button { padding: 7px 11px; font-size: .76rem; }
+.order-items li + li { margin-top: 5px; }
+.order-items .muted { font-size: .72rem; margin: 0; }
+
+/* Botões pequenos e lado a lado: numa coluna de 213px cabem dois por linha,
+   que é o que a cozinha precisa tocar sem procurar. */
+.order-actions { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+.order-actions form { margin: 0; }
+/* Chapados, sem gradiente. Um degradê por botão vezes quatro botões vezes seis
+   colunas é ruído demais numa tela que se olha de longe, com as mãos ocupadas.
+   `line-height: 1.15` porque a entrelinha herdada sozinha somava 12px de altura
+   por botão — em duas linhas de botões, 24px por card. */
+.order-actions button {
+  padding: 5px 8px; font-size: .72rem; line-height: 1.15;
+  border-radius: var(--raio-xs); font-weight: 600; background-image: none;
+}
+/* Cancelar é contorno, não bloco vermelho: a ação destrutiva precisa ser
+   alcançável, não gritar mais alto que a que faz o pedido andar. */
+.order-actions .btn-delete {
+  background: transparent; color: var(--danger); border-color: var(--danger-border);
+}
+.order-actions .btn-delete:hover { background: var(--danger-bg); }
+.order-actions .btn-secondary { background: transparent; }
 .order-delayed { border-left-color: var(--danger); box-shadow: 0 0 0 1px var(--danger-border); }
 .order-warning { border-left-color: var(--warning); }
-.v17-kanban .empty { text-align: center; color: var(--muted); padding: 30px 10px; font-size: .84rem; }
+.v17-kanban .empty { text-align: center; color: var(--muted); padding: 16px 6px; font-size: .76rem; }
 
 .live { display: inline-flex; align-items: center; gap: 7px; font-size: .82rem; font-weight: 600; }
 .live-ponto { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
@@ -1437,7 +1473,9 @@ body.vitrine { --price: var(--ambar); }
   list-style: none; padding: 2px 0;
 }
 .corrigir-pagamento summary:hover { color: var(--text-2); }
-.corrigir-pagamento form { display: flex; gap: 6px; margin: 6px 0 0; }
+/* Quebra linha: numa coluna de 213px a gaveta e o botão não cabem lado a lado. */
+.corrigir-pagamento form { display: flex; gap: 6px; margin: 6px 0 0; flex-wrap: wrap; }
+.corrigir-pagamento select { flex: 1; min-width: 108px; }
 .corrigir-pagamento select { margin: 0; font-size: .78rem; padding: 6px 8px; }
 .corrigir-pagamento button { margin: 0; padding: 6px 11px; font-size: .74rem; white-space: nowrap; }
 
@@ -1455,7 +1493,7 @@ body.vitrine { --price: var(--ambar); }
   .pix-copia { width: 100%; }
 }
 
-@media (max-width: 1350px) {
+@media (max-width: 1240px) {
   .finance-kpis { grid-template-columns: repeat(3, 1fr); }
   .finance-insights-grid { grid-template-columns: 1fr 1fr; }
   .finance-products-profit { grid-column: 1/-1; }
@@ -1463,7 +1501,11 @@ body.vitrine { --price: var(--ambar); }
   .finance-donut-layout { grid-template-columns: 160px 1fr; }
   .finance-donut { width: 150px; height: 150px; }
   .metric-grid { grid-template-columns: repeat(3, 1fr); }
-  .v17-kanban { grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+  /* As seis fases sobrevivem até 1240px — abaixo disso a coluna fica
+     estreita demais para dois botões lado a lado. Monitor de 19" é
+     1280x1024 ou 1440x900 na maioria dos balcões, e a quebra em 1350px
+     jogava justamente o 1280 para três colunas em duas fileiras. */
+  .v17-kanban { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
 }
 @media (max-width: 1050px) {
   .v17-content { padding: 20px 16px 70px; }
