@@ -468,6 +468,51 @@ def tenant_usuario_senha(tenant_id: int, usuario_id: int):
 # --------------------------------------------------------------------------- #
 
 
+@platform_bp.route("/interesses")
+@platform_admin_required
+def interesses():
+    """Quem pediu contato pela página do produto.
+
+    Fica na plataforma e não no painel de restaurante porque o contato ainda
+    não é de nenhum: é de alguém que quer virar um.
+    """
+    from ..models.interesse import ROTULO_DA_SITUACAO, SITUACOES
+    from ..services.interesses import listar
+
+    situacao = request.args.get("situacao") or ""
+    return render_template(
+        "platform/interesses.html",
+        contatos=listar(situacao or None),
+        situacao=situacao,
+        situacoes=SITUACOES,
+        rotulos=ROTULO_DA_SITUACAO,
+    )
+
+
+@platform_bp.route("/interesses/<int:contato_id>/salvar", methods=["POST"])
+@platform_admin_required
+def interesse_salvar(contato_id: int):
+    from ..models.interesse import Interesse
+    from ..services.interesses import atualizar
+
+    contato = db.session.get(Interesse, contato_id)
+    if contato is None:
+        flash("Contato não encontrado.", "erro")
+        return redirect(url_for("platform.interesses"))
+
+    try:
+        atualizar(
+            contato,
+            situacao=request.form.get("situacao") or None,
+            anotacao=request.form.get("anotacao"),
+        )
+    except ValueError as erro:
+        flash(str(erro), "erro")
+    else:
+        flash("Contato atualizado.", "sucesso")
+    return redirect(url_for("platform.interesses", situacao=request.args.get("situacao") or None))
+
+
 @platform_bp.route("/planos", methods=["GET", "POST"])
 @platform_admin_required
 def planos():

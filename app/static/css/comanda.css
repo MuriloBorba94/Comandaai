@@ -1818,3 +1818,13 @@ body.vitrine { --price: var(--ambar); }
   .menu-trilho { border-right: 0; border-bottom: 1px solid var(--border); padding: 0 0 12px; grid-template-columns: 1fr 1fr; }
   .menu-colunas { grid-template-columns: 1fr; }
 }
+
+/* Interessados: o formulário de situação cabe numa célula de tabela. */
+.form-situacao { display: flex; gap: 6px; flex-wrap: wrap; margin: 0; align-items: center; }
+.form-situacao select { margin: 0; width: auto; min-width: 116px; font-size: .78rem; padding: 6px 8px; }
+.form-situacao input { margin: 0; max-width: 170px; font-size: .78rem; padding: 6px 8px; }
+.form-situacao button { padding: 6px 11px; font-size: .74rem; }
+/* Linha ainda sem resposta: uma marca na borda, não a linha inteira colorida —
+   com muitos contatos novos, o realce virava fundo e deixava de destacar. */
+.linha-nova td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
+.btn-secondary.ativo { border-color: var(--brand); color: var(--brand-texto); background: var(--brand-bg); }

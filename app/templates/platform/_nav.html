@@ -14,6 +14,14 @@
     <span>✦</span> Novo tenant
   </a>
 
+  {# Contador ao lado: a tela existe para não deixar contato parado sem
+     ninguém ver, e um número no menu é o que faz alguém abrir. #}
+  <a class="tab-btn {{ 'active' if atual == 'platform.interesses' }}" href="{{ url_for('platform.interesses') }}">
+    <span>✉</span> Interessados
+    {% set novos = interessados_novos() %}
+    {% if novos %}<b class="v17-nav-count" title="Contatos ainda sem resposta">{{ novos }}</b>{% endif %}
+  </a>
+
   <span class="v17-nav-label">Assinatura</span>
   <a class="tab-btn {{ 'active' if atual == 'platform.cobrancas' }}" href="{{ url_for('platform.cobrancas') }}">
     <span>◒</span> Cobranças

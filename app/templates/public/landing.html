@@ -14,6 +14,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a0b0e">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Comanda ai — o sistema de pedidos do seu restaurante</title>
   <meta name="description" content="Cardápio digital, cozinha, mesas, estoque e financeiro num sistema só. Sem comissão por pedido: você paga uma mensalidade e fica com a venda inteira.">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
@@ -56,7 +57,6 @@
         </p>
         <div class="heroi-acoes">
           <a class="btn btn-primario btn-grande" href="#planos">Ver planos</a>
-          <a class="btn btn-fantasma btn-grande" href="#economia">Calcular o que economizo</a>
         </div>
         <p class="heroi-nota">Sem taxa de adesão. Cancele quando quiser.</p>
       </div>
@@ -134,63 +134,6 @@
   </section>
 
   <!-- ==================== CALCULADORA ==================== -->
-  <section class="secao" id="economia">
-    <div class="wrap">
-      <div class="secao-cabeca centro">
-        <span class="rotulo">Faça a conta</span>
-        <h2>Quanto a comissão está tirando de você?</h2>
-        <p>Mexa nos dois controles com os seus números. A conta é sua, feita aqui na tela.</p>
-      </div>
-
-      <div class="calculadora">
-        <div class="calc-campos">
-          <div class="calc-campo">
-            <label for="faturamento">
-              Faturamento por mês no aplicativo
-              <output id="saida-faturamento">R$ 20.000</output>
-            </label>
-            <input type="range" id="faturamento" min="2000" max="120000" step="1000" value="20000">
-          </div>
-          <div class="calc-campo">
-            <label for="taxa">
-              Comissão que você paga hoje
-              <output id="saida-taxa">12%</output>
-            </label>
-            <input type="range" id="taxa" min="5" max="30" step="0.5" value="12">
-          </div>
-
-          <div class="calc-linhas">
-            <div class="calc-linha">
-              <span>O aplicativo leva por mês</span>
-              <b id="saida-comissao">R$ 2.400</b>
-            </div>
-            <div class="calc-linha">
-              <span>Comanda ai{% if plano_referencia %} · plano {{ plano_referencia.nome }}{% endif %}</span>
-              <b id="saida-mensalidade">R$ 0</b>
-            </div>
-            <div class="calc-linha">
-              <span>Diferença por mês</span>
-              <b id="saida-mes">R$ 0</b>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="calc-resultado">
-            <span>No fim de um ano, fica no seu caixa</span>
-            <b id="saida-ano">R$ 0</b>
-            <small id="saida-equivalente"></small>
-          </div>
-          <p class="calc-nota">
-            Estimativa com os números que você digitou, comparando comissão sobre venda
-            com mensalidade fixa. Não é previsão de faturamento — é só a diferença entre
-            as duas formas de cobrar.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ==================== RECURSOS ==================== -->
   <section class="secao" id="recursos">
     <div class="wrap">
@@ -348,7 +291,12 @@
               {% if plano.limites %}
                 <p class="plano-limites">{{ plano.limites|join(' · ') }}</p>
               {% endif %}
-              <a class="btn {{ 'btn-primario' if destaque else 'btn-fantasma' }}" href="#contato">Quero este</a>
+              {# Abre a janelinha de contato com o plano ja preenchido. Antes
+                 isto rolava a pagina ate a chamada final e parava ali: quem
+                 estava decidido nao tinha o que fazer, e do lado de ca nao
+                 chegava sinal nenhum. #}
+              <button type="button" class="btn {{ 'btn-primario' if destaque else 'btn-fantasma' }}"
+                      data-plano="{{ plano.nome }}">Quero este</button>
             </article>
           {% endfor %}
         </div>
@@ -419,51 +367,121 @@
   </div>
 </footer>
 
+<!-- ==================== JANELA DE CONTATO ==================== -->
+<div class="lead-fundo" id="lead-fundo" hidden>
+  <div class="lead-caixa" role="dialog" aria-modal="true" aria-labelledby="lead-titulo">
+    <button type="button" class="lead-fechar" id="lead-fechar" aria-label="Fechar">×</button>
+    <h2 id="lead-titulo">Quero o plano <span id="lead-plano">—</span></h2>
+    <p class="lead-texto">
+      Deixe o seu contato. Eu retorno pelo WhatsApp para tirar dúvidas, combinar
+      um período de teste e colocar o seu cardápio no ar.
+    </p>
+
+    <form id="lead-form" novalidate>
+      <input type="hidden" name="plano" id="lead-plano-campo">
+      <label for="lead-nome">Seu nome</label>
+      <input id="lead-nome" name="nome" required maxlength="120" autocomplete="name">
+
+      <label for="lead-telefone">WhatsApp com DDD</label>
+      <input id="lead-telefone" name="telefone" required maxlength="30"
+             inputmode="tel" autocomplete="tel" placeholder="81 99999-0000">
+
+      <label for="lead-email">E-mail <span class="lead-opcional">(opcional)</span></label>
+      <input id="lead-email" name="email" type="email" maxlength="160" autocomplete="email">
+
+      <label for="lead-mensagem">Mensagem <span class="lead-opcional">(opcional)</span></label>
+      <textarea id="lead-mensagem" name="mensagem" rows="3" maxlength="1000"
+                placeholder="Conte um pouco do seu restaurante"></textarea>
+
+      <p class="lead-erro" id="lead-erro" hidden></p>
+      <button type="submit" class="btn btn-primario btn-grande" id="lead-enviar">Enviar contato</button>
+    </form>
+
+    <div class="lead-obrigado" id="lead-obrigado" hidden>
+      <span aria-hidden="true">✓</span>
+      <h3>Contato recebido</h3>
+      <p id="lead-obrigado-texto">Retorno em breve pelo WhatsApp.</p>
+    </div>
+  </div>
+</div>
+
 <script>
-/* Calculadora de comissão. A conta é simples de propósito — comissão sobre a
-   venda contra mensalidade fixa — e roda toda no navegador, com os números que
-   a pessoa digitou. Nenhum dado é enviado para lugar nenhum. */
+/* Janela de contato dos planos.
+ *
+ * Envia por fetch e nao por POST comum de proposito: a pessoa acabou de abrir
+ * uma janelinha sobre a pagina, e recarregar tudo para dizer "recebido" a
+ * devolveria ao topo, longe do plano que estava olhando. */
 (() => {
   'use strict';
 
-  const MENSALIDADE = {{ (plano_referencia.preco if plano_referencia else 0)|round(2) }};
   const el = id => document.getElementById(id);
-  const reais = v => new Intl.NumberFormat('pt-BR', {
-    style: 'currency', currency: 'BRL', maximumFractionDigits: 0,
-  }).format(Math.max(0, Math.round(v)));
+  const fundo = el('lead-fundo');
+  if (!fundo) { return; }
 
-  const faturamento = el('faturamento');
-  const taxa = el('taxa');
+  const form = el('lead-form');
+  const erro = el('lead-erro');
+  const obrigado = el('lead-obrigado');
+  let ultimoFoco = null;
 
-  function calcular() {
-    const bruto = Number(faturamento.value);
-    const percentual = Number(taxa.value);
-    const comissao = bruto * percentual / 100;
-
-    // Arredonda a diferença UMA vez e tira o ano dela. Arredondando os dois
-    // separadamente, a tela mostrava R$ 2.300 por mês e R$ 27.601 no ano — quem
-    // multiplicasse na calculadora ia achar que a conta estava errada.
-    const porMes = Math.max(0, Math.round(comissao - MENSALIDADE));
-    const porAno = porMes * 12;
-
-    el('saida-faturamento').textContent = reais(bruto);
-    el('saida-taxa').textContent = percentual.toFixed(1).replace('.', ',').replace(',0', '') + '%';
-    el('saida-comissao').textContent = reais(comissao);
-    el('saida-mensalidade').textContent = MENSALIDADE ? reais(MENSALIDADE) : 'Grátis';
-    el('saida-mes').textContent = reais(porMes);
-    el('saida-ano').textContent = reais(porAno);
-
-    // Traduz o número para algo que se enxerga: quantos pedidos médios de R$ 60.
-    // Só vale a pena dizer a partir de um pedido inteiro — "0 pedidos" não
-    // informa nada e ainda soa como defeito.
-    const pedidos = Math.floor(porAno / 60);
-    el('saida-equivalente').textContent = pedidos >= 1
-      ? `o equivalente a ${pedidos.toLocaleString('pt-BR')} pedidos de R$ 60 que você não precisa vender só para pagar a comissão`
-      : 'com esses números, a comissão e a mensalidade se equivalem';
+  function abrir(plano) {
+    ultimoFoco = document.activeElement;
+    el('lead-plano').textContent = plano || 'Comanda ai';
+    el('lead-plano-campo').value = plano || '';
+    form.hidden = false;
+    obrigado.hidden = true;
+    erro.hidden = true;
+    fundo.hidden = false;
+    document.body.style.overflow = 'hidden';
+    el('lead-nome').focus();
   }
 
-  [faturamento, taxa].forEach(campo => campo.addEventListener('input', calcular));
-  calcular();
+  function fechar() {
+    fundo.hidden = true;
+    document.body.style.overflow = '';
+    /* Devolve o foco a quem abriu: sem isso, quem usa teclado volta para o
+       inicio do documento e refaz o caminho ate os planos. */
+    if (ultimoFoco) { ultimoFoco.focus(); }
+  }
+
+  document.querySelectorAll('[data-plano]').forEach(botao => {
+    botao.addEventListener('click', () => abrir(botao.dataset.plano));
+  });
+
+  el('lead-fechar').addEventListener('click', fechar);
+  fundo.addEventListener('click', evento => { if (evento.target === fundo) { fechar(); } });
+  document.addEventListener('keydown', evento => {
+    if (evento.key === 'Escape' && !fundo.hidden) { fechar(); }
+  });
+
+  form.addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const botao = el('lead-enviar');
+    botao.disabled = true;
+    erro.hidden = true;
+
+    try {
+      const resposta = await fetch({{ url_for('public.interesse')|tojson }}, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+          'X-Requested-With': 'fetch',
+          'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content,
+        },
+      });
+      const dados = await resposta.json().catch(() => ({}));
+      if (!resposta.ok) {
+        throw new Error(dados.mensagem || 'Nao foi possivel enviar agora. Tente de novo.');
+      }
+      form.hidden = true;
+      obrigado.hidden = false;
+      el('lead-obrigado-texto').textContent = dados.mensagem || 'Retorno em breve pelo WhatsApp.';
+    } catch (falha) {
+      erro.textContent = falha.message;
+      erro.hidden = false;
+    } finally {
+      botao.disabled = false;
+    }
+  });
 })();
 </script>
 </body>

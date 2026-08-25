@@ -192,6 +192,16 @@ def registrar(app) -> None:
         return caminho or None
 
     @app.template_global()
+    def interessados_novos() -> int:
+        """Contador do menu da plataforma. Zero fora da área da plataforma:
+        o contato de venda não é da conta de nenhum restaurante."""
+        if not session.get("platform_admin_id"):
+            return 0
+        from .services.interesses import quantos_novos
+
+        return quantos_novos()
+
+    @app.template_global()
     def menu_do_painel():
         """Seções e itens do menu, já filtrados pelo plano do tenant.
 

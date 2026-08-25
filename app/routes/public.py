@@ -5,6 +5,7 @@ import secrets
 from flask import (
     Blueprint,
     abort,
+    current_app,
     flash,
     g,
     jsonify,
@@ -15,6 +16,7 @@ from flask import (
     url_for,
 )
 
+from ..extensions import limiter
 from ..models.assinatura import LIMITES
 from ..models.categoria import Categoria
 from ..models.pedido import Pedido, TIPO_ENTREGA, TIPO_RETIRADA
@@ -118,13 +120,12 @@ def _dados_da_landing() -> dict:
             }
         )
 
-    # Plano pago mais barato: é a referência da calculadora de comissão.
-    pagos = [plano for plano in planos if not plano["gratuito"]]
-    referencia = min(pagos, key=lambda p: p["preco"]) if pagos else None
-
+    # Só os planos que se contrata. O plano gratuito continua existindo no
+    # catálogo — é ele que sustenta o período de teste —, mas anunciá-lo na
+    # página faz o visitante escolher o grátis e nunca conversar com ninguém.
+    # O teste passou a ser liberado no contato, e é por isso que ele sai daqui.
     return {
-        "planos": planos,
-        "plano_referencia": referencia,
+        "planos": [plano for plano in planos if not plano["gratuito"]],
         "recursos": RECURSOS,
     }
 
@@ -181,6 +182,35 @@ def index():
             for produto in produtos
         },
     )
+
+
+@public_bp.route("/interesse", methods=["POST"])
+@limiter.limit("8 per hour; 30 per day")
+def interesse():
+    """Contato deixado na página do produto, ao escolher um plano.
+
+    Só existe na página do PRODUTO. Num subdomínio de restaurante o endereço
+    não responde: ali quem visita é cliente de lanche, e um formulário de
+    vendas da plataforma não teria o que fazer no meio do cardápio.
+
+    Responde JSON porque o envio é por fetch — a pessoa acabou de abrir uma
+    janelinha sobre a página, e recarregar tudo para dizer "recebido" a
+    devolveria ao topo, longe do plano que ela estava olhando.
+    """
+    if g.tenant is not None:
+        abort(404)
+
+    from ..services.interesses import registrar as registrar_interesse
+
+    try:
+        contato = registrar_interesse(request.form, ip=request.remote_addr)
+    except ValueError as erro:
+        return jsonify(status="erro", mensagem=str(erro)), 400
+
+    current_app.logger.info(
+        "Interesse recebido: %s · plano=%s", contato.nome, contato.plano or "—"
+    )
+    return jsonify(status="ok", mensagem="Recebido! Retorno em breve pelo WhatsApp.")
 
 
 @public_bp.route("/saude")

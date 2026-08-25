@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Interessados — Comanda ai{% endblock %}
+{% block secao %}Interessados{% endblock %}
+{% block intro_titulo %}Quem pediu contato{% endblock %}
+{% block intro_texto %}Contatos deixados na página do produto, ao escolher um plano.{% endblock %}
+{% block content %}
+
+  <div class="card-admin">
+    <div class="item-header">
+      <h2>Contatos ({{ contatos|length }})</h2>
+      <div class="item-actions">
+        {# Filtro por situação em links, e não em gaveta: são quatro estados e
+           a pessoa vem aqui para ver "o que ainda não respondi". #}
+        <a class="btn-secondary {{ 'ativo' if not situacao }}"
+           href="{{ url_for('platform.interesses') }}">Todos</a>
+        {% for chave in situacoes %}
+          <a class="btn-secondary {{ 'ativo' if situacao == chave }}"
+             href="{{ url_for('platform.interesses', situacao=chave) }}">{{ rotulos[chave] }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if not contatos %}
+      <p class="muted" style="margin:0">
+        {% if situacao %}
+          Nenhum contato nesta situação.
+        {% else %}
+          Ainda não chegou nenhum contato. Eles aparecem aqui assim que alguém
+          escolher um plano na página do produto.
+        {% endif %}
+      </p>
+    {% else %}
+      <div class="v17-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Quem</th>
+              <th>Contato</th>
+              <th>Plano</th>
+              <th>Mensagem</th>
+              <th>Situação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for contato in contatos %}
+              <tr class="{{ 'linha-nova' if contato.novo }}">
+                <td>
+                  {{ contato.criado_em.strftime('%d/%m %H:%M') }}
+                  {% if contato.novo %}<small class="pill pill-ok">novo</small>{% endif %}
+                </td>
+                <td><strong>{{ contato.nome }}</strong></td>
+                <td>
+                  {# O telefone é link do WhatsApp: é por onde o retorno acontece
+                     de fato, e copiar número à mão é onde se erra um dígito. #}
+                  {% if contato.whatsapp %}
+                    <a href="{{ contato.whatsapp }}" target="_blank" rel="noopener">{{ contato.telefone }}</a>
+                  {% else %}
+                    {{ contato.telefone }}
+                  {% endif %}
+                  {% if contato.email %}<small>{{ contato.email }}</small>{% endif %}
+                </td>
+                <td>{{ contato.plano or '—' }}</td>
+                <td>
+                  {% if contato.mensagem %}{{ contato.mensagem }}{% else %}<span class="muted">—</span>{% endif %}
+                  {% if contato.anotacao %}<small><b>Anotação:</b> {{ contato.anotacao }}</small>{% endif %}
+                </td>
+                <td>
+                  <form method="post" class="form-situacao"
+                        action="{{ url_for('platform.interesse_salvar', contato_id=contato.id, situacao=situacao or None) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <select name="situacao" aria-label="Situação de {{ contato.nome }}">
+                      {% for chave in situacoes %}
+                        <option value="{{ chave }}" {{ 'selected' if contato.situacao == chave }}>{{ rotulos[chave] }}</option>
+                      {% endfor %}
+                    </select>
+                    <input type="text" name="anotacao" maxlength="1000" placeholder="Anotação"
+                           value="{{ contato.anotacao or '' }}" aria-label="Anotação sobre {{ contato.nome }}">
+                    <button type="submit" class="btn-secondary">Salvar</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+
+{% endblock %}

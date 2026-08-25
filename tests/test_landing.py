@@ -61,7 +61,6 @@ def test_planos_saem_do_catalogo_real(client, catalogo):
     assert "Pro" in corpo
     assert "199,90" in corpo
     assert "Para quem já vende todo dia" in corpo
-    assert "Grátis" in corpo, "plano sem preço aparece como grátis"
 
 
 def test_plano_desativado_nao_aparece(client, catalogo):
@@ -94,8 +93,11 @@ def test_pagina_nao_promete_o_que_nao_existe(client, catalogo):
         assert promessa not in corpo, f"a página promete {promessa!r}, que ainda não existe"
 
 
-def test_calculadora_usa_o_plano_pago_mais_barato(client, catalogo):
-    """A referência da conta precisa ser um preço real do catálogo."""
+def test_a_pagina_anuncia_so_o_que_se_contrata(client, catalogo):
+    """O plano gratuito continua no catálogo — é ele que sustenta o período de
+    teste —, mas anunciá-lo faz o visitante escolher o grátis e nunca conversar
+    com ninguém. O teste passou a ser liberado no contato.
+    """
     barato = Plano(slug="starter", nome="Starter", preco_mensal=99.90, ordem=1)
     barato.definir_recursos(["cozinha"])
     db.session.add(barato)
@@ -103,8 +105,13 @@ def test_calculadora_usa_o_plano_pago_mais_barato(client, catalogo):
 
     corpo = _landing(client)
 
-    assert "const MENSALIDADE = 99.9" in corpo
-    assert "plano Starter" in corpo
+    assert 'data-plano="Starter"' in corpo
+    assert 'data-plano="Pro"' in corpo
+    assert 'data-plano="Teste"' not in corpo
+    # E o catálogo continua intacto: quem sai é o anúncio, não o plano.
+    # `gratuito` é propriedade derivada do preço, e não coluna — a consulta vai
+    # pelo slug, que é o que o banco realmente guarda.
+    assert Plano.query.filter_by(slug="teste").count() == 1
 
 
 def test_sem_plano_no_catalogo_a_secao_de_precos_some(client):

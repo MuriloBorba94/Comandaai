@@ -6,6 +6,7 @@ from .categoria import Categoria
 from .cupom import BairroEntrega, Cupom, CupomUso
 from .estoque import FichaTecnica, Insumo, MovimentacaoEstoque
 from .financeiro import Despesa, ReceitaAvulsa
+from .interesse import Interesse
 from .impressao import AgenteImpressao, ImpressaoJob
 from .notificacao import Notificacao
 from .pagamento import Pagamento
@@ -21,6 +22,7 @@ __all__ = [
     "AgenteImpressao",
     "Auditoria",
     "Caixa",
+    "Interesse",
     "BairroEntrega",
     "Categoria",
     "Cobranca",

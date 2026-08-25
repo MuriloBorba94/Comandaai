@@ -224,28 +224,6 @@ main, .topo, .rodape { position: relative; z-index: 1; }
 .secao h2 { font-size: clamp(1.9rem, 3.4vw, 2.7rem); margin-bottom: 16px; }
 .secao-cabeca p { color: var(--texto-2); font-size: 1.05rem; margin: 0; }
 
-/* ===================== calculadora ===================== */
-.calculadora {
-  border: 1px solid var(--linha-forte);
-  border-radius: var(--raio-lg);
-  background: linear-gradient(160deg, var(--superficie), var(--preto-2));
-  padding: 34px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;
-}
-.calc-campos { display: grid; gap: 22px; }
-.calc-campo label { display: block; font-size: .86rem; color: var(--texto-2); font-weight: 600; margin-bottom: 10px; }
-.calc-campo output { float: right; color: var(--texto); font-weight: 800; font-variant-numeric: tabular-nums; }
-.calc-campo input[type="range"] { width: 100%; accent-color: var(--marca); height: 22px; cursor: pointer; }
-.calc-resultado { text-align: center; padding: 26px; border-radius: var(--raio); background: rgba(46, 204, 113, .07); border: 1px solid rgba(46, 204, 113, .25); }
-.calc-resultado span { display: block; color: var(--texto-2); font-size: .88rem; }
-.calc-resultado b { display: block; font-size: clamp(2rem, 4vw, 2.9rem); font-weight: 800; letter-spacing: -.03em; color: var(--verde); margin: 6px 0; font-variant-numeric: tabular-nums; }
-.calc-resultado small { color: var(--texto-3); font-size: .8rem; }
-.calc-linhas { margin-top: 22px; display: grid; gap: 9px; font-size: .86rem; }
-.calc-linha { display: flex; justify-content: space-between; gap: 14px; padding-bottom: 9px; border-bottom: 1px solid var(--linha); }
-.calc-linha:last-child { border-bottom: 0; }
-.calc-linha span { color: var(--texto-3); }
-.calc-linha b { font-variant-numeric: tabular-nums; }
-.calc-nota { margin-top: 20px; color: var(--texto-3); font-size: .78rem; line-height: 1.5; }
 
 /* ===================== recursos ===================== */
 .recursos-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
@@ -367,7 +345,7 @@ main, .topo, .rodape { position: relative; z-index: 1; }
 
 /* ===================== responsivo ===================== */
 @media (max-width: 980px) {
-  .heroi-grade, .calculadora, .lucro { grid-template-columns: 1fr; gap: 44px; }
+  .heroi-grade, .lucro { grid-template-columns: 1fr; gap: 44px; }
   .recursos-grade, .passos { grid-template-columns: repeat(2, 1fr); }
   .faixa-grade { grid-template-columns: 1fr 1fr; }
   .faixa-item:nth-child(2) { border-right: 0; }
@@ -382,7 +360,72 @@ main, .topo, .rodape { position: relative; z-index: 1; }
   .celular { max-width: 260px; margin: 0 auto; }
   .recursos-grade, .passos, .faixa-grade { grid-template-columns: 1fr; }
   .faixa-item { border-right: 0; border-bottom: 1px solid var(--linha); }
-  .calculadora, .final { padding: 28px 22px; }
+  .final { padding: 28px 22px; }
   .cozinha-colunas { grid-template-columns: 1fr; }
   .heroi-acoes .btn, .final-acoes .btn { width: 100%; }
 }
+
+/* ---------------------------------------------------------------------------
+ * Janela de contato dos planos
+ *
+ * Substitui o "Quero este" que rolava a página até a chamada final e parava
+ * ali: quem estava decidido não tinha o que fazer, e do lado de cá não chegava
+ * sinal nenhum — visita interessada e visita que só passou eram a mesma coisa
+ * no servidor.
+ * ------------------------------------------------------------------------- */
+.lead-fundo {
+  position: fixed; inset: 0; z-index: 120;
+  display: grid; place-items: center; padding: 20px;
+  background: rgba(6, 7, 10, .72); backdrop-filter: blur(4px);
+  animation: lead-surgir .15s ease-out;
+}
+.lead-fundo[hidden] { display: none; }
+@keyframes lead-surgir { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .lead-fundo { animation: none; } }
+
+.lead-caixa {
+  position: relative; width: min(440px, 100%);
+  max-height: calc(100vh - 40px); overflow: auto;
+  padding: 28px; border-radius: var(--raio-lg);
+  background: var(--superficie); border: 1px solid var(--linha-forte);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, .6);
+}
+.lead-caixa h2 { font-size: 1.35rem; letter-spacing: -.02em; margin: 0 0 8px; }
+.lead-texto { color: var(--texto-2); font-size: .9rem; line-height: 1.55; margin: 0 0 22px; }
+.lead-fechar {
+  position: absolute; top: 14px; right: 14px;
+  width: 32px; height: 32px; padding: 0; line-height: 1;
+  background: transparent; border: 0; border-radius: 50%;
+  color: var(--texto-3); font-size: 1.4rem; cursor: pointer;
+}
+.lead-fechar:hover { background: rgba(255, 255, 255, .07); color: var(--texto); }
+
+.lead-caixa label { display: block; font-size: .82rem; font-weight: 600; color: var(--texto-2); margin-bottom: 5px; }
+.lead-opcional { font-weight: 400; color: var(--texto-3); }
+.lead-caixa input, .lead-caixa textarea {
+  width: 100%; margin: 0 0 16px; padding: 11px 13px;
+  background: rgba(255, 255, 255, .04); color: var(--texto);
+  border: 1px solid var(--linha-forte); border-radius: 10px;
+  font: inherit; font-size: .9rem; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.lead-caixa textarea { resize: vertical; min-height: 76px; }
+.lead-caixa input:focus, .lead-caixa textarea:focus {
+  border-color: var(--marca); box-shadow: 0 0 0 3px rgba(224, 36, 63, .18);
+}
+.lead-caixa button[type="submit"] { width: 100%; }
+.lead-erro {
+  margin: 0 0 14px; padding: 10px 13px; border-radius: 10px;
+  background: rgba(224, 36, 63, .1); border: 1px solid rgba(224, 36, 63, .3);
+  color: #ff8f9e; font-size: .84rem;
+}
+.lead-erro[hidden] { display: none; }
+
+.lead-obrigado { text-align: center; padding: 14px 0 6px; }
+.lead-obrigado[hidden] { display: none; }
+.lead-obrigado span {
+  display: grid; place-items: center; width: 52px; height: 52px; margin: 0 auto 14px;
+  border-radius: 50%; background: rgba(46, 204, 113, .14); color: var(--verde); font-size: 1.5rem;
+}
+.lead-obrigado h3 { font-size: 1.1rem; margin: 0 0 6px; }
+.lead-obrigado p { color: var(--texto-2); font-size: .9rem; margin: 0; }
