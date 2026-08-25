@@ -203,19 +203,43 @@ def registrar(app) -> None:
 
     @app.template_global()
     def menu_do_painel():
-        """Seções e itens do menu, já filtrados pelo plano do tenant.
+        """Seções e itens do menu, conforme quem está logado.
 
-        Vive em `navegacao.py` como dado, e não como marcação, porque agora há
-        dois lugares que o desenham — o painel de menu e a lateral fixada. Menu
-        escrito duas vezes é menu que diverge.
+        Vive em `navegacao.py` como dado, e não como marcação, porque há dois
+        lugares que o desenham — o painel de menu e o contador de cada item.
+        Menu escrito duas vezes é menu que diverge.
         """
-        from .navegacao import itens_do_menu
+        from .navegacao import itens_da_plataforma, itens_do_menu
+
+        # A plataforma vem primeiro: dentro dela também existe `g.tenant` quando
+        # se está dando suporte a um restaurante, e checar o tenant antes daria
+        # o menu errado justamente nesse caso.
+        if session.get("platform_admin_id"):
+            return itens_da_plataforma()
+
         from .services.recursos import tenant_libera
 
         tenant = g.get("tenant")
         if tenant is None:
             return []
         return itens_do_menu(tenant, lambda slug: tenant_libera(tenant, slug))
+
+    @app.template_global()
+    def contador_do_menu(nome: str) -> int:
+        """Resolve o contador que o item do menu pediu, pelo nome.
+
+        Os contadores já existem como globais de template — só não havia como
+        chamá-los a partir de um dado. Nome desconhecido devolve 0 em vez de
+        estourar: menu que derruba a página inteira por causa de um número ao
+        lado de um item é troca ruim.
+        """
+        funcao = app.jinja_env.globals.get(nome)
+        if not callable(funcao):
+            return 0
+        try:
+            return int(funcao() or 0)
+        except Exception:  # noqa: BLE001 - contador nunca derruba o menu
+            return 0
 
     @app.template_global()
     def item_do_menu_ativo(item) -> bool:

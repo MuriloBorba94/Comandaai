@@ -213,3 +213,43 @@ def test_as_seis_fases_sobrevivem_ate_1240px(css):
     """
     assert "@media (max-width: 1240px)" in css
     assert "@media (max-width: 1350px)" not in css
+
+
+def test_a_plataforma_usa_o_mesmo_painel_de_menu(client, platform_admin):
+    """O botão existia na barra da plataforma e não fazia nada: o painel só era
+    incluído no contexto do restaurante.
+
+    O menu agora é dado em `navegacao.py` para as duas áreas, e o template do
+    painel é um só — um arquivo por área seria a mesma tela mantida em dois
+    lugares.
+    """
+    client.post(
+        "/plataforma/login",
+        data={"username": "admin", "password": "senha-super-admin-123"},
+        base_url="http://app.localhost",
+        follow_redirects=True,
+    )
+
+    corpo = client.get("/plataforma/planos", base_url="http://app.localhost").get_data(as_text=True)
+
+    assert 'id="menu-painel"' in corpo
+    assert 'class="v17-sidebar"' not in corpo
+
+    # Escopado ao painel: a tela de planos tem um limite chamado "Produtos no
+    # cardápio", e procurar no corpo inteiro acusaria isso como item de menu.
+    painel = corpo.split('id="menu-painel"', 1)[1].split("</header>", 1)[0]
+    assert 'data-busca="tenants clientes"' in painel
+    assert 'data-busca="cobranças assinatura"' in painel
+    assert "data-busca=\"produtos" not in painel
+
+
+def test_o_contador_do_menu_e_resolvido_pelo_nome(app):
+    """Um if/elif por contador obrigaria a mexer no template a cada um que
+    surgisse — o da plataforma já seria o terceiro."""
+    with app.test_request_context():
+        resolver = app.jinja_env.globals["contador_do_menu"]
+
+        # Nome desconhecido devolve 0 em vez de estourar: menu que derruba a
+        # página por causa de um número ao lado de um item é troca ruim.
+        assert resolver("nao_existe_este_contador") == 0
+        assert isinstance(resolver("insumos_para_repor"), int)

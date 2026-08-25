@@ -1,5 +1,9 @@
 {# Painel de menu: abre ancorado no botão da barra, não em tela cheia.
 
+   Serve as DUAS áreas — o painel do restaurante e o da plataforma. Quem decide
+   o que listar é `menu_do_painel()`, que olha quem está logado; aqui só se
+   desenha. Um arquivo por área seria a mesma tela mantida em dois lugares.
+
    Substitui a coluna lateral fixa. A coluna comia 246px de todas as telas para
    mostrar dezessete links que ninguém lê depois da primeira semana — aqui eles
    aparecem quando são procurados, e somem quando não são.
@@ -46,12 +50,12 @@
                  data-busca="{{ (item.rotulo ~ ' ' ~ titulo)|lower }}">
               <a href="{{ url_for(item.endpoint) }}" data-rotulo="{{ item.rotulo }}">
                 <span class="menu-icone" aria-hidden="true">{{ item.icone }}</span>{{ item.rotulo }}
-                {% if item.contador == 'insumos_para_repor' %}
-                  {% set n = insumos_para_repor() %}
-                  {% if n %}<b class="v17-nav-count" title="Insumos para repor">{{ n }}</b>{% endif %}
-                {% elif item.contador == 'comandas_na_fila' %}
-                  {% set n = comandas_na_fila() %}
-                  {% if n %}<b class="v17-nav-count" title="Comandas esperando a impressora">{{ n }}</b>{% endif %}
+                {% if item.contador %}
+                  {# O contador é resolvido pelo NOME guardado no item. Um
+                     if/elif por contador obrigaria a mexer aqui a cada um que
+                     surgisse, e o do menu da plataforma já seria o terceiro. #}
+                  {% set n = contador_do_menu(item.contador) %}
+                  {% if n %}<b class="v17-nav-count">{{ n }}</b>{% endif %}
                 {% endif %}
               </a>
               <button type="button" class="menu-estrela" data-favoritar="{{ item.rotulo }}"

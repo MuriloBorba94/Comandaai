@@ -92,6 +92,38 @@ MENU: tuple[Secao, ...] = (
 )
 
 
+# O mesmo desenho para a área da plataforma. Duas listas e não uma porque são
+# dois produtos diferentes com o mesmo esqueleto: aqui quem navega é quem VENDE
+# o sistema, e lá quem o USA. Misturar as duas numa lista com bandeira de
+# contexto daria um arquivo em que nenhuma das duas se lê inteira.
+MENU_PLATAFORMA: tuple[Secao, ...] = (
+    Secao(
+        "Visão geral",
+        (Item("Início", "platform.inicio", "⌂"),),
+    ),
+    Secao(
+        "Clientes",
+        (
+            Item("Tenants", "platform.tenants_list", "▦", tambem=("platform.tenant_editar",)),
+            Item("Novo tenant", "platform.tenant_new", "✦"),
+            Item("Interessados", "platform.interesses", "✉",
+                 tambem=("platform.interesse_",), contador="interessados_novos"),
+        ),
+    ),
+    Secao(
+        "Assinatura",
+        (
+            Item("Cobranças", "platform.cobrancas", "◒"),
+            Item("Planos", "platform.planos", "◆"),
+        ),
+    ),
+    Secao(
+        "Operação",
+        (Item("Saúde e atividade", "platform.operacao", "⌁"),),
+    ),
+)
+
+
 def item_ativo(item: Item, endpoint: str) -> bool:
     """Este item corresponde à tela aberta?
 
@@ -102,6 +134,12 @@ def item_ativo(item: Item, endpoint: str) -> bool:
     if endpoint == item.endpoint:
         return True
     return any(endpoint.startswith(prefixo) for prefixo in item.tambem)
+
+
+def itens_da_plataforma() -> list[tuple[str, list[Item]]]:
+    """O menu de quem vende o sistema. Sem filtro de plano: quem administra a
+    plataforma não assina nada."""
+    return [(secao.titulo, list(secao.itens)) for secao in MENU_PLATAFORMA]
 
 
 def itens_do_menu(tenant, libera) -> list[tuple[str, list[Item]]]:

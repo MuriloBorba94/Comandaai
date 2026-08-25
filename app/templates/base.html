@@ -65,22 +65,9 @@
 <body class="{{ 'painel' if painel else 'vitrine' }}">
 
 {% if painel %}
-  {# `com-lateral` só na plataforma: no painel do restaurante quem navega é o
-     painel de menu, e o shell é de uma coluna só. #}
-  <div class="v17-app-shell {{ 'com-lateral' if contexto != 'admin' }}">
-    {% if contexto != "admin" %}
-    <button type="button" class="v17-fab-menu" id="v17-fab-menu" aria-label="Abrir menu">☰</button>
-    <div class="v17-sidebar-backdrop" id="v17-sidebar-backdrop"></div>
-
-    <aside class="v17-sidebar" id="v17-sidebar" aria-label="Navegação da plataforma">
-      <a class="v17-brand" href="{{ url_for('platform.inicio') }}">
-        <span class="v17-brand-inicial" aria-hidden="true">C</span>
-        <span><strong>Comanda ai</strong><small>Plataforma</small></span>
-      </a>
-      {% include "platform/_nav.html" %}
-    </aside>
-    {% endif %}
-
+  {# Uma coluna só: não há mais lateral em área nenhuma. Quem navega, nas duas,
+     é o painel que abre no botão da barra. #}
+  <div class="v17-app-shell">
     <div class="v17-main">
       <header class="v17-commandbar">
         <div class="v17-commandbar-title">
@@ -88,6 +75,12 @@
              casa — e a barra do topo é onde se espera encontrá-la. Também é o
              que diz de qual loja é o painel, o que importa para quem dá suporte
              entrando em restaurantes diferentes no mesmo dia. #}
+          {% if contexto != "admin" %}
+            <a class="v17-marca-topo" href="{{ url_for('platform.inicio') }}" title="Comanda ai">
+              <span class="v17-brand-inicial" aria-hidden="true">C</span>
+              <strong>Comanda ai</strong>
+            </a>
+          {% endif %}
           {% if contexto == "admin" %}
             <a class="v17-marca-topo" href="{{ url_for('admin.dashboard') }}" title="{{ g.tenant.nome_fantasia }}">
               {% if logo_do_tenant() %}
@@ -134,7 +127,7 @@
             <a class="v17-logout" href="{{ url_for('platform.logout') }}" title="Sair">↪</a>
           {% endif %}
         </div>
-        {% if contexto == "admin" %}{% include "admin/_menu.html" %}{% endif %}
+        {% include "_menu.html" %}
       </header>
 
       <main class="v17-content">
