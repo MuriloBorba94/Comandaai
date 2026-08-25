@@ -448,3 +448,42 @@ def test_a_marca_como_texto_passa_nas_DUAS_superficies_de_cada_tema():
         assert _contraste(claro, CLARO_FOLGADO) >= CONTRASTE_MINIMO, cor
         assert _contraste(escuro, ESCURO_PIOR) >= CONTRASTE_MINIMO, cor
         assert _contraste(escuro, ESCURO_FOLGADO) >= CONTRASTE_MINIMO, cor
+
+
+def test_o_icone_da_aba_num_restaurante_e_do_restaurante(app, two_tenants):
+    """Vazamento fácil de não notar: a marca do produto na aba de quem está
+    pedindo um lanche.
+
+    Quem abre o cardápio está comprando daquele restaurante, e a plataforma não
+    tem por que aparecer ali. Sem logo enviada fica sem ícone — melhor nenhum do
+    que o de outra empresa.
+    """
+    client = app.test_client()
+    _logar_a(client)
+    client.post(
+        "/admin/configuracoes/identidade",
+        data={"cor_marca": COR_PADRAO, "logo": (_png(), "marca.png")},
+        content_type="multipart/form-data",
+        base_url="http://tenant-a.localhost",
+    )
+
+    html = client.get("/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+
+    assert "comandaai-marca.svg" not in html
+    assert 'rel="icon" href="/static/uploads/tenant-a/' in html
+
+
+def test_sem_logo_o_restaurante_fica_sem_icone_e_nao_com_o_nosso(app, two_tenants):
+    client = app.test_client()
+    html = client.get("/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+
+    assert "comandaai-marca.svg" not in html
+    assert 'rel="icon"' not in html
+
+
+def test_a_area_da_plataforma_leva_a_marca_do_produto(app, platform_admin):
+    client = app.test_client()
+
+    html = client.get("/plataforma/login", base_url="http://app.localhost").get_data(as_text=True)
+
+    assert "comandaai-marca.svg" in html

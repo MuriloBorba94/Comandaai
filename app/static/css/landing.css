@@ -76,13 +76,10 @@ main, .topo, .rodape { position: relative; z-index: 1; }
 }
 .topo-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 68px; }
 .logo { display: flex; align-items: center; gap: 11px; font-weight: 800; font-size: 1.06rem; letter-spacing: -.02em; }
-.logo-marca {
-  width: 34px; height: 34px; border-radius: 10px;
-  background: var(--gradiente);
-  display: grid; place-items: center;
-  font-size: 1rem; color: #fff;
-  box-shadow: 0 6px 18px rgba(224, 36, 63, .35);
-}
+/* O quadrado com gradiente e a letra dentro saiu: a marca agora se desenha
+   sozinha, e um selo atrás dela seria moldura em cima de moldura. */
+.logo .marca-ca { flex: none; }
+.logo em { font-style: normal; color: var(--marca); font-weight: 800; }
 .menu { display: flex; gap: 28px; align-items: center; }
 .menu a { color: var(--texto-2); font-size: .92rem; font-weight: 500; transition: color .15s; }
 .menu a:hover { color: var(--texto); }

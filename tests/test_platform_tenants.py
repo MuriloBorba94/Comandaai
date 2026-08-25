@@ -522,14 +522,17 @@ def test_inicio_sem_pendencia_nao_mostra_o_bloco_de_atencao(client, platform_adm
     assert "Precisa de atenção" not in corpo
 
 
-def test_landing_da_plataforma_tem_porta_de_entrada(client, platform_admin):
-    """Sem isso, o host da plataforma era uma tela sem caminho para lugar algum.
+def test_o_login_da_plataforma_continua_alcancavel_pelo_endereco(client, platform_admin):
+    """O botão saiu da página inicial, mas a porta não pode ter sumido.
 
-    Compara o destino, não o texto do botão: a página inicial virou o cartão de
-    visita do produto e a redação muda com a campanha, mas o caminho não.
+    Antes havia um atalho ali. Ele foi removido porque o cartão de visita do
+    produto é para quem AINDA não é cliente — mas o endereço tem de continuar
+    respondendo, senão a plataforma fica sem entrada nenhuma.
     """
-    corpo = client.get("/", base_url=BASE_PLATAFORMA).get_data(as_text=True)
-    assert "/plataforma/" in corpo
+    resposta = client.get("/plataforma/login", base_url=BASE_PLATAFORMA)
+
+    assert resposta.status_code == 200
+    assert "senha" in resposta.get_data(as_text=True).lower()
 
 
 def test_landing_de_tenant_nao_expoe_a_plataforma(client, two_tenants):

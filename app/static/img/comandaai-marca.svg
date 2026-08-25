@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Comanda ai">
+  <title>Comanda ai</title>
+  <defs>
+    <linearGradient id="ca-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0243f"/>
+      <stop offset=".55" stop-color="#e8482f"/>
+      <stop offset="1" stop-color="#f6a723"/>
+    </linearGradient>
+  </defs>
+  <path d="M45.38 17.14A20 20 0 1 0 45.38 46.86" fill="none" stroke="url(#ca-g)" stroke-width="11" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="5.5" fill="url(#ca-g)"/>
+</svg>

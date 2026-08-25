@@ -242,3 +242,29 @@ def test_movimentacao_de_estoque_registra_o_autor(client, two_tenants):
     movimento = MovimentacaoEstoque.query.filter_by(insumo_id=insumo.id).first()
     assert movimento is not None
     assert movimento.usuario == "admin", "a movimentação saiu sem dono"
+
+
+def test_o_padrao_de_ociosidade_cobre_o_navegador_restaurado():
+    """Eram 240 minutos, e era por isso que fechar o navegador e voltar não
+    pedia senha.
+
+    Chrome e Edge com "continuar de onde parou" restauram o cookie de sessão —
+    nenhuma configuração no servidor impede isso. O que o servidor controla é
+    por quanto tempo aquele cookie restaurado ainda vale, e quatro horas era
+    tempo de sobra para o cliente sair, voltar e continuar dentro.
+
+    Trinta minutos é o corte. Quem está com o painel aberto não cai: a tela da
+    cozinha consulta o servidor sozinha, e isso conta como atividade.
+    """
+    from app.config import Config
+
+    assert Config.SESSION_IDLE_MINUTES == 30
+
+
+def test_a_pagina_do_produto_nao_tem_atalho_para_o_painel(client, app):
+    """Ela é o cartão de visita: quem entra ainda não é cliente. Quem já é entra
+    pelo endereço do próprio restaurante."""
+    corpo = client.get("/", base_url="http://app.localhost").get_data(as_text=True)
+
+    assert "Já sou cliente" not in corpo
+    assert "/plataforma" not in corpo

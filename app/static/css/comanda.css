@@ -324,6 +324,10 @@ body.nav-open .v17-fab-menu { opacity: 0; pointer-events: none; }
 .v17-marca-topo { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; flex: none; }
 .v17-marca-topo img { width: 30px; height: 30px; object-fit: contain; border-radius: var(--raio-xs); flex: none; }
 .v17-marca-topo .v17-brand-inicial { width: 30px; height: 30px; font-size: .88rem; box-shadow: none; }
+/* A marca do produto não leva selo atrás: ela já é a forma. A do
+   restaurante continua com o quadradinho, porque ali o que existe é uma
+   logo enviada por ele — ou, sem logo, só a inicial do nome. */
+.v17-marca-topo .marca-ca { flex: none; }
 .v17-marca-topo strong { font-size: .9rem; font-weight: 650; letter-spacing: -.02em; white-space: nowrap; }
 @media (max-width: 720px) {
   /* Só a marca: o nome da loja e o da tela juntos não cabem, e quem está

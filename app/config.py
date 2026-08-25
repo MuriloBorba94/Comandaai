@@ -83,7 +83,17 @@ class Config:
     # painel esquecido aberto no balcão. Qualquer clique reinicia a contagem, e
     # o painel da cozinha se atualiza sozinho, então ninguém cai no meio do
     # turno por causa disso.
-    SESSION_IDLE_MINUTES = _to_int(os.getenv("SESSION_IDLE_MINUTES"), 240)
+    #
+    # Eram 240 minutos, e é por isso que fechar o navegador e voltar não pedia
+    # senha: Chrome e Edge com "continuar de onde parou" restauram o cookie de
+    # sessão, e o servidor via uma sessão de quatro horas ainda válida. Nenhuma
+    # configuração impede o navegador de restaurar — o que o servidor controla é
+    # por quanto tempo aquele cookie restaurado ainda vale.
+    #
+    # 30 minutos é o corte: quem fechou e voltou depois do intervalo digita a
+    # senha, e quem está com o painel aberto não cai, porque a tela da cozinha
+    # consulta o servidor sozinha e isso conta como atividade.
+    SESSION_IDLE_MINUTES = _to_int(os.getenv("SESSION_IDLE_MINUTES"), 30)
 
     # ----------------------- cobrança da própria SaaS ----------------------- #
     # Dias de teste grátis de um tenant novo. O prazo só passa a valer quando

@@ -142,7 +142,14 @@ def test_subdominio_de_restaurante_mostra_a_vitrine_e_nao_a_landing(client, app)
     assert "/plataforma/" not in corpo, "nenhum caminho para a área administrativa"
 
 
-def test_landing_da_plataforma_oferece_entrada_no_painel(client):
+def test_a_pagina_do_produto_nao_expoe_o_caminho_do_painel(client):
+    """Ela é o cartão de visita: quem entra ainda não é cliente.
+
+    Quem já é entra pelo endereço do próprio restaurante, e quem administra a
+    plataforma sabe o caminho — anunciá-lo aqui só oferecia porta trancada a
+    visitante e superfície a quem procura.
+    """
     corpo = _landing(client)
 
-    assert "/plataforma/" in corpo
+    assert "/plataforma/" not in corpo
+    assert "Já sou cliente" not in corpo

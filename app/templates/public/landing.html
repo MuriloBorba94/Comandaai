@@ -17,6 +17,12 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Comanda ai — o sistema de pedidos do seu restaurante</title>
   <meta name="description" content="Cardápio digital, cozinha, mesas, estoque e financeiro num sistema só. Sem comissão por pedido: você paga uma mensalidade e fica com a venda inteira.">
+  {# Favicon em SVG: uma marca vetorial serve 16px e 512px do mesmo arquivo, e
+     não há versão borrada em tela de alta densidade. O `?v=` é manual porque o
+     versionamento automático cobre só css/ e js/ — imagem velha não quebra a
+     tela, mas a marca é a exceção: trocá-la e ver a antiga por sete dias na
+     aba seria o mesmo problema do CSS. #}
+  <link rel="icon" href="{{ url_for('static', filename='img/comandaai-marca.svg') }}?v=1" type="image/svg+xml">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
 </head>
 <body>
@@ -24,9 +30,21 @@
 
 <header class="topo">
   <div class="wrap topo-inner">
+    {# Marca desenhada em SVG dentro do HTML, e não como <img>.
+       Inline porque o arquivo estático seria cacheado na borda por sete dias e
+       uma troca de marca ficaria invisível — foi o que aconteceu com o CSS. E
+       porque assim ela herda a cor do texto onde precisa. #}
     <a class="logo" href="#">
-      <span class="logo-marca" aria-hidden="true">◧</span>
-      Comanda ai
+      <svg class="marca-ca" viewBox="0 0 64 64" width="34" height="34" role="img" aria-label="Comanda ai" focusable="false">
+        <defs>
+          <linearGradient id="ca-topo" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#e0243f"/><stop offset=".55" stop-color="#e8482f"/><stop offset="1" stop-color="#f6a723"/>
+          </linearGradient>
+        </defs>
+        <path d="M45.38 16.94A20 20 0 1 0 45.38 47.06" fill="none" stroke="url(#ca-topo)" stroke-width="11" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="5.5" fill="url(#ca-topo)"/>
+      </svg>
+      Comanda <em>ai</em>
     </a>
     <nav class="menu">
       <a href="#recursos">Recursos</a>
@@ -34,10 +52,10 @@
       <a href="#como-funciona">Como funciona</a>
       {% if planos %}<a href="#planos">Planos</a>{% endif %}
     </nav>
+    {# Sem atalho para o painel: esta página é o cartão de visita do produto, e
+       quem entra nela é quem AINDA não é cliente. Quem já é entra pelo endereço
+       do próprio restaurante, e quem administra a plataforma sabe o caminho. #}
     <div style="display:flex;gap:10px;align-items:center">
-      {% if g.is_platform_area %}
-        <a class="btn btn-fantasma" href="{{ url_for('platform.inicio') }}">Entrar</a>
-      {% endif %}
       <a class="btn btn-primario" href="#planos">Começar agora</a>
     </div>
   </div>
@@ -49,11 +67,16 @@
     <div class="wrap heroi-grade">
       <div>
         <span class="selo">● <b>0% de comissão</b> por pedido</span>
-        <h1>Seu restaurante vendendo <em>direto</em>, sem intermediário levando a margem.</h1>
+        {# O título diz o que o produto É; o parágrafo diz o que ele FAZ. O
+           anterior abria pelo que o produto NÃO faz — "sem intermediário" — e
+           gastava a primeira linha, que é a única que todo mundo lê, falando do
+           concorrente. A comissão continua na página, mas depois do que se
+           ganha, não antes. #}
+        <h1>Tudo que o seu restaurante precisa em um lugar <em>só</em>.</h1>
         <p class="heroi-texto">
-          Cardápio digital com o seu link, pedido caindo na cozinha na hora, mesa,
-          estoque e financeiro — tudo num sistema só. Você paga mensalidade,
-          não porcentagem da venda.
+          Cardápio com o seu link, pedido caindo na cozinha na hora, salão, entrega,
+          estoque e financeiro — num sistema só, com a sua marca. E mensalidade
+          fixa: nada de porcentagem sobre o que você vende.
         </p>
         <div class="heroi-acoes">
           <a class="btn btn-primario btn-grande" href="#planos">Ver planos</a>
@@ -351,9 +374,6 @@
         </p>
         <div class="final-acoes">
           <a class="btn btn-primario btn-grande" href="#planos">Ver planos</a>
-          {% if g.is_platform_area %}
-            <a class="btn btn-fantasma btn-grande" href="{{ url_for('platform.inicio') }}">Já sou cliente</a>
-          {% endif %}
         </div>
       </div>
     </div>
@@ -362,7 +382,15 @@
 
 <footer class="rodape">
   <div class="wrap rodape-inner">
-    <a class="logo" href="#"><span class="logo-marca" aria-hidden="true">◧</span> Comanda ai</a>
+    <a class="logo" href="#"><svg class="marca-ca" viewBox="0 0 64 64" width="30" height="30" role="img" aria-label="Comanda ai" focusable="false">
+        <defs>
+          <linearGradient id="ca-rodape" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#e0243f"/><stop offset=".55" stop-color="#e8482f"/><stop offset="1" stop-color="#f6a723"/>
+          </linearGradient>
+        </defs>
+        <path d="M45.38 16.94A20 20 0 1 0 45.38 47.06" fill="none" stroke="url(#ca-rodape)" stroke-width="11" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="5.5" fill="url(#ca-rodape)"/>
+      </svg> Comanda <em>ai</em></a>
     <p>Sistema de pedidos para restaurantes, por assinatura.</p>
   </div>
 </footer>
