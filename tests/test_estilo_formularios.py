@@ -253,3 +253,36 @@ def test_o_contador_do_menu_e_resolvido_pelo_nome(app):
         # página por causa de um número ao lado de um item é troca ruim.
         assert resolver("nao_existe_este_contador") == 0
         assert isinstance(resolver("insumos_para_repor"), int)
+
+
+def test_toda_gaveta_do_sistema_tem_fundo_opaco(css):
+    """`color-scheme: dark` na raiz não bastou, e a razão é específica.
+
+    Ele manda o navegador desenhar controles nativos com moldura escura — e
+    resolveria isto sozinho se o `<select>` não tivesse fundo definido pelo
+    autor. Tem: a regra base pinta todo campo com rgba(255,255,255,.04). A
+    partir do momento em que o autor toca no fundo de um select, o Chrome para
+    de usar a moldura nativa e desenha a lista com o padrão dele, que é BRANCO —
+    e o texto, que herda --text, é quase branco no escuro.
+
+    Valia para o carrinho do CLIENTE também: escolher bairro e forma de
+    pagamento no escuro abria uma lista ilegível.
+    """
+    assert "--gaveta-fundo:" in css
+
+    regra = _regra(css, "select")
+    assert "background-color: var(--gaveta-fundo)" in regra
+
+    lista = _regra(css, "select option, select optgroup")
+    assert "background-color: var(--gaveta-fundo)" in lista
+    assert "color: var(--text)" in lista
+
+
+def test_a_pagina_do_produto_declara_o_proprio_esquema():
+    """Ela é escura e nunca disse isso ao navegador: barra de rolagem e
+    controles nativos saíam com moldura clara sobre fundo quase preto."""
+    from pathlib import Path
+
+    landing = Path("app/static/css/landing.css").read_text(encoding="utf-8")
+
+    assert "color-scheme: dark" in landing

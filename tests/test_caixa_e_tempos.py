@@ -594,18 +594,20 @@ def test_a_janelinha_nao_nasce_aberta(client, loja):
 
 
 def test_a_lista_da_gaveta_tem_fundo_opaco(client, loja):
-    """Foi o defeito reportado: no tema escuro não dava para ler as opções.
+    """Foi o defeito reportado, e depois se mostrou geral.
 
     A `option` herdava fundo transparente do select, e quem pintava a lista era
-    o sistema — de branco — com o texto quase branco por cima. Sem fundo
-    declarado aqui, o problema volta e ninguém percebe no tema claro.
+    o sistema — de branco — com o texto quase branco por cima. A correção virou
+    regra do sistema inteiro (`--gaveta-fundo`), e esta pílula continua com a
+    sua porque o select dela é transparente de propósito: sem declarar, a lista
+    herdaria a transparência de volta.
     """
     from pathlib import Path
 
     css = Path("app/static/css/comanda.css").read_text(encoding="utf-8")
     regra = css.split(".bd-tempo select option", 1)[1].split("}", 1)[0]
 
-    assert "background-color: var(--panel-2)" in regra
+    assert "background-color: var(--gaveta-fundo)" in regra
     assert "color: var(--text)" in regra
 
 

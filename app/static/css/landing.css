@@ -10,6 +10,10 @@
  */
 
 :root {
+  /* A página é escura e nunca disse isso ao navegador: barra de rolagem e
+     qualquer controle nativo saíam com a moldura clara, colados num fundo
+     quase preto. */
+  color-scheme: dark;
   --preto: #0a0b0e;
   --preto-2: #101218;
   --superficie: #14161d;

@@ -93,6 +93,9 @@
   /* Largura da coluna de um formulário empilhado. Um número só, porque
      campo, rótulo e texto de apoio precisam terminar no mesmo lugar —
      repetido em quatro regras, ele desalinharia na primeira mudança. */
+  /* Fundo OPACO da gaveta e da lista que ela abre. Ver a regra de `select`
+     mais abaixo: é a diferença entre ler e não ler as opções. */
+  --gaveta-fundo: #1a1d26;
   --campo-max: 560px;
   --raio-xs: 8px;
   --raio-sm: 10px;
@@ -104,6 +107,7 @@
 /* ===================== tokens: claro ===================== */
 :root[data-theme="light"] {
   color-scheme: light;
+  --gaveta-fundo: #ffffff;
   --bg: #f4f5f8;
   --panel: #ffffff;
   --panel-2: #f1f2f6;
@@ -492,6 +496,26 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px var(--brand-bg);
 }
+/* Toda gaveta do sistema — plataforma, painel do restaurante e cardápio.
+ *
+ * `color-scheme: dark` na raiz manda o navegador desenhar controles nativos com
+ * moldura escura, e resolveria isto sozinho — se o `<select>` não tivesse fundo
+ * definido pelo autor. Tem: a regra base pinta todo campo com
+ * rgba(255,255,255,.04). A partir do momento em que o autor toca no fundo de um
+ * select, o Chrome para de usar a moldura nativa e desenha a lista com o padrão
+ * dele, que é BRANCO — e o texto, que herda --text, é quase branco no escuro.
+ * Branco sobre branco.
+ *
+ * Foi assim na tela de interessados, e valia para o carrinho do cliente
+ * também: escolher bairro e forma de pagamento no escuro abria uma lista
+ * ilegível. `option` sem fundo declarado herda o do select; declarando os dois
+ * opacos, a lista é desenhada com a cor que se pediu, e não com a suposta. */
+select { background-color: var(--gaveta-fundo); }
+select option, select optgroup {
+  background-color: var(--gaveta-fundo);
+  color: var(--text);
+}
+
 .input-small { width: 105px; color: var(--price); font-weight: 700; }
 input[type=checkbox] { width: auto; margin: 0 7px 0 0; accent-color: var(--brand); }
 input[type=color] { width: 58px; height: 38px; padding: 3px; cursor: pointer; }
@@ -1646,7 +1670,9 @@ body.vitrine { --price: var(--ambar); }
 .bd-tempo select:focus { box-shadow: none; }
 /* A lista precisa de fundo OPACO. Herdando `transparent` do select, ela era
    pintada pelo sistema — branco — com o texto quase branco por cima. */
-.bd-tempo select option { background-color: var(--panel-2); color: var(--text); }
+/* Herda a regra global; fica aqui só porque o select da pílula é
+   transparente de propósito, e sem isto a lista herdaria a transparência. */
+.bd-tempo select option { background-color: var(--gaveta-fundo); color: var(--text); }
 /* A seta que o `appearance: none` levou embora. No wrapper, para não brigar
    com o padding do select. */
 .bd-tempo:after {
