@@ -190,7 +190,13 @@ def test_a_lista_de_itens_nao_e_bloco_pre_formatado(css):
 
 def test_as_seis_fases_cabem_sem_largura_minima_fixa(css):
     """`minmax(240px, 1fr)` somava 1440px de colunas numa tela de 1366 e
-    empurrava as duas últimas fases para fora."""
+    empurrava as duas últimas fases para fora.
+
+    ATENÇÃO: esta regra continua no `comanda.css`, mas o `nocturne.css` a
+    SOBRESCREVE com faixas empilhadas. O teste garante que a base segue
+    correta — é ela que volta a valer se o bloco da cozinha do nocturne for
+    removido —, e não descreve o que a tela renderiza hoje.
+    """
     regra = _regra(css, ".v17-kanban")
 
     assert "repeat(6, minmax(0, 1fr))" in regra
@@ -286,3 +292,84 @@ def test_a_pagina_do_produto_declara_o_proprio_esquema():
     landing = Path("app/static/css/landing.css").read_text(encoding="utf-8")
 
     assert "color-scheme: dark" in landing
+
+
+
+# --------------------------------------------------------------------------- #
+# Camada de tema (nocturne)
+# --------------------------------------------------------------------------- #
+
+NOCTURNE = Path("app/static/css/nocturne.css")
+
+
+@pytest.fixture(scope="module")
+def nocturne() -> str:
+    return NOCTURNE.read_text(encoding="utf-8")
+
+
+def test_a_camada_de_tema_entra_entre_a_base_e_a_marca_do_tenant(client, two_tenants):
+    """A ordem é a regra inteira.
+
+    O nocturne reescreve tokens do comanda, então precisa vir depois dele; e a
+    cor da marca do restaurante é injetada num <style> que precisa vir depois
+    dos dois, senão o tema apaga a identidade do cliente.
+    """
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/", base_url=BASE).get_data(as_text=True)
+
+    i_base = corpo.index("css/comanda.css")
+    i_tema = corpo.index("css/nocturne.css")
+    i_marca = corpo.index("--brand:")
+
+    assert i_base < i_tema < i_marca
+
+
+def test_o_acento_do_sistema_nao_alcanca_a_vitrine(nocturne):
+    """A falha que o pacote trazia: sem escopo, o acento pintava os botões do
+    CLIENTE.
+
+    Medido num tenant de marca dourada, "Adicionar" e "Continuar pedido" saíam
+    roxos. A própria página de vendas promete "o cliente vê o seu restaurante,
+    não o nosso" — o painel é nosso, a vitrine é dele.
+    """
+    linhas = [
+        linha for linha in nocturne.splitlines()
+        if "var(--acento" in linha and linha.strip().endswith("{")
+    ]
+    sem_escopo = [
+        linha.strip() for linha in linhas
+        if "body.painel" not in linha and not linha.strip().startswith(("/*", "*", ":root"))
+    ]
+
+    assert not sem_escopo, f"regra de acento sem escopo de painel: {sem_escopo}"
+
+
+def test_a_camada_nao_busca_fonte_em_terceiro(nocturne):
+    """O cardápio é página de cliente final: cada visitante passaria o IP para
+    um terceiro só para escolher um lanche. E `@import` no topo de uma folha
+    bloqueia a renderização e ainda serializa o pedido."""
+    import re
+
+    # A regra de verdade, não a palavra: o comentário que explica a remoção cita
+    # `@import`, e procurar o texto solto acusaria a própria explicação.
+    regra_import = re.compile("^" + chr(92) + "s*@import" + chr(92) + "b", re.M)
+
+    assert not regra_import.search(nocturne)
+    assert "fonts.googleapis.com" not in nocturne
+
+
+def test_a_camada_redefine_o_fundo_da_gaveta(nocturne):
+    """Ela troca --panel-2, e a lista do <select> se apoia nesse token. Sem
+    redefinir, a lista abriria no tom do tema anterior."""
+    assert nocturne.count("--gaveta-fundo:") == 2, "um por tema"
+
+
+def test_a_borda_do_cartao_e_visivel_nos_dois_temas(nocturne):
+    """O designer tirou gradiente e sombra de propósito — a aresta virou a
+    ÚNICA separação, e o cartão difere do fundo em só 1,16:1 no escuro.
+
+    Os valores entregues davam 1,07:1 (escuro) e 1,37:1 (claro), abaixo do
+    limiar em que o olho registra uma linha.
+    """
+    assert "--border: #3b3e4a" in nocturne, "escuro: 1,43:1 contra o cartão"
+    assert "--border: #cfd4e0" in nocturne, "claro: 1,48:1 contra o cartão"
