@@ -192,10 +192,10 @@ def test_as_seis_fases_cabem_sem_largura_minima_fixa(css):
     """`minmax(240px, 1fr)` somava 1440px de colunas numa tela de 1366 e
     empurrava as duas últimas fases para fora.
 
-    ATENÇÃO: esta regra continua no `comanda.css`, mas o `nocturne.css` a
-    SOBRESCREVE com faixas empilhadas. O teste garante que a base segue
-    correta — é ela que volta a valer se o bloco da cozinha do nocturne for
-    removido —, e não descreve o que a tela renderiza hoje.
+    A camada de tema chegou a sobrescrever isto com faixas empilhadas; o bloco
+    foi removido na integração porque o custo era alto — quadro de 1381px numa
+    tela de 768, com a última fase começando em 1657px. Esta regra voltou a ser
+    a que a tela renderiza.
     """
     regra = _regra(css, ".v17-kanban")
 
@@ -373,3 +373,18 @@ def test_a_borda_do_cartao_e_visivel_nos_dois_temas(nocturne):
     """
     assert "--border: #3b3e4a" in nocturne, "escuro: 1,43:1 contra o cartão"
     assert "--border: #cfd4e0" in nocturne, "claro: 1,48:1 contra o cartão"
+
+
+def test_a_camada_de_tema_nao_mexe_no_quadro_da_cozinha(nocturne):
+    """As seis fases numa tela de 19" são requisito, não preferência.
+
+    A camada trazia cartões grandes em faixas empilhadas: bonito de perto, e
+    medido em 1366x768 com TRÊS pedidos dava um quadro de 1381px de altura, com
+    a fase "Saiu para entrega" começando em 1657px. Para saber se havia algo
+    pronto, a cozinha rolava a página.
+
+    O tema continua chegando lá pelos tokens — fundo, borda, cor e tipografia
+    são globais. O que não pode voltar é o override de LAYOUT.
+    """
+    for seletor in (".v17-kanban {", ".v17-kanban-column", ".order-card {", ".order-actions button"):
+        assert seletor not in nocturne, f"o tema voltou a mexer no layout da cozinha: {seletor}"
