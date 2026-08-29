@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import re
+
 import pytest
 
 from tests.conftest import login_tenant
@@ -307,6 +309,11 @@ def nocturne() -> str:
     return NOCTURNE.read_text(encoding="utf-8")
 
 
+@pytest.fixture(scope="module")
+def css_nocturne() -> str:
+    return NOCTURNE.read_text(encoding="utf-8")
+
+
 def test_a_camada_de_tema_entra_entre_a_base_e_a_marca_do_tenant(client, two_tenants):
     """A ordem é a regra inteira.
 
@@ -388,3 +395,87 @@ def test_a_camada_de_tema_nao_mexe_no_quadro_da_cozinha(nocturne):
     """
     for seletor in (".v17-kanban {", ".v17-kanban-column", ".order-card {", ".order-actions button"):
         assert seletor not in nocturne, f"o tema voltou a mexer no layout da cozinha: {seletor}"
+
+
+# --------------------------------------------------------------------------- #
+# Etapa 2 do redesenho: telas com painel lateral
+# --------------------------------------------------------------------------- #
+
+
+def test_o_cadastro_de_produto_sai_de_cima_da_lista(client, two_tenants):
+    """Antes o formulário empilhava ACIMA da tabela e os dois disputavam a mesma
+    coluna: para conferir um preço enquanto cadastrava, a pessoa rolava a página
+    inteira e perdia o formulário de vista."""
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/produtos", base_url=BASE).get_data(as_text=True)
+
+    assert "tela-com-painel" in corpo
+    assert "painel-lateral" in corpo
+    # A lista vem antes do painel na marcação: quem lê com leitor de tela chega
+    # ao conteúdo antes do formulário de cadastro.
+    assert corpo.index("tabela-produtos") < corpo.index("painel-lateral")
+
+
+def test_o_cupom_aparece_uma_vez_so(client, two_tenants):
+    """A tela renderizava cada cupom DUAS vezes — uma na tabela e outra numa
+    lista de formulários embaixo. A edição virou dobra da própria linha."""
+    from app.extensions import db
+    from app.models.cupom import Cupom
+
+    db.session.add(Cupom(tenant_id=two_tenants["tenant_a"], codigo="TESTE10",
+                         tipo="percentual", valor=10.0, limite_usos=5, ativo=True))
+    db.session.commit()
+
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/cupons", base_url=BASE).get_data(as_text=True)
+    tabela = corpo.split('class="tabela-cupons"', 1)[1].split("</table>", 1)[0]
+
+    assert tabela.count(">TESTE10<") == 1
+    assert "edicao-cupom" in tabela
+
+
+def test_a_coluna_que_decide_e_a_ultima(client, two_tenants):
+    """"Disponíveis" é o que diz se o cupom ainda vale alguma coisa, e o olho
+    termina a linha nela."""
+    from app.extensions import db
+    from app.models.cupom import Cupom
+
+    db.session.add(Cupom(tenant_id=two_tenants["tenant_a"], codigo="ORDEM",
+                         tipo="percentual", valor=5.0, limite_usos=3, ativo=True))
+    db.session.commit()
+
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/cupons", base_url=BASE).get_data(as_text=True)
+    cabecalho = corpo.split("<thead>", 1)[1].split("</thead>", 1)[0]
+    colunas = re.findall(r"<th[^>]*>([^<]+)</th>", cabecalho)
+
+    assert colunas[-1].strip() == "Disponíveis"
+
+
+def test_o_menu_das_configuracoes_nunca_aponta_para_secao_inexistente(client, two_tenants):
+    """O item do menu e o `libera()` do cartão leem a MESMA lista.
+
+    Escritos separados, divergiriam: um plano sem PIX mostraria o item no menu
+    e levaria a uma âncora que não existe naquela página.
+    """
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+    corpo = client.get("/admin/configuracoes", base_url=BASE).get_data(as_text=True)
+
+    destinos = set(re.findall(r'<a href="#cfg-(\w+)"', corpo))
+    secoes = set(re.findall(r'class="card-admin cfg-secao" id="cfg-(\w+)"', corpo))
+
+    assert destinos, "a navegação lateral não foi montada"
+    assert destinos == secoes, f"menu e seções divergem: {destinos ^ secoes}"
+
+
+def test_a_linha_fora_do_ar_recua_por_cor_e_nao_por_opacidade(css_nocturne):
+    """`opacity: .55` derrubava o texto para 2,31:1 no tema claro.
+
+    Opacidade apaga tudo por igual, inclusive o que precisa continuar legível.
+    `--muted` é calibrado e passa; a diferença para o texto normal é justamente
+    a de-ênfase que se queria.
+    """
+    regra = css_nocturne.split(".linha-oculta > td {", 1)[1].split("}", 1)[0]
+
+    assert "color: var(--muted)" in regra
+    assert "opacity" not in regra

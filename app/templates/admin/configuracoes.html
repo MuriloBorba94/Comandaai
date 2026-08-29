@@ -4,7 +4,29 @@
 {% block intro_titulo %}Loja e identidade{% endblock %}
 {% block intro_texto %}Plano, identidade visual e ajustes da loja.{% endblock %}
 {% block content %}
-  <div class="card-admin">
+
+{# Sete cartões empilhados viravam uma rolagem longa em que ninguém achava a
+   configuração do PIX. Agora as seções são navegação lateral.
+
+   A lista é montada UMA vez e serve ao menu e às seções: sem isso, o item do
+   menu e o `libera()` do cartão divergiriam, e o menu apontaria para uma
+   âncora que não existe naquele plano. #}
+{% set secoes = [('plano', 'Plano')] %}
+{% if libera('identidade') %}{% set _ = secoes.append(('identidade', 'Identidade visual')) %}{% endif %}
+{% if libera('pix') %}{% set _ = secoes.append(('pix', 'PIX pelo site')) %}{% endif %}
+{% if libera('whatsapp') %}{% set _ = secoes.append(('whatsapp', 'Avisos no WhatsApp')) %}{% endif %}
+{% set _ = secoes.append(('loja', 'Tempos e mesas')) %}
+
+<div class="tela-com-nav">
+  <nav class="cfg-nav" aria-label="Seções das configurações">
+    {% for ident, rotulo in secoes %}
+      <a href="#cfg-{{ ident }}" data-cfg="{{ ident }}">{{ rotulo }}</a>
+    {% endfor %}
+  </nav>
+
+  <div class="cfg-corpo">
+
+  <div class="card-admin cfg-secao" id="cfg-plano">
     <h1>Seu plano</h1>
     <p>
       <strong>{{ plano.nome if plano else tenant.plano }}</strong>
@@ -60,7 +82,7 @@
   </div>
 
   {% if libera('identidade') %}
-  <div class="card-admin">
+  <div class="card-admin cfg-secao" id="cfg-identidade">
     <h1>Identidade visual</h1>
     <p class="muted">
       A logo aparece no topo do painel e no cabeçalho do cardápio. A cor pinta
@@ -94,7 +116,7 @@
   {% endif %}
 
   {% if libera('pix') %}
-  <div class="card-admin">
+  <div class="card-admin cfg-secao" id="cfg-pix">
     <h1>Receber PIX pelo site</h1>
     <p class="muted">
       Com a chave cadastrada, o cardápio passa a oferecer <strong>“PIX online”</strong>
@@ -161,7 +183,7 @@
   {% endif %}
 
   {% if libera('whatsapp') %}
-  <div class="card-admin">
+  <div class="card-admin cfg-secao" id="cfg-whatsapp">
     <h1>Avisar o cliente no WhatsApp</h1>
     <p class="muted">
       Em uso agora: <strong>{{ whatsapp_atual.nome }}</strong>.
@@ -239,7 +261,7 @@
   </div>
   {% endif %}
 
-  <div class="card-admin">
+  <div class="card-admin cfg-secao" id="cfg-loja">
     <h1>Configurações da loja</h1>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -273,4 +295,7 @@
       <button type="submit">Salvar</button>
     </form>
   </div>
+  </div>
+</div>
+
 {% endblock %}

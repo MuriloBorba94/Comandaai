@@ -337,3 +337,147 @@ body.painel .comanda-chip.ativo {
 :root[data-theme="light"] .menu-linha.ativo > a { color: var(--acento); }
 .menu-secao h3 { letter-spacing: .08em; text-transform: uppercase; font-size: .7rem; color: var(--muted); }
 .v17-nav-count { background: var(--acento-tint); color: var(--acento-200); border-radius: 999px; }
+
+/* ===================== tela com painel lateral =====================
+ *
+ * Lista à esquerda, formulário à direita. Serve Cardápio e Cupons, e existe
+ * porque o arranjo anterior — formulário EMPILHADO acima da tabela — fazia os
+ * dois disputarem a mesma coluna: para conferir um preço enquanto cadastrava,
+ * a pessoa rolava a página inteira e perdia o formulário de vista.
+ *
+ * `align-items: start` para o painel não esticar até a altura da lista, e
+ * `min-width: 0` na primeira coluna porque item de grade não encolhe abaixo do
+ * conteúdo sem isso — uma tabela larga empurraria o painel para fora da tela. */
+.tela-com-painel {
+  display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px; align-items: start;
+}
+.tela-com-painel > .card-admin { min-width: 0; margin-bottom: 0; }
+.painel-lateral { position: sticky; top: 76px; }
+.painel-lateral > .card-admin { margin-bottom: 0; }
+.painel-lateral h2 { font-size: 1rem; }
+/* Dentro de 320px, a coluna de 560px do formulário não cabe — e não precisa:
+   aqui a largura já é o próprio painel. */
+.painel-lateral input, .painel-lateral select, .painel-lateral textarea,
+.painel-lateral > .card-admin form > label,
+.painel-lateral > .card-admin form > p.muted { max-width: none; }
+.painel-lateral .grid-2 { gap: 10px; }
+
+@media (max-width: 1100px) {
+  /* Empilha, e o painel deixa de ser fixo: colado no topo de uma tela estreita
+     ele cobriria a lista que a pessoa está tentando ler. */
+  .tela-com-painel { grid-template-columns: 1fr; }
+  .painel-lateral { position: static; }
+}
+
+/* ===================== fichas de seleção =====================
+ *
+ * Alternativa à lista de caixas quando o espaço é estreito. A caixa de seleção
+ * é um alvo do tamanho de uma cabeça de alfinete; aqui a ficha inteira é o
+ * alvo, e o estado ligado se lê pelo contorno, não por um risco de 13px. */
+.fichas { display: flex; flex-wrap: wrap; gap: 6px; margin: 5px 0 18px; }
+.ficha {
+  display: inline-flex; align-items: center; cursor: pointer;
+  padding: 6px 11px; border-radius: 999px;
+  border: 1px solid var(--border-2); background: transparent;
+  color: var(--text-2); font-size: .78rem; font-weight: 500; margin: 0;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.ficha input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+.ficha b { font-weight: 600; opacity: .75; margin-left: 4px; }
+.ficha:hover { border-color: var(--muted); color: var(--text); }
+.ficha:has(input:checked) {
+  border-color: var(--acento); color: var(--acento-200); background: var(--acento-tint);
+}
+:root[data-theme="light"] .ficha:has(input:checked) { color: var(--acento); }
+/* O anel de foco precisa aparecer na ficha, não na caixa escondida. */
+.ficha:has(input:focus-visible) { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+/* ===================== linha esmaecida =====================
+ * Item fora do ar: a linha INTEIRA recua, e não só o rótulo de status — o que
+ * interessa é reconhecer de relance que ele não está à venda.
+ *
+ * O recuo é por COR, e não por opacidade. Com `opacity: .55` o texto media
+ * 2,31:1 no tema claro: opacidade apaga tudo por igual, inclusive o que precisa
+ * continuar legível. `--muted` é calibrado e passa (5,2:1), e a diferença para
+ * o texto normal (12,5:1) é justamente a de-ênfase que se queria.
+ *
+ * A opacidade fica só na foto, onde não há texto para prejudicar. */
+.linha-oculta > td { color: var(--muted); }
+.linha-oculta > td strong { font-weight: 500; }
+.linha-oculta .thumb, .linha-oculta .thumb-vazia { filter: grayscale(1); opacity: .5; }
+
+/* Nome com a descrição por baixo, na tabela de produtos. */
+.tabela-produtos td strong { font-weight: 600; }
+.tabela-produtos td small { display: block; color: var(--muted); font-size: .72rem; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Miniatura menor nesta tabela: com 80px a coluna ia a 102px, quase o dobro
+   dos 56px que a densidade da lista pede. A foto aqui é reconhecimento, não
+   apreciação — quem quer ver grande abre o produto. */
+.tabela-produtos .thumb, .tabela-produtos .thumb-vazia {
+  width: 44px; height: 44px; flex: 0 0 44px; font-size: .6rem;
+}
+
+/* ===================== cupons ===================== */
+/* "Disponíveis" é a coluna que decide se o cupom ainda vale alguma coisa. Peso
+   maior, e cor só nos dois casos que mudam o que fazer — acabando e acabado.
+   Pintar todos os números não destacaria nenhum. */
+.tabela-cupons .restante { font-weight: 600; }
+.tabela-cupons .restante.acabando { color: var(--warning); }
+.tabela-cupons .restante.esgotado { color: var(--danger); }
+.tabela-cupons td strong { font-weight: 600; }
+.tabela-cupons td small { display: block; color: var(--muted); font-size: .72rem; margin-top: 2px; }
+
+/* A edição é uma dobra da própria linha. Sem borda no topo, para ela ler como
+   continuação do cupom acima e não como um registro novo. */
+.linha-edicao-dobra > td { border-top: 0; padding-top: 0; }
+.edicao-cupom > summary {
+  list-style: none; cursor: pointer; display: inline-flex;
+  font-size: .74rem; color: var(--muted); font-weight: 600; padding: 2px 0 6px;
+}
+.edicao-cupom > summary::-webkit-details-marker { display: none; }
+.edicao-cupom > summary:hover { color: var(--text-2); }
+.edicao-cupom[open] > summary { color: var(--acento-300); }
+:root[data-theme="light"] .edicao-cupom[open] > summary { color: var(--acento); }
+.edicao-cupom form { margin: 0 0 8px; max-width: 620px; }
+.edicao-cupom input, .edicao-cupom select { max-width: none; margin-bottom: 12px; }
+.edicao-cupom label { max-width: none; }
+.aviso-restante {
+  margin: 0 0 12px; padding: 8px 11px; border-radius: var(--raio-sm);
+  background: var(--warning-bg); border: 1px solid var(--warning-border);
+  color: var(--warning); font-size: .78rem;
+}
+.nota-rodape { margin: 14px 0 0; font-size: .78rem; line-height: 1.5; }
+
+/* ===================== tela com navegação lateral (configurações) =====================
+ *
+ * Sete cartões empilhados viravam uma rolagem longa em que ninguém achava a
+ * configuração do PIX. O menu à esquerda é curto e a seção aberta é uma só. */
+.tela-com-nav { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; align-items: start; }
+.cfg-nav { position: sticky; top: 76px; display: grid; gap: 2px; }
+.cfg-nav a {
+  display: block; text-decoration: none; padding: 8px 11px;
+  border-radius: var(--raio-sm); color: var(--text-2); font-size: .84rem;
+  border-left: 2px solid transparent;
+}
+.cfg-nav a:hover { background: var(--acento-tint); color: var(--text); }
+.cfg-nav a.ativo {
+  background: var(--acento-tint); color: var(--acento-200);
+  border-left-color: var(--acento); font-weight: 600;
+}
+:root[data-theme="light"] .cfg-nav a.ativo { color: var(--acento); }
+.cfg-corpo > .card-admin { margin-bottom: 14px; }
+.cfg-secao { scroll-margin-top: 84px; }
+
+@media (max-width: 900px) {
+  /* Empilha e o menu vira uma faixa que rola de lado: numa tela estreita a
+     coluna de 220px comeria a largura que o formulário precisa. */
+  .tela-com-nav { grid-template-columns: 1fr; }
+  .cfg-nav {
+    position: static; grid-auto-flow: column; grid-auto-columns: max-content;
+    overflow-x: auto; scrollbar-width: none; padding-bottom: 4px;
+  }
+  .cfg-nav::-webkit-scrollbar { display: none; }
+  .cfg-nav a { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; }
+  .cfg-nav a.ativo { border-left: 0; border-bottom-color: var(--acento); }
+}

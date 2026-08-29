@@ -400,9 +400,39 @@
     });
   }
 
+  /* Navegacao das configuracoes: marca a secao visivel enquanto a pagina rola.
+   *
+   * Sao ancoras de verdade, e nao abas de JavaScript, de proposito: assim o
+   * Ctrl+F do navegador continua achando texto de qualquer secao, o link com
+   * #cfg-pix abre onde deveria, e sem JS a pagina continua inteira e usavel —
+   * so perde o realce. Uma aba escondida perderia as tres coisas. */
+  function ligarNavDeConfiguracoes() {
+    const links = [...document.querySelectorAll('.cfg-nav a')];
+    if (!links.length) { return; }
+    const secoes = links
+      .map(a => ({ link: a, alvo: document.getElementById('cfg-' + a.dataset.cfg) }))
+      .filter(x => x.alvo);
+
+    const marcar = alvo => links.forEach(a =>
+      a.classList.toggle('ativo', a.dataset.cfg === alvo));
+
+    if ('IntersectionObserver' in window) {
+      const observador = new IntersectionObserver(entradas => {
+        const visivel = entradas.filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visivel) { marcar(visivel.target.id.replace('cfg-', '')); }
+      }, { rootMargin: '-84px 0px -60% 0px', threshold: 0 });
+      secoes.forEach(s => observador.observe(s.alvo));
+    }
+
+    marcar(secoes[0].link.dataset.cfg);
+    links.forEach(a => a.addEventListener('click', () => marcar(a.dataset.cfg)));
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     ligarJanelinhas();
     ligarMenu();
+    ligarNavDeConfiguracoes();
     el('v17-sidebar-backdrop')?.addEventListener('click', closeNav);
     el('theme-toggle')?.addEventListener('click', toggleTheme);
     aplicarRotuloTema();
