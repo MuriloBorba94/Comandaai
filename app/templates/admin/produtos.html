@@ -2,153 +2,109 @@
 {% block title %}Produtos — {{ tenant.nome_fantasia }}{% endblock %}
 {% block secao %}Produtos e adicionais{% endblock %}
 {% block intro_titulo %}Produtos e adicionais{% endblock %}
-{% block intro_texto %}O cardápio do restaurante.{% endblock %}
+{% block intro_texto %}O cardapio do restaurante.{% endblock %}
 {% block content %}
-
-{# Lista à esquerda, cadastro num painel de 320px à direita.
-   Antes o formulário ficava EMPILHADO acima da tabela, e os dois disputavam a
-   mesma coluna: para conferir um preço enquanto cadastrava, a pessoa rolava a
-   página inteira e perdia o formulário de vista. #}
-<div class="tela-com-painel">
-
   <div class="card-admin">
-    <div class="item-header">
-      <h2>Produtos ({{ produtos|length }})</h2>
-    </div>
+    <h1>Novo produto</h1>
+    {# enctype é obrigatório para o campo de imagem chegar em request.files. #}
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    <div class="v17-table-wrap">
-      <table class="tabela-produtos">
-        {# Larguras fixas por coluna, com o nome como a única elástica: sem
-           isso, um produto de nome comprido espremia preço e status. #}
-        <colgroup>
-          <col style="width:56px"><col><col style="width:118px">
-          <col style="width:104px"><col style="width:96px">
-          <col style="width:104px"><col style="width:1%">
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Foto</th><th>Nome</th><th>Categoria</th>
-            <th class="valor">Preço</th><th class="valor">Extras</th><th>Status</th><th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for produto in produtos %}
-            {# Produto oculto esmaecido na linha INTEIRA, e não só no status:
-               o que interessa é reconhecer de relance que ele não está à venda. #}
-            <tr class="{{ 'linha-oculta' if not produto.disponivel }}">
-              <td>
-                {% if produto.imagem %}
-                  <img class="thumb" src="{{ url_for('static', filename='uploads/' + produto.imagem) }}" alt="{{ produto.nome }}">
-                {% else %}
-                  <div class="thumb-vazia">sem foto</div>
-                {% endif %}
-              </td>
-              <td>
-                <strong>{{ produto.nome }}</strong>
-                {% if produto.descricao %}<small>{{ produto.descricao }}</small>{% endif %}
-              </td>
-              <td>{{ produto.categoria.nome if produto.categoria else "—" }}</td>
-              <td class="valor">R$ {{ produto.preco|brl }}</td>
-              <td class="valor">{{ produto.adicionais|length or "—" }}</td>
-              <td>
-                <span class="pill {{ 'pill-ok' if produto.disponivel else 'pill-neutro' }}">
-                  {{ "Disponível" if produto.disponivel else "Oculto" }}
-                </span>
-              </td>
-              <td>
-                <div class="table-actions">
-                  <a class="btn-secondary" href="{{ url_for('admin.produto_editar', produto_id=produto.id) }}">Editar</a>
-                  {% if libera('estoque') %}
-                    <a class="btn-secondary" href="{{ url_for('admin.produto_ficha', produto_id=produto.id) }}">Ficha</a>
-                  {% endif %}
-                  <form class="inline" method="post" action="{{ url_for('admin.produto_excluir', produto_id=produto.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn-delete">Excluir</button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-          {% else %}
-            <tr><td colspan="7" class="muted">Nenhum produto cadastrado ainda.</td></tr>
+      <label for="nome">Nome</label>
+      <input id="nome" name="nome" required>
+
+      <label for="descricao">Descrição</label>
+      <input id="descricao" name="descricao" maxlength="300" placeholder="Opcional">
+
+      <label for="preco">Preço</label>
+      <input id="preco" name="preco" required placeholder="Ex.: 32,90">
+
+      <label for="categoria_id">Categoria</label>
+      <select id="categoria_id" name="categoria_id">
+        <option value="">— Sem categoria —</option>
+        {% for categoria in categorias %}
+          <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+        {% endfor %}
+      </select>
+      {% if not categorias %}
+        <p class="muted">
+          Você ainda não tem categorias.
+          <a href="{{ url_for('admin.categorias') }}">Criar categorias</a> deixa o cardápio organizado.
+        </p>
+      {% endif %}
+
+      <label for="imagem">Foto</label>
+      <input id="imagem" name="imagem" type="file" accept="image/*">
+      <p class="muted">Opcional. JPG, PNG ou WebP, até 5 MB. A imagem é convertida e redimensionada automaticamente.</p>
+
+      {% if adicionais %}
+        <label>Adicionais aceitos por este produto</label>
+        <div class="checks">
+          {% for adicional in adicionais %}
+            <label>
+              <input type="checkbox" name="adicionais" value="{{ adicional.id }}">
+              {{ adicional.nome }} (+R$ {{ adicional.preco|brl }})
+            </label>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
+        </div>
+      {% endif %}
+
+      <label class="check-inline">
+        <input type="checkbox" name="disponivel" checked> Disponível no cardápio
+      </label>
+      <label class="check-inline">
+        <input type="checkbox" name="combo_promocional"> É combo/promoção
+      </label>
+      <p class="muted">
+        Marcado, o item não recebe desconto de cupom — evita empilhar desconto
+        sobre preço que já é promocional.
+      </p>
+
+      <button type="submit">Adicionar</button>
+    </form>
   </div>
 
-  {# `sticky` para o formulário acompanhar a rolagem da lista: cadastrar dez
-     itens seguidos é o caso comum, e voltar ao topo a cada um é o atrito. #}
-  <aside class="painel-lateral">
-    <div class="card-admin">
-      <h2>Novo produto</h2>
-      {# enctype é obrigatório para o campo de imagem chegar em request.files. #}
-      <form method="post" enctype="multipart/form-data">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-        <label for="nome">Nome</label>
-        <input id="nome" name="nome" required>
-
-        <label for="descricao">Descrição</label>
-        <input id="descricao" name="descricao" maxlength="300" placeholder="Opcional">
-
-        {# Preço e categoria lado a lado: são curtos, e um por linha alongava o
-           painel sem ganhar nada. #}
-        <div class="grid-2">
-          <div>
-            <label for="preco">Preço</label>
-            <input id="preco" name="preco" required placeholder="Ex.: 32,90">
-          </div>
-          <div>
-            <label for="categoria_id">Categoria</label>
-            <select id="categoria_id" name="categoria_id">
-              <option value="">— Sem categoria —</option>
-              {% for categoria in categorias %}
-                <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-        {% if not categorias %}
-          <p class="muted">
-            Você ainda não tem categorias.
-            <a href="{{ url_for('admin.categorias') }}">Criar categorias</a> deixa o cardápio organizado.
-          </p>
-        {% endif %}
-
-        <label for="imagem">Foto</label>
-        <input id="imagem" name="imagem" type="file" accept="image/*">
-        <p class="muted">Opcional. JPG, PNG ou WebP, até 5 MB. A imagem é convertida e redimensionada automaticamente.</p>
-
-        {% if adicionais %}
-          <label>Adicionais aceitos por este produto</label>
-          {# Fichas que ligam e desligam, em vez de lista de caixas. A caixa de
-             seleção é do tamanho de um alvo de mira; a ficha inteira é o alvo,
-             e num painel estreito ela ainda ocupa menos linhas. #}
-          <div class="fichas">
-            {% for adicional in adicionais %}
-              <label class="ficha">
-                <input type="checkbox" name="adicionais" value="{{ adicional.id }}">
-                <span>{{ adicional.nome }} <b>+R$ {{ adicional.preco|brl }}</b></span>
-              </label>
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        <label class="check-inline">
-          <input type="checkbox" name="disponivel" checked> Disponível no cardápio
-        </label>
-        <label class="check-inline">
-          <input type="checkbox" name="combo_promocional"> É combo/promoção
-        </label>
-        <p class="muted">
-          Marcado, o item não recebe desconto de cupom — evita empilhar desconto
-          sobre preço que já é promocional.
-        </p>
-
-        <button type="submit" class="btn-save">Adicionar produto</button>
-      </form>
-    </div>
-  </aside>
-
-</div>
+  <div class="card-admin">
+    <h1>Produtos</h1>
+    <table>
+      <thead>
+        <tr><th>Foto</th><th>Nome</th><th>Categoria</th><th>Preço</th><th>Adicionais</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for produto in produtos %}
+        <tr>
+          <td>
+            {% if produto.imagem %}
+              <img class="thumb" src="{{ url_for('static', filename='uploads/' + produto.imagem) }}" alt="{{ produto.nome }}">
+            {% else %}
+              <div class="thumb-vazia">sem foto</div>
+            {% endif %}
+          </td>
+          <td>
+            {{ produto.nome }}
+            {% if produto.descricao %}<div class="muted">{{ produto.descricao }}</div>{% endif %}
+          </td>
+          <td>{{ produto.categoria.nome if produto.categoria else "—" }}</td>
+          <td>R$ {{ produto.preco|brl }}</td>
+          <td>{{ produto.adicionais|length or "—" }}</td>
+          <td>{{ "Disponível" if produto.disponivel else "Oculto" }}</td>
+          <td>
+            <div class="row-actions">
+              <a class="btn btn-secondary" href="{{ url_for('admin.produto_editar', produto_id=produto.id) }}">Editar</a>
+              {% if libera('estoque') %}
+                <a class="btn btn-secondary" href="{{ url_for('admin.produto_ficha', produto_id=produto.id) }}">Ficha</a>
+              {% endif %}
+              <form class="inline" method="post" action="{{ url_for('admin.produto_excluir', produto_id=produto.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit">Excluir</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7">Nenhum produto cadastrado ainda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 {% endblock %}

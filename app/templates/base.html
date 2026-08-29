@@ -56,11 +56,6 @@
     <link rel="icon" href="{{ url_for('static', filename='img/comandaai-marca.svg') }}?v=1" type="image/svg+xml">
   {% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/comanda.css') }}">
-  {# Camada de tema, DEPOIS do comanda.css e ANTES do <style> do tenant.
-     A ordem é a regra inteira: o nocturne reescreve tokens do comanda, e a cor
-     da marca do restaurante precisa continuar vindo por último para ganhar dos
-     dois. Para desligar o tema, basta apagar esta linha. #}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/nocturne.css') }}">
 
   {# A cor de destaque é por tenant. Vem de cor_da_marca(), que só devolve hex
      validado — nunca texto direto do formulário, que aqui seria injeção de CSS.

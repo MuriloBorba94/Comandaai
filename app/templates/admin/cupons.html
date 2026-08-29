@@ -2,192 +2,112 @@
 {% block title %}Cupons — {{ tenant.nome_fantasia }}{% endblock %}
 {% block secao %}Cupons promocionais{% endblock %}
 {% block intro_titulo %}Cupons promocionais{% endblock %}
-{% block intro_texto %}Desconto com limite de usos e pedido mínimo.{% endblock %}
+{% block intro_texto %}Desconto com limite de usos e pedido minimo.{% endblock %}
 {% block content %}
-
-<div class="tela-com-painel">
-
   <div class="card-admin">
-    <div class="item-header">
-      <h2>Cupons ({{ cupons|length }})</h2>
-    </div>
+    <h1>Novo cupom</h1>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    {% if not cupons %}
-      <p class="muted" style="margin:0">Nenhum cupom criado ainda.</p>
-    {% else %}
-      <div class="v17-table-wrap">
-        <table class="tabela-cupons">
-          <colgroup>
-            <col><col style="width:108px"><col style="width:104px">
-            <col style="width:108px"><col style="width:112px"><col style="width:108px">
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th class="valor">Desconto</th>
-              <th class="valor">Mínimo</th>
-              <th class="valor">Usados</th>
-              <th class="valor">Reservados</th>
-              {# Última coluna de propósito: é ela que decide se o cupom ainda
-                 vale alguma coisa, e o olho termina a linha aqui. #}
-              <th class="valor">Disponíveis</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for cupom in cupons %}
-              <tr class="{{ 'linha-oculta' if not cupom.ativo }}">
-                <td>
-                  <strong>{{ cupom.codigo }}</strong>
-                  {% if not cupom.ativo %}<small>desativado</small>
-                  {% elif cupom.descricao %}<small>{{ cupom.descricao }}</small>{% endif %}
-                </td>
-                <td class="valor">
-                  {% if cupom.tipo == "fixo" %}R$ {{ cupom.valor|brl }}{% else %}{{ cupom.valor|round(0)|int }}%{% endif %}
-                </td>
-                <td class="valor">R$ {{ cupom.pedido_minimo|brl }}</td>
-                <td class="valor">{{ cupom.usos_confirmados }} / {{ cupom.limite_usos }}</td>
-                <td class="valor">{{ cupom.reservas_ativas }}</td>
-                {# Cor só nos dois casos que mudam o que fazer: acabando e
-                   acabado. Pintar todos os números não destacaria nenhum. #}
-                <td class="valor restante
-                           {{ 'acabando' if cupom.disponiveis == 1 else ('esgotado' if cupom.disponiveis <= 0) }}">
-                  {{ cupom.disponiveis }}
-                </td>
-              </tr>
-              <tr class="linha-edicao-dobra {{ 'linha-oculta' if not cupom.ativo }}">
-                <td colspan="6">
-                  {# O cupom aparecia DUAS vezes nesta tela: uma na tabela e
-                     outra numa lista de formulários embaixo. Agora a edição é
-                     uma dobra da própria linha — o mesmo cupom num lugar só. #}
-                  <details class="edicao-cupom">
-                    <summary>Editar {{ cupom.codigo }}</summary>
-                    {% if cupom.ativo and cupom.disponiveis == 1 %}
-                      <p class="aviso-restante">
-                        Resta 1 uso. O cupom sai do ar sozinho quando zerar.
-                      </p>
-                    {% endif %}
-                    <form method="post" action="{{ url_for('admin.cupom_salvar', cupom_id=cupom.id) }}">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <div class="grid-2">
-                        <div>
-                          <label for="valor-{{ cupom.id }}">Valor</label>
-                          <input id="valor-{{ cupom.id }}" name="valor"
-                                 value="{{ "%.2f"|format(cupom.valor)|replace(".", ",") }}">
-                        </div>
-                        <div>
-                          <label for="minimo-{{ cupom.id }}">Pedido mínimo</label>
-                          <input id="minimo-{{ cupom.id }}" name="pedido_minimo"
-                                 value="{{ "%.2f"|format(cupom.pedido_minimo)|replace(".", ",") }}">
-                        </div>
-                        <div>
-                          <label for="limite-{{ cupom.id }}">Limite de usos</label>
-                          <input id="limite-{{ cupom.id }}" name="limite_usos" type="number" min="1"
-                                 value="{{ cupom.limite_usos }}">
-                        </div>
-                        <div>
-                          <label for="desc-{{ cupom.id }}">Descrição</label>
-                          <input id="desc-{{ cupom.id }}" name="descricao" maxlength="160"
-                                 value="{{ cupom.descricao or '' }}">
-                        </div>
-                        <div>
-                          <label for="ini-{{ cupom.id }}">Válido a partir de</label>
-                          <input id="ini-{{ cupom.id }}" name="inicio_em" type="date"
-                                 value="{{ cupom.inicio_em.strftime('%Y-%m-%d') if cupom.inicio_em else '' }}">
-                        </div>
-                        <div>
-                          <label for="fim-{{ cupom.id }}">Válido até</label>
-                          <input id="fim-{{ cupom.id }}" name="fim_em" type="date"
-                                 value="{{ cupom.fim_em.strftime('%Y-%m-%d') if cupom.fim_em else '' }}">
-                        </div>
-                      </div>
-                      <label class="check-inline">
-                        <input type="checkbox" name="ativo" {% if cupom.ativo %}checked{% endif %}> Ativo
-                      </label>
-                      <label class="check-inline">
-                        <input type="checkbox" name="permite_combo_promocional"
-                               {% if cupom.permite_combo_promocional %}checked{% endif %}> Vale em combo
-                      </label>
-                      <div class="table-actions">
-                        <button type="submit" class="btn-save">Salvar</button>
-                      </div>
-                    </form>
-                    <form method="post" action="{{ url_for('admin.cupom_excluir', cupom_id=cupom.id) }}">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <button type="submit" class="btn-delete">Excluir cupom</button>
-                    </form>
-                  </details>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      <label for="codigo">Código</label>
+      <input id="codigo" name="codigo" required maxlength="40" placeholder="Ex.: BEMVINDO10">
+      <p class="muted">Letras, números, hífen e sublinhado. É convertido para maiúsculas.</p>
 
-      {# A conta fica no rodapé porque "reservado" não é palavra óbvia, e sem
-         ela a coluna que mais importa é a que menos se entende. #}
-      <p class="muted nota-rodape">
-        <strong>Disponíveis</strong> = limite − usados − reservas ativas. A reserva
-        é um pedido feito e ainda não confirmado: ela segura a vaga para o cupom
-        não passar do limite.
+      <label for="descricao">Descrição (uso interno)</label>
+      <input id="descricao" name="descricao" maxlength="160" placeholder="Opcional">
+
+      <label for="tipo">Tipo de desconto</label>
+      <select id="tipo" name="tipo">
+        <option value="percentual">Percentual (%)</option>
+        <option value="fixo">Valor fixo (R$)</option>
+      </select>
+
+      <label for="valor">Valor</label>
+      <input id="valor" name="valor" required placeholder="10 para 10% ou 10,00 para R$ 10">
+
+      <label for="pedido_minimo">Pedido mínimo</label>
+      <input id="pedido_minimo" name="pedido_minimo" value="0,00">
+
+      <label for="limite_usos">Limite de usos</label>
+      <input id="limite_usos" name="limite_usos" type="number" min="1" value="1">
+
+      <label for="inicio_em">Válido a partir de</label>
+      <input id="inicio_em" name="inicio_em" type="date">
+
+      <label for="fim_em">Válido até</label>
+      <input id="fim_em" name="fim_em" type="date">
+
+      <label class="check-inline">
+        <input type="checkbox" name="permite_combo_promocional"> Vale também para combos/promoções
+      </label>
+      <p class="muted">
+        Desmarcado (recomendado), o desconto não incide sobre produtos marcados
+        como combo/promoção. A taxa de entrega nunca recebe desconto.
       </p>
-    {% endif %}
+
+      <button type="submit">Criar cupom</button>
+    </form>
   </div>
 
-  <aside class="painel-lateral">
-    <div class="card-admin">
-      <h2>Novo cupom</h2>
-      <form method="post">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="card-admin">
+    <h1>Cupons</h1>
+    {% if not cupons %}
+      <p>Nenhum cupom criado ainda.</p>
+    {% else %}
+      <p class="muted">
+        <strong>Disponíveis</strong> = limite − usados − reservas ativas. Uma reserva
+        é um pedido feito e ainda não confirmado: ela segura a vaga para que o
+        mesmo cupom não seja usado além do limite.
+      </p>
+      <table>
+        <thead>
+          <tr><th>Código</th><th>Desconto</th><th>Mínimo</th><th>Usados</th><th>Reservados</th><th>Disponíveis</th></tr>
+        </thead>
+        <tbody>
+          {% for cupom in cupons %}
+            <tr>
+              <td>
+                <strong>{{ cupom.codigo }}</strong>
+                {% if not cupom.ativo %}<div class="muted">desativado</div>{% endif %}
+                {% if cupom.descricao %}<div class="muted">{{ cupom.descricao }}</div>{% endif %}
+              </td>
+              <td>
+                {% if cupom.tipo == "fixo" %}R$ {{ cupom.valor|brl }}{% else %}{{ cupom.valor|round(0)|int }}%{% endif %}
+              </td>
+              <td>R$ {{ cupom.pedido_minimo|brl }}</td>
+              <td>{{ cupom.usos_confirmados }} / {{ cupom.limite_usos }}</td>
+              <td>{{ cupom.reservas_ativas }}</td>
+              <td><strong>{{ cupom.disponiveis }}</strong></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
 
-        <label for="codigo">Código</label>
-        <input id="codigo" name="codigo" required maxlength="40" placeholder="Ex.: BEMVINDO10">
-        <p class="muted">Letras, números, hífen e sublinhado. É convertido para maiúsculas.</p>
-
-        <label for="descricao">Descrição (uso interno)</label>
-        <input id="descricao" name="descricao" maxlength="160" placeholder="Opcional">
-
-        <div class="grid-2">
-          <div>
-            <label for="tipo">Tipo</label>
-            <select id="tipo" name="tipo">
-              <option value="percentual">Percentual (%)</option>
-              <option value="fixo">Valor fixo (R$)</option>
-            </select>
-          </div>
-          <div>
-            <label for="valor">Valor</label>
-            <input id="valor" name="valor" required placeholder="10 ou 10,00">
-          </div>
-          <div>
-            <label for="pedido_minimo">Pedido mínimo</label>
-            <input id="pedido_minimo" name="pedido_minimo" value="0,00">
-          </div>
-          <div>
-            <label for="limite_usos">Limite de usos</label>
-            <input id="limite_usos" name="limite_usos" type="number" min="1" value="1">
-          </div>
-          <div>
-            <label for="inicio_em">A partir de</label>
-            <input id="inicio_em" name="inicio_em" type="date">
-          </div>
-          <div>
-            <label for="fim_em">Até</label>
-            <input id="fim_em" name="fim_em" type="date">
-          </div>
-        </div>
-
-        <label class="check-inline">
-          <input type="checkbox" name="permite_combo_promocional"> Vale também para combos
-        </label>
-        <p class="muted">
-          Desmarcado (recomendado), o desconto não incide sobre produtos marcados
-          como combo/promoção. A taxa de entrega nunca recebe desconto.
-        </p>
-
-        <button type="submit" class="btn-save">Criar cupom</button>
-      </form>
-    </div>
-  </aside>
-
-</div>
+    {% for cupom in cupons %}
+      <div class="linha-edicao">
+        <form class="linha-form" method="post" action="{{ url_for('admin.cupom_salvar', cupom_id=cupom.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <span class="campo-nome"><strong>{{ cupom.codigo }}</strong></span>
+          <input class="campo-ordem" name="valor" value="{{ "%.2f"|format(cupom.valor)|replace(".", ",") }}" aria-label="Valor">
+          <input class="campo-ordem" name="pedido_minimo" value="{{ "%.2f"|format(cupom.pedido_minimo)|replace(".", ",") }}" aria-label="Pedido mínimo">
+          <input class="campo-ordem" name="limite_usos" type="number" min="1" value="{{ cupom.limite_usos }}" aria-label="Limite de usos">
+          <input name="descricao" value="{{ cupom.descricao or '' }}" maxlength="160" aria-label="Descrição" placeholder="Descrição">
+          <input name="inicio_em" type="date" value="{{ cupom.inicio_em.strftime('%Y-%m-%d') if cupom.inicio_em else '' }}" aria-label="Início">
+          <input name="fim_em" type="date" value="{{ cupom.fim_em.strftime('%Y-%m-%d') if cupom.fim_em else '' }}" aria-label="Fim">
+          <label class="check-inline">
+            <input type="checkbox" name="ativo" {% if cupom.ativo %}checked{% endif %}> Ativo
+          </label>
+          <label class="check-inline">
+            <input type="checkbox" name="permite_combo_promocional" {% if cupom.permite_combo_promocional %}checked{% endif %}> Vale em combo
+          </label>
+          <button type="submit">Salvar</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.cupom_excluir', cupom_id=cupom.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-secondary">Excluir</button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
 {% endblock %}

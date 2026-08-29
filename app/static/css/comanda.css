@@ -562,13 +562,7 @@ button:disabled { opacity: .5; cursor: not-allowed; transform: none; filter: non
 
 .btn-add { width: 100%; margin-top: 10px; }
 .btn-save { background: var(--success); color: #06150c; }
-/* `:where()` de novo, e pela terceira vez neste arquivo.
-   `:root:not([data-theme="light"]) .btn-save` pesa (0,3,0) — `:root` conta como
-   pseudo-classe, `:not([attr])` como seletor de atributo, mais a classe. Isso
-   vence uma camada de tema carregada DEPOIS, que é o contrário do que uma
-   variante de tema deve fazer: o resultado foi texto #06150c sobre fundo
-   escuro na cozinha, 1,17:1, ilegível. Com `:where()` cai para (0,2,0). */
-:root:where(:not([data-theme="light"])) .btn-save { color: #06150c; }
+:root:not([data-theme="light"]) .btn-save { color: #06150c; }
 :root[data-theme="light"] .btn-save { color: #fff; }
 .btn-secondary, .btn-muted {
   background: rgba(255, 255, 255, .05); border-color: var(--border-2); color: var(--text-2);
