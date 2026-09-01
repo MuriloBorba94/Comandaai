@@ -36,7 +36,7 @@ RECURSOS = (
     ("cupons", "Cupons de desconto", "Cupom com limite de usos e pedido mínimo."),
     ("bairros", "Taxa de entrega por bairro", "Taxa e prazo próprios por região."),
     ("fotos", "Fotos nos produtos", "Imagem no cardápio, otimizada automaticamente."),
-    ("identidade", "Identidade visual própria", "Logo e cor de marca do restaurante no painel e no cardápio."),
+    ("identidade", "Identidade visual própria", "A logo do restaurante no painel e no cardápio que o cliente abre."),
     ("relatorios", "Relatórios de venda", "Faturamento, ticket médio e mais vendidos."),
     ("estoque", "Controle de estoque", "Insumos, saldo, entradas, perdas e alerta de reposição."),
     ("custos", "Custos e ficha técnica", "Receita por produto, custo de produção e preço sugerido."),

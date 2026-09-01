@@ -97,7 +97,13 @@ def test_cor_valida_recusa_o_resto(valor):
 
 
 def test_cor_invalida_no_banco_nao_chega_ao_html(app, two_tenants):
-    """Contraprova de ponta a ponta: mesmo gravada direto no banco, não passa."""
+    """Contraprova de ponta a ponta: mesmo gravada direto no banco, não passa.
+
+    Hoje há duas barreiras, não uma: `cor_valida` recusaria o valor, e antes
+    dela o layout nem lê mais a coluna. O teste continua porque a coluna segue
+    existindo, com o que cada restaurante já havia escolhido — e um dia em que
+    alguém volte a lê-la é exatamente o dia em que este teste precisa falhar.
+    """
     _tenant(two_tenants["tenant_a"]).cor_marca = "red;} body{display:none"
     db.session.commit()
 
@@ -162,7 +168,13 @@ def test_ajuste_preserva_o_matiz():
 
 
 def test_html_traz_as_variantes_de_contraste(app, two_tenants):
-    """Contraprova no HTML: uma marca clara não gera botão de texto branco."""
+    """As variantes derivadas continuam chegando ao HTML.
+
+    A cor é uma só desde que o tema virou padrão, mas ela segue entrando pelas
+    mesmas funções: é a derivação que garante texto legível, e trocar
+    COR_PADRAO um dia não pode voltar a produzir botão ilegível.
+    """
+    # Uma cor escolhida no passado continua no banco e não pode reaparecer.
     _tenant(two_tenants["tenant_a"]).cor_marca = "#c6ae10"
     db.session.commit()
 
@@ -170,13 +182,13 @@ def test_html_traz_as_variantes_de_contraste(app, two_tenants):
     _logar_a(client)
     html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
 
+    assert "#c6ae10" not in html, "a cor guardada não pinta mais nada"
+
     # Compara com o que as funções devolvem, e não com um hex fixo: o valor
     # exato é resultado do ajuste e pode mudar sem que o comportamento mude.
-    assert "--brand: #c6ae10" in html
-    assert f"--brand-contraste: {contraste_da_marca('#c6ae10')}" in html
-    assert f"--brand-texto: {marca_para_texto('#c6ae10', escuro=False)}" in html
-    assert marca_para_texto("#c6ae10", escuro=False) != "#c6ae10", "amarelo devia escurecer"
-    assert contraste_da_marca("#c6ae10") != "#ffffff", "botão amarelo não leva texto branco"
+    assert f"--brand: {COR_PADRAO}" in html
+    assert f"--brand-contraste: {contraste_da_marca(COR_PADRAO)}" in html
+    assert f"--brand-texto: {marca_para_texto(COR_PADRAO, escuro=False)}" in html
 
 
 # --------------------------------------------------------------------------- #
@@ -238,7 +250,31 @@ def test_login_do_tenant_ainda_e_vitrine(app, two_tenants):
 # --------------------------------------------------------------------------- #
 
 
-def test_salvar_cor_pinta_so_o_proprio_painel(app, two_tenants):
+def test_o_formulario_nao_oferece_mais_a_cor(app, two_tenants):
+    """O campo saiu da tela quando o tema virou padrão.
+
+    Com um tema fixo, a cor escolhida nunca chegava a pintar nada: o
+    tema-industry.css sobrepõe --brand. Um seletor que promete e não cumpre é
+    pior do que não ter seletor.
+    """
+    client = app.test_client()
+    _logar_a(client)
+    html = client.get(
+        "/admin/configuracoes", base_url="http://tenant-a.localhost"
+    ).get_data(as_text=True)
+
+    assert 'type="color"' not in html
+    assert 'name="cor_marca"' not in html
+    # A logo, que é do restaurante de verdade, continua onde estava.
+    assert 'name="logo"' in html
+
+
+def test_cor_enviada_por_fora_do_formulario_e_ignorada(app, two_tenants):
+    """Formulário velho em cache, ou POST feito na mão, não regrava a cor.
+
+    Gravar sem que nenhuma tela respeitasse o valor deixaria o banco dizendo
+    uma coisa e a tela outra — a pior das duas saídas.
+    """
     client = app.test_client()
     _logar_a(client)
     resposta = client.post(
@@ -246,46 +282,13 @@ def test_salvar_cor_pinta_so_o_proprio_painel(app, two_tenants):
         data={"cor_marca": "#1e88e5"},
         base_url="http://tenant-a.localhost",
     )
+
     assert resposta.status_code == 302
-
-    html_a = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
-    assert "--brand: #1e88e5" in html_a
-
-    outro = app.test_client()
-    _logar_b(outro)
-    html_b = outro.get("/admin/", base_url="http://tenant-b.localhost").get_data(as_text=True)
-    assert "#1e88e5" not in html_b
-    assert f"--brand: {COR_PADRAO}" in html_b
-
-
-def test_cor_invalida_enviada_no_formulario_volta_ao_padrao(app, two_tenants):
-    client = app.test_client()
-    _logar_a(client)
-    client.post(
-        "/admin/configuracoes/identidade",
-        data={"cor_marca": "azul-bebe"},
-        base_url="http://tenant-a.localhost",
-    )
-
     assert _tenant(two_tenants["tenant_a"]).cor_marca is None
 
-
-def test_enviar_so_a_logo_nao_apaga_a_cor_escolhida(app, two_tenants):
-    client = app.test_client()
-    _logar_a(client)
-    client.post(
-        "/admin/configuracoes/identidade",
-        data={"cor_marca": "#1e88e5"},
-        base_url="http://tenant-a.localhost",
-    )
-    client.post(
-        "/admin/configuracoes/identidade",
-        data={"logo": (_png(), "marca.png")},
-        content_type="multipart/form-data",
-        base_url="http://tenant-a.localhost",
-    )
-
-    assert _tenant(two_tenants["tenant_a"]).cor_marca == "#1e88e5"
+    html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
+    assert "#1e88e5" not in html
+    assert f"--brand: {COR_PADRAO}" in html
 
 
 def test_logo_fica_na_pasta_do_tenant_e_aparece_na_barra(app, two_tenants):
@@ -293,7 +296,7 @@ def test_logo_fica_na_pasta_do_tenant_e_aparece_na_barra(app, two_tenants):
     _logar_a(client)
     client.post(
         "/admin/configuracoes/identidade",
-        data={"cor_marca": COR_PADRAO, "logo": (_png(), "marca.png")},
+        data={"logo": (_png(), "marca.png")},
         content_type="multipart/form-data",
         base_url="http://tenant-a.localhost",
     )
@@ -399,13 +402,14 @@ def test_identidade_exige_login(app, two_tenants):
     client = app.test_client()
     resposta = client.post(
         "/admin/configuracoes/identidade",
-        data={"cor_marca": "#000000"},
+        data={"logo": (_png(), "marca.png")},
+        content_type="multipart/form-data",
         base_url="http://tenant-a.localhost",
     )
 
     assert resposta.status_code == 302
     assert "/login" in resposta.headers["Location"]
-    assert _tenant(two_tenants["tenant_a"]).cor_marca is None
+    assert _tenant(two_tenants["tenant_a"]).logo is None
 
 
 def test_vitrine_usa_a_logo_do_tenant_no_cabecalho(app, two_tenants):
@@ -462,7 +466,7 @@ def test_o_icone_da_aba_num_restaurante_e_do_restaurante(app, two_tenants):
     _logar_a(client)
     client.post(
         "/admin/configuracoes/identidade",
-        data={"cor_marca": COR_PADRAO, "logo": (_png(), "marca.png")},
+        data={"logo": (_png(), "marca.png")},
         content_type="multipart/form-data",
         base_url="http://tenant-a.localhost",
     )

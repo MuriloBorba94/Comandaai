@@ -154,7 +154,6 @@ def configuracoes():
         flash("Configurações salvas.", "sucesso")
         return redirect(url_for("admin.configuracoes"))
 
-    from ..layout import COR_PADRAO, cor_valida
     from ..models.assinatura import RECURSOS, Plano
     from ..services.recursos import recursos_do_tenant
 
@@ -205,7 +204,6 @@ def configuracoes():
         # saber tanto o que tem quanto o que ganharia mudando de plano.
         recursos=[(rotulo, explicacao, slug in liberados) for slug, rotulo, explicacao in RECURSOS],
         limites=uso_do_tenant(g.tenant),
-        cor_atual=cor_valida(g.tenant.cor_marca) or COR_PADRAO,
     )
 
 
@@ -213,19 +211,17 @@ def configuracoes():
 @admin_required
 @requer_recurso("identidade")
 def identidade():
-    """Logo e cor de marca do restaurante.
+    """Logo do restaurante.
 
     Rota separada do resto das configurações de propósito: um arquivo recusado
     aqui não pode desfazer nem atrapalhar o salvamento de mesas e tempos, que
     são outro formulário.
 
-    A cor passa por `cor_valida` porque ela vai para dentro de um bloco
-    `<style>` no layout: texto arbitrário ali seria injeção de CSS. Valor
-    inválido volta a ser o padrão em vez de virar erro, já que a única origem
-    prática é um navegador sem `input type=color`.
+    Já cuidava também da cor da marca. A cor saiu quando o tema virou padrão:
+    o campo não existe mais no formulário, e um POST que ainda traga `cor_marca`
+    — formulário antigo em cache, script de terceiro — é ignorado de propósito,
+    em vez de gravar uma escolha que nenhuma tela respeitaria.
     """
-    from ..layout import cor_valida
-
     arquivo = request.files.get("logo")
     enviou_arquivo = bool(arquivo and getattr(arquivo, "filename", ""))
 
@@ -242,11 +238,6 @@ def identidade():
     elif request.form.get("remover_logo") == "on":
         remover_imagem(g.tenant.logo)
         g.tenant.logo = None
-
-    # Só mexe na cor se o campo veio: um POST que traz apenas a logo não deve
-    # apagar a cor já escolhida.
-    if "cor_marca" in request.form:
-        g.tenant.cor_marca = cor_valida(request.form.get("cor_marca"))
 
     db.session.commit()
     flash("Identidade visual salva.", "sucesso")

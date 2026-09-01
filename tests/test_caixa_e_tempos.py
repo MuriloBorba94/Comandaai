@@ -251,7 +251,7 @@ def test_a_faixa_salva_fora_da_lista_continua_aparecendo_na_gaveta(loja):
 # --------------------------------------------------------------------------- #
 
 
-def test_os_controles_do_turno_ficam_junto_do_botao_de_tema(client, loja):
+def test_os_controles_do_turno_ficam_no_inicio_da_barra(client, loja):
     """São ajustes do ambiente, como o tema — não conteúdo da página."""
     login_tenant(client, "tenant-a", "admin", "senha-a-123")
 
@@ -268,8 +268,9 @@ def test_os_controles_do_turno_ficam_junto_do_botao_de_tema(client, loja):
     # sobra para quem usa leitor de tela.
     assert 'aria-label="Tempo estimado para entrega"' in barra
     assert 'aria-label="Tempo estimado para retirada"' in barra
-    # E antes do botão de tema, que é o vizinho pedido.
-    assert barra.index("bd-estado") < barra.index('id="theme-toggle"')
+    # E na frente da identificação de quem está logado, que é o vizinho pedido.
+    # Era o botão de tema; ele saiu quando o tema do sistema passou a ser um só.
+    assert barra.index("bd-estado") < barra.index("v17-user-chip")
 
 
 def test_a_barra_de_comando_cabe_em_uma_linha(client, loja):
@@ -286,10 +287,13 @@ def test_a_barra_de_comando_cabe_em_uma_linha(client, loja):
     barra = corpo.split('class="v17-commandbar-actions"', 1)[1].split("</header>", 1)[0]
 
     assert ">Cardápio<" not in barra
-    # E o que precisa estar continua: turno, tema, usuário e saída.
+    # E o que precisa estar continua: turno, usuário e saída.
     assert "bd-estado" in barra
-    assert 'id="theme-toggle"' in barra
     assert "v17-user-chip" in barra
+    # O botão de alternar tema também saiu, e por não fazer nada: o tema do
+    # sistema é um só, e o interruptor trocava um atributo que nenhuma folha
+    # de estilo ainda lia.
+    assert 'id="theme-toggle"' not in barra
 
 
 def test_abrir_a_loja_pela_tela(client, loja):

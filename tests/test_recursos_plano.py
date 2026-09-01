@@ -609,16 +609,19 @@ def test_custos_tem_recurso_proprio_separado_de_estoque(cenario, client):
     assert "não está incluído no plano" in resposta.get_data(as_text=True)
 
 
-def test_identidade_fora_do_plano_nao_troca_a_cor(cenario, client):
+def test_identidade_fora_do_plano_nao_troca_a_logo(cenario, client):
+    """Antes provava isso com a cor da marca, que saiu do formulário. A logo é
+    o que restou na rota, e o portão do plano é o mesmo."""
     _plano(recursos=["cozinha"])
     login_tenant(client, "tenant-a", "admin", "senha-a-123")
 
     client.post(
         "/admin/configuracoes/identidade",
-        data={"cor_marca": "#1e88e5"},
+        data={"logo": (_png(), "marca.png")},
+        content_type="multipart/form-data",
         base_url=BASE_A,
         follow_redirects=True,
     )
 
     db.session.refresh(cenario["tenant"])
-    assert cenario["tenant"].cor_marca is None
+    assert cenario["tenant"].logo is None

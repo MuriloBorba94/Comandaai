@@ -6,9 +6,9 @@ Duas responsabilidades:
    escura) são estruturas diferentes, e a escolha é derivada do contexto da
    requisição — assim nenhuma das ~30 telas precisa declarar em qual mundo vive.
 
-2. **A identidade do tenant.** Cor de marca e logo saem daqui já validadas. A
-   cor entra num bloco `<style>`, então precisa ser validada como cor de fato:
-   texto arbitrário ali seria injeção de CSS.
+2. **A identidade.** A logo é do tenant; a cor é do produto, uma só desde que
+   o tema virou padrão. A cor entra num bloco `<style>`, então segue passando
+   por `cor_valida`: texto arbitrário ali seria injeção de CSS.
 """
 
 from __future__ import annotations
@@ -18,8 +18,10 @@ import re
 
 from flask import g, request, session
 
-# Vermelho do painel do sistema original, e também o do Comanda ai.
-COR_PADRAO = "#c8102e"
+# Aço do tema Industry, a cor do produto. Era o vermelho #c8102e do sistema
+# original; mudou junto com o tema, para que este valor e o tema-industry.css
+# não digam coisas diferentes sobre qual é a marca.
+COR_PADRAO = "#5980a6"
 
 _HEX = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
@@ -158,19 +160,24 @@ def registrar(app) -> None:
 
     @app.template_global()
     def cor_da_marca() -> str:
-        """Cor de destaque do tenant atual, ou a do produto na plataforma."""
-        tenant = g.get("tenant")
-        if tenant is not None:
-            return cor_valida(getattr(tenant, "cor_marca", None)) or COR_PADRAO
+        """Cor de destaque do produto. Igual em todo restaurante.
+
+        Já foi escolhida por tenant. Deixou de ser quando o tema virou padrão:
+        uma cor por loja e um tema fixo brigavam pelo mesmo token, e quem
+        escolhesse continuaria vendo o aço do tema.
+
+        A coluna `Tenant.cor_marca` continua no banco, com o que cada um já
+        havia escolhido. Ninguém a lê — é só o histórico, caso a escolha volte.
+        """
         return COR_PADRAO
 
     @app.template_global()
     def tons_da_marca() -> dict:
-        """Tints derivados da cor do tenant, para fundo e borda de destaque.
+        """Tints derivados da cor da marca, para fundo e borda de destaque.
 
-        Precisam ser derivados (e não fixos) porque a cor é escolhida por cada
-        restaurante: um `--brand-bg` fixo brigaria com qualquer cor diferente do
-        vermelho padrão. Usar rgba com alfa baixo funciona nos dois temas.
+        Continuam derivados, e não escritos à mão, porque é a derivação que
+        garante contraste legível — foi o que resolveu o botão de texto branco
+        sobre marca clara. Trocar COR_PADRAO reajusta tudo sozinho.
         """
         cor = cor_da_marca()
         r, gg, b = _hex_para_rgb(cor)

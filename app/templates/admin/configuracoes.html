@@ -63,8 +63,7 @@
   <div class="card-admin">
     <h1>Identidade visual</h1>
     <p class="muted">
-      A logo aparece no topo do painel e no cabeçalho do cardápio. A cor pinta
-      botões, links e destaques — só deste restaurante.
+      A logo aparece no topo do painel e no cabeçalho do cardápio.
     </p>
     <form method="post" action="{{ url_for('admin.identidade') }}" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -84,9 +83,6 @@
         Quadrada fica melhor, com pelo menos 48 x 48 pixels. Sem logo, o painel
         mostra a inicial do nome.
       </p>
-
-      <label for="cor_marca">Cor da marca</label>
-      <input id="cor_marca" name="cor_marca" type="color" value="{{ cor_atual }}">
 
       <button type="submit">Salvar identidade</button>
     </form>

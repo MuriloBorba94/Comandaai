@@ -279,10 +279,15 @@ def test_toda_gaveta_do_sistema_tem_fundo_opaco(css):
 
 
 def test_a_pagina_do_produto_declara_o_proprio_esquema():
-    """Ela é escura e nunca disse isso ao navegador: barra de rolagem e
-    controles nativos saíam com moldura clara sobre fundo quase preto."""
+    """Ela precisa dizer ao navegador qual é o seu esquema, seja ele qual for.
+
+    Nasceu escura e não dizia: barra de rolagem e controles nativos saíam com
+    moldura clara sobre fundo quase preto. Hoje é clara, pelo tema Industry, e
+    o mesmo descuido produziria o contrário — moldura escura sobre papel — em
+    quem usa o sistema no escuro.
+    """
     from pathlib import Path
 
     landing = Path("app/static/css/landing.css").read_text(encoding="utf-8")
 
-    assert "color-scheme: dark" in landing
+    assert "color-scheme: light" in landing

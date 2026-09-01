@@ -22,21 +22,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <meta name="theme-color" content="{{ cor_da_marca() if painel else '#0f1115' }}">
+  {# Um valor so: o tema Industry e claro no painel e na vitrine, e nao ha mais
+     tema escuro para a barra do navegador acompanhar. #}
+  <meta name="theme-color" content="#f2f2f3">
   <title>{% block title %}Comanda ai{% endblock %}</title>
-
-  {% if painel %}
-    {# Aplica o tema salvo ANTES de pintar, senão a tela pisca claro e vira
-       escura na frente de quem está olhando. #}
-    <script>
-      (function () {
-        try {
-          var t = localStorage.getItem("comandaai_tema");
-          if (t) document.documentElement.setAttribute("data-theme", t);
-        } catch (e) {}
-      })();
-    </script>
-  {% endif %}
 
   {# Num endereço de restaurante, o ícone da aba é o DELE.
      A marca do Comanda ai ali seria vazamento: quem abre o cardápio está
@@ -56,23 +45,28 @@
     <link rel="icon" href="{{ url_for('static', filename='img/comandaai-marca.svg') }}?v=1" type="image/svg+xml">
   {% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/comanda.css') }}">
+  {# Tema Industry. Entra DEPOIS do comanda.css porque não o substitui: remapeia
+     os tokens que ele já usa. Inverter a ordem desliga o tema em silêncio.
+     Remover esta linha desfaz o tema por inteiro, e é a volta atrás mais curta
+     que existe se ele um dia precisar sair do ar às pressas. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tema-industry.css') }}">
 
-  {# A cor de destaque é por tenant. Vem de cor_da_marca(), que só devolve hex
-     validado — nunca texto direto do formulário, que aqui seria injeção de CSS.
+  {# A cor de destaque é uma só, do produto — não mais escolhida por
+     restaurante. O tema padroniza a aparência, e uma cor por loja voltaria a
+     abrir a porta que este bloco já teve de fechar duas vezes: injeção de CSS
+     pelo formulário e botão ilegível quando a marca era clara.
 
-     --brand-contraste e --brand-texto são derivados: o restaurante escolhe a
-     cor, não escolhe se ela é legível. Sem eles, uma marca amarela produzia
-     botão com texto branco em cima. #}
+     O bloco fica porque é ele quem entrega --brand-contraste e --brand-texto
+     derivados da cor. O tema, carregado acima, sobrepõe todos eles; sem o tema,
+     estes valores é que valem. #}
   <style>
     :root {
       --brand: {{ cor_da_marca() }};
       --brand-bg: {{ tons.fundo }};
       --brand-border: {{ tons.borda }};
       --brand-contraste: {{ tons.contraste }};
-      /* O escuro é o padrão, então ele fica no :root; o claro é a exceção. */
-      --brand-texto: {{ tons.texto_escuro }};
+      --brand-texto: {{ tons.texto_claro }};
     }
-    :root[data-theme="light"] { --brand-texto: {{ tons.texto_claro }}; }
   </style>
   {% block head %}{% endblock %}
   {# Folhas de estilo que só uma tela precisa. Carregar o Leaflet em todas as
@@ -135,10 +129,6 @@
         </div>
         <div class="v17-commandbar-actions">
           {% if contexto == "admin" %}{% include "admin/_turno.html" %}{% endif %}
-          {# Escuro é o padrão, então o botão nasce oferecendo o claro. O JS
-             corrige o rótulo se a pessoa já tiver escolhido outro tema. #}
-          <button type="button" class="v17-quick-link" id="theme-toggle"
-                  title="Alternar tema claro/escuro">☀ Claro</button>
           {% if contexto == "admin" %}
             {# O atalho "Cardápio" saiu: o painel de menu navega, e "Ver como
                cliente" continua nos atalhos do dia. Eram três caminhos para a

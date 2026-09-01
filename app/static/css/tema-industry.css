@@ -1,0 +1,201 @@
+/* Industry — camada de tema para o Comanda ai.
+   Não substitui comanda.css: entra DEPOIS dele e remapeia os tokens que ele já usa.
+
+   Instalação (app/templates/base.html), logo abaixo do link do comanda.css:
+
+     <link rel="stylesheet" href="{{ url_for('static', filename='css/comanda.css') }}">
+     <link rel="stylesheet" href="{{ url_for('static', filename='css/tema-industry.css') }}">
+
+   Os seletores usam `html:root` (0,1,1) porque o base.html injeta um bloco
+   <style> com `:root { --brand: ... }` depois das folhas — `:root` sozinho
+   perderia para ele. Para manter a cor por tenant, apague o bloco --brand
+   abaixo e cadastre #5980a6 como cor da marca no painel. */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700&family=Barlow+Condensed:wght@400;600&display=swap');
+
+/* ── 1. Tokens ───────────────────────────────────────────────────────────── */
+
+html:root,
+html:root[data-theme="light"] {
+  --bg: #f2f2f3;
+  --panel: #f2f2f3;
+  --panel-2: #e9e9ea;
+  --card: transparent;
+  --superficie-topo: #f2f2f3;
+  --superficie: #f2f2f3;
+  --gaveta-fundo: #f2f2f3;
+  --commandbar-bg: rgba(242, 242, 243, .92);
+  --sidebar: rgba(242, 242, 243, .96);
+
+  --border: color-mix(in srgb, #1d1f20 16%, transparent);
+  --border-2: color-mix(in srgb, #1d1f20 28%, transparent);
+
+  --text: #1d1f20;
+  --text-2: #424244;
+  --muted: #5d5d60;
+  --text-sec: var(--muted);
+  --code-text: #2b2b2d;
+
+  /* Aço no lugar do vermelho. Remova este bloco se a cor for por tenant. */
+  --brand: #5980a6;
+  --brand-2: #416180;
+  --ambar: #416180;
+  --price: #416180;
+  --brand-bg: #eef6ff;
+  --brand-border: #b5d9fd;
+  --brand-contraste: #ffffff;
+  --brand-texto: #416180;
+
+  --success: #2c455d;
+  --success-bg: #eef6ff;
+  --success-border: #b5d9fd;
+  --danger: #7a3a2e;
+  --danger-bg: #f5efed;
+  --danger-border: #d9c3bc;
+  --warning: #5d5d60;
+  --warning-bg: #f5f5f8;
+  --warning-border: #d4d4d7;
+  --info: #416180;
+  --info-bg: #eef6ff;
+  --info-border: #b5d9fd;
+
+  --switch-off: #d4d4d7;
+
+  /* Industry é ortogonal: nada de canto arredondado. */
+  --raio-xs: 0px;
+  --raio-sm: 0px;
+  --raio: 0px;
+  --raio-lg: 0px;
+  --radius: 0px;
+
+  --shadow: 0 1px 2px color-mix(in srgb, #2b2b2d 14%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2b2b2d 22%, transparent);
+
+  /* Gradientes viram campo chapado: a única superfície sólida é o botão primário. */
+  --gradiente: #5980a6;
+}
+
+/* ── 2. Tipografia ───────────────────────────────────────────────────────── */
+
+html:root body,
+html:root input,
+html:root select,
+html:root textarea,
+html:root button {
+  font-family: "Barlow", system-ui, sans-serif;
+}
+
+html:root h1, html:root h2, html:root h3,
+html:root h4, html:root h5, html:root h6,
+html:root .v17-page-intro h1,
+html:root .v17-commandbar-title strong,
+html:root .price, html:root .valor, html:root .total {
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+html:root .eyebrow,
+html:root .v17-commandbar-title small {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ── 3. Estrutura: cartões viram desenho de linha ────────────────────────── */
+
+html:root .card,
+html:root .panel,
+html:root .v17-card,
+html:root .v17-kanban-column,
+html:root .order-items,
+html:root .admin-item-form,
+html:root .notice,
+html:root .flash,
+html:root table,
+html:root .modal,
+html:root .gaveta {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+html:root .btn,
+html:root button,
+html:root input,
+html:root select,
+html:root textarea,
+html:root .tab-btn,
+html:root .chip,
+html:root .badge,
+html:root img,
+html:root .v17-quick-link,
+html:root .v17-user-chip {
+  border-radius: 0;
+}
+
+/* O botão primário é o único objeto sólido da prancha. */
+html:root .btn-save,
+html:root .btn-primary,
+html:root .btn-success {
+  background: var(--brand);
+  color: #fff;
+  border: 1px solid var(--brand);
+  background-image: none;
+}
+html:root .btn-save:hover,
+html:root .btn-primary:hover,
+html:root .btn-success:hover { background: #416180; border-color: #416180; }
+
+html:root .btn-secondary,
+html:root .btn-muted,
+html:root .tab-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+html:root .btn-secondary:hover,
+html:root .btn-muted:hover,
+html:root .tab-btn:hover { background: color-mix(in srgb, #5980a6 9%, transparent); }
+
+html:root :focus-visible {
+  outline: 2px solid #5980a6;
+  outline-offset: 2px;
+}
+html:root ::selection { background: #d6ebff; }
+
+/* ── 4. Marcas de registro (+) nos quadros ───────────────────────────────── */
+/* Aplique a classe .blueprint no cartão; os quatro cantos são desenhados aqui,
+   sem precisar dos <i class="corner"> do design system original. */
+
+html:root .blueprint { position: relative; }
+html:root .blueprint::before,
+html:root .blueprint::after {
+  content: "";
+  position: absolute;
+  width: 11px; height: 11px;
+  pointer-events: none;
+  background:
+    linear-gradient(currentColor, currentColor) 5px 0 / 1px 11px no-repeat,
+    linear-gradient(currentColor, currentColor) 0 5px / 11px 1px no-repeat;
+  color: color-mix(in srgb, #1d1f20 55%, transparent);
+}
+html:root .blueprint::before { top: -6px; left: -6px; }
+html:root .blueprint::after  { bottom: -6px; right: -6px; }
+
+/* ── 5. Fotos do cardápio em duotone de aço ──────────────────────────────── */
+
+html:root .produto-foto,
+html:root .item-foto,
+html:root .duotone { position: relative; overflow: hidden; border-radius: 0; }
+html:root .produto-foto::after,
+html:root .item-foto::after,
+html:root .duotone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #5980a6;
+  mix-blend-mode: color;
+  pointer-events: none;
+}

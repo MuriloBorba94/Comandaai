@@ -13,7 +13,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0b0e">
+  <meta name="theme-color" content="#f2f2f3">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Comanda ai — o sistema de pedidos do seu restaurante</title>
   <meta name="description" content="Cardápio digital, cozinha, mesas, estoque e financeiro num sistema só. Sem comissão por pedido: você paga uma mensalidade e fica com a venda inteira.">
@@ -26,7 +26,6 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
 </head>
 <body>
-<div class="brilho" aria-hidden="true"></div>
 
 <header class="topo">
   <div class="wrap topo-inner">
@@ -36,13 +35,11 @@
        porque assim ela herda a cor do texto onde precisa. #}
     <a class="logo" href="#">
       <svg class="marca-ca" viewBox="0 0 64 64" width="34" height="34" role="img" aria-label="Comanda ai" focusable="false">
-        <defs>
-          <linearGradient id="ca-topo" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#e0243f"/><stop offset=".55" stop-color="#e8482f"/><stop offset="1" stop-color="#f6a723"/>
-          </linearGradient>
-        </defs>
-        <path d="M45.38 16.94A20 20 0 1 0 45.38 47.06" fill="none" stroke="url(#ca-topo)" stroke-width="11" stroke-linecap="round"/>
-        <circle cx="32" cy="32" r="5.5" fill="url(#ca-topo)"/>
+        {# Traço chapado no aço do tema. O gradiente vermelho-âmbar saiu junto com
+           o fundo escuro: numa prancha clara ele era a única coisa da página
+           com três cores. #}
+        <path d="M45.38 16.94A20 20 0 1 0 45.38 47.06" fill="none" stroke="#5980a6" stroke-width="11" stroke-linecap="butt"/>
+        <circle cx="32" cy="32" r="5.5" fill="#5980a6"/>
       </svg>
       Comanda <em>ai</em>
     </a>
@@ -87,7 +84,7 @@
       <!-- Demonstração desenhada em CSS: o cliente pede no celular e o pedido
            aparece na cozinha. É o produto inteiro numa imagem só. -->
       <div class="demo" aria-hidden="true">
-        <div class="celular">
+        <div class="celular marca-registro">
           <div class="celular-tela">
             <div class="celular-topo">
               <div class="celular-logo"></div>
@@ -120,7 +117,7 @@
           </div>
         </div>
 
-        <div class="cozinha">
+        <div class="cozinha marca-registro">
           <div class="cozinha-topo">
             <strong>Cozinha</strong>
             <span class="ao-vivo"><i></i> ao vivo</span>
@@ -168,12 +165,12 @@
 
       <div class="recursos-grade">
         <article class="recurso">
-          <div class="recurso-icone">🍔</div>
+          <div class="recurso-icone">▤</div>
           <h3>Cardápio com o seu link</h3>
           <p>Foto, descrição, adicionais e categorias na ordem que você define. O endereço é do seu restaurante.</p>
         </article>
         <article class="recurso">
-          <div class="recurso-icone">🔥</div>
+          <div class="recurso-icone">◈</div>
           <h3>Cozinha ao vivo</h3>
           <p>O pedido entra e o painel se atualiza sozinho, por status. Ninguém precisa ficar apertando F5.</p>
         </article>
@@ -193,7 +190,7 @@
           <p>Você diz a margem que quer; o sistema mostra por quanto cada prato deveria ser vendido.</p>
         </article>
         <article class="recurso">
-          <div class="recurso-icone">▤</div>
+          <div class="recurso-icone">◫</div>
           <h3>Financeiro de verdade</h3>
           <p>Faturamento, CMV, despesas, fluxo de caixa e o lucro líquido do período — com o mês anterior ao lado.</p>
         </article>
@@ -210,7 +207,7 @@
         <article class="recurso">
           <div class="recurso-icone">◎</div>
           <h3>A sua cara</h3>
-          <p>Sua logo e a cor da sua marca no painel e no cardápio. O cliente vê o seu restaurante, não o nosso.</p>
+          <p>Sua logo no painel e no cardápio, e o endereço com o nome do seu restaurante. O cliente vê você, não a gente.</p>
         </article>
       </div>
     </div>
@@ -235,7 +232,7 @@
         </ul>
       </div>
 
-      <div class="ficha" aria-hidden="true">
+      <div class="ficha marca-registro" aria-hidden="true">
         <div class="ficha-titulo">
           <strong>X-Tudo</strong>
           <span>ficha técnica</span>
@@ -349,7 +346,7 @@
         </details>
         <details class="pergunta">
           <summary>O cardápio fica com a minha marca?</summary>
-          <p>Fica. Você envia a sua logo e escolhe a cor da marca, e ela aparece no painel e no cardápio que o cliente abre.</p>
+          <p>Fica. Você envia a sua logo e ela aparece no painel e no cardápio que o cliente abre, junto do endereço próprio do seu restaurante — sem o nome de nenhum aplicativo no meio.</p>
         </details>
         <details class="pergunta">
           <summary>Consigo trocar de plano depois?</summary>
@@ -383,13 +380,11 @@
 <footer class="rodape">
   <div class="wrap rodape-inner">
     <a class="logo" href="#"><svg class="marca-ca" viewBox="0 0 64 64" width="30" height="30" role="img" aria-label="Comanda ai" focusable="false">
-        <defs>
-          <linearGradient id="ca-rodape" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#e0243f"/><stop offset=".55" stop-color="#e8482f"/><stop offset="1" stop-color="#f6a723"/>
-          </linearGradient>
-        </defs>
-        <path d="M45.38 16.94A20 20 0 1 0 45.38 47.06" fill="none" stroke="url(#ca-rodape)" stroke-width="11" stroke-linecap="round"/>
-        <circle cx="32" cy="32" r="5.5" fill="url(#ca-rodape)"/>
+        {# Traço chapado no aço do tema. O gradiente vermelho-âmbar saiu junto com
+           o fundo escuro: numa prancha clara ele era a única coisa da página
+           com três cores. #}
+        <path d="M45.38 16.94A20 20 0 1 0 45.38 47.06" fill="none" stroke="#5980a6" stroke-width="11" stroke-linecap="butt"/>
+        <circle cx="32" cy="32" r="5.5" fill="#5980a6"/>
       </svg> Comanda <em>ai</em></a>
     <p>Sistema de pedidos para restaurantes, por assinatura.</p>
   </div>

@@ -2,7 +2,7 @@
  *
  * Os gráficos do Financeiro são desenhados à mão em <canvas>, como no original:
  * nenhuma biblioteca externa, nenhum CDN. As cores saem das variáveis CSS, então
- * eles acompanham o tema e a cor de marca de cada tenant.
+ * eles acompanham o tema sem precisar repetir nenhum hex aqui.
  *
  * Diferença em relação ao original: lá a Gestão era uma página só com abas, e o
  * gráfico era redesenhado ao trocar de aba. Aqui cada tela é uma rota, então
@@ -11,7 +11,6 @@
 (() => {
   'use strict';
 
-  const CHAVE_TEMA = 'comandaai_tema';
   const money = value => new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL', maximumFractionDigits: 0}).format(value || 0);
   const chartState = {data: null, resizeTimer: null};
   const el = id => document.getElementById(id);
@@ -174,27 +173,10 @@
     registrarVisita();
   }
 
-  // ---------------------------------------------------------------- tema ----
-  /* O escuro é o padrão — é a cara da página inicial do produto —, então
-     ausência de atributo significa escuro e o claro é que se declara. */
-  const estaClaro = () => document.documentElement.getAttribute('data-theme') === 'light';
-
-  function aplicarRotuloTema() {
-    const botao = el('theme-toggle');
-    if (!botao) return;
-    botao.textContent = estaClaro() ? '🌙 Escuro' : '☀ Claro';
-    botao.setAttribute('aria-pressed', estaClaro() ? 'false' : 'true');
-  }
-
-  function toggleTheme() {
-    const proximo = estaClaro() ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', proximo);
-    try { localStorage.setItem(CHAVE_TEMA, proximo); } catch (e) { /* sem localStorage: vale só nesta página */ }
-    aplicarRotuloTema();
-    renderFinanceCharts();
-  }
-
-  window.toggleTheme = toggleTheme;
+  /* A alternância claro/escuro saiu daqui junto com o botão da barra: o tema
+     do sistema é um só, e um interruptor que não muda nada é pior que nenhum.
+     Os gráficos leem as variáveis CSS na hora de desenhar, então não sobrou
+     nada para reagir a uma troca de tema. */
 
   // --------------------------------------------------------------- toast ----
   window.showToast = function (message, timeout = 3200) {
@@ -404,8 +386,6 @@
     ligarJanelinhas();
     ligarMenu();
     el('v17-sidebar-backdrop')?.addEventListener('click', closeNav);
-    el('theme-toggle')?.addEventListener('click', toggleTheme);
-    aplicarRotuloTema();
 
     // Fecha a gaveta ao navegar, senão ela fica aberta por cima da página nova.
     document.querySelectorAll('.v17-nav .tab-btn').forEach(link => link.addEventListener('click', closeNav));
