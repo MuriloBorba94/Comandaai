@@ -9,7 +9,7 @@
 #   sudo caddy add-package github.com/caddy-dns/cloudflare
 #   sudo systemctl restart caddy
 #
-# O token do Cloudflare vem do ambiente (ver deploy/README.md), nunca escrito
+# O token do Cloudflare vem do ambiente, nunca escrito
 # aqui: este arquivo vai para o git.
 
 {

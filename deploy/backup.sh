@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Backup do Comanda ai: o banco e as fotos enviadas pelos restaurantes.
 #
-# Roda diariamente pelo cron (ver deploy/README.md) e antes de cada publicação.
+# Roda diariamente pelo cron e antes de cada publicação.
 # Guarda 14 dias e apaga o resto — num disco pequeno, backup infinito acaba
 # enchendo o disco e derrubando o sistema que ele devia proteger.
 #
@@ -39,7 +39,7 @@ fi
 #
 #     BACKUP_REMOTO=gdrive:comandaai-backups
 #
-# Ver deploy/BACKUP-FORA-DO-DISCO.md.
+# A cópia para fora do disco é feita pelo rclone, configurado no servidor.
 REMOTO=$(grep -E '^BACKUP_REMOTO=' "$RAIZ/.env" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'" | xargs || true)
 
 if [ -n "${REMOTO:-}" ]; then
