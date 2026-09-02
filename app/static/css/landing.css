@@ -11,11 +11,12 @@
  * nenhuma sombra colorida. A única superfície sólida da página é o botão
  * primário — é assim que ele vira o único lugar óbvio para clicar.
  *
- * Continua sem imagem externa: o celular, a cozinha e a ficha técnica são
- * desenhados em CSS. A exceção é a fonte, que vem do Google como no tema.
+ * Continua sem nada de fora: o celular, a cozinha e a ficha técnica são
+ * desenhados em CSS, e a Barlow é servida pelo próprio servidor. A página
+ * inteira sai daqui — nenhum pedido a terceiro para ela terminar de pintar.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap');
+/* As faces da Barlow vêm de static/css/fontes.css, servido por nós. */
 
 :root {
   /* A página é clara e diz isso ao navegador: sem esta linha, a barra de

@@ -1,14 +1,17 @@
-"""Layout importado do sistema original: shell por contexto e marca por tenant.
+"""Layout importado do sistema original: shell por contexto e logo por tenant.
 
 O que realmente pode dar errado aqui:
 
-1. A cor escolhida pelo restaurante é interpolada dentro de um bloco `<style>`.
-   Se qualquer texto passasse, seria injeção de CSS — e com CSS dá para redesenhar
-   a tela inteira, inclusive imitar um formulário de senha.
-2. A identidade é por tenant. A cor ou a logo de um restaurante aparecendo no
-   painel de outro seria vazamento visual de cliente para cliente.
-3. O shell é escolhido pelo contexto, não declarado pela tela. Um erro aqui
+1. A logo é por tenant. A de um restaurante aparecendo no painel de outro seria
+   vazamento visual de cliente para cliente.
+2. O shell é escolhido pelo contexto, não declarado pela tela. Um erro aqui
    mostraria a sidebar do painel para o cliente que só quer pedir um lanche.
+
+Havia um terceiro item, e era o mais perigoso: a cor escolhida pelo restaurante
+era interpolada dentro de um bloco `<style>`, e texto arbitrário ali seria
+injeção de CSS. Ele saiu da lista porque saiu do sistema — não há mais cor por
+tenant, nem bloco `<style>`, nem coluna. A defesa que sobra é não haver o que
+defender.
 """
 
 from __future__ import annotations
@@ -21,16 +24,6 @@ from PIL import Image
 
 from app import create_app
 from app.extensions import db
-from app.layout import (
-    CONTRASTE_MINIMO,
-    COR_PADRAO,
-    FUNDO_CLARO,
-    FUNDO_ESCURO,
-    _contraste,
-    contraste_da_marca,
-    cor_valida,
-    marca_para_texto,
-)
 from app.models.tenant import Tenant
 from tests.conftest import TestConfig, login_tenant
 
@@ -66,129 +59,6 @@ def _logar_b(client):
 
 def _tenant(tenant_id: int) -> Tenant:
     return db.session.get(Tenant, tenant_id)
-
-
-# --------------------------------------------------------------------------- #
-# Validação da cor: a única porta para dentro do CSS
-# --------------------------------------------------------------------------- #
-
-
-@pytest.mark.parametrize("valor", ["#c8102e", "#C8102E", "#abc", " #123456 "])
-def test_cor_valida_aceita_hex(valor):
-    assert cor_valida(valor) == valor.strip().lower()
-
-
-@pytest.mark.parametrize(
-    "valor",
-    [
-        None,
-        "",
-        "vermelho",
-        "c8102e",                      # sem #
-        "#12345",                      # tamanho inválido
-        "#12g456",                     # dígito não-hex
-        "red; } body { display:none",  # fecharia o seletor
-        "#fff; background:url(http://evil/x)",
-        "javascript:alert(1)",
-    ],
-)
-def test_cor_valida_recusa_o_resto(valor):
-    assert cor_valida(valor) is None
-
-
-def test_cor_invalida_no_banco_nao_chega_ao_html(app, two_tenants):
-    """Contraprova de ponta a ponta: mesmo gravada direto no banco, não passa.
-
-    Hoje há duas barreiras, não uma: `cor_valida` recusaria o valor, e antes
-    dela o layout nem lê mais a coluna. O teste continua porque a coluna segue
-    existindo, com o que cada restaurante já havia escolhido — e um dia em que
-    alguém volte a lê-la é exatamente o dia em que este teste precisa falhar.
-    """
-    _tenant(two_tenants["tenant_a"]).cor_marca = "red;} body{display:none"
-    db.session.commit()
-
-    client = app.test_client()
-    _logar_a(client)
-    html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
-
-    assert "display:none" not in html
-    assert f"--brand: {COR_PADRAO}" in html, "deveria cair no padrão"
-
-
-# --------------------------------------------------------------------------- #
-# Legibilidade da cor escolhida
-#
-# O restaurante escolhe a cor; não escolhe se ela dá para ler. Uma marca amarela
-# com texto branco em cima deixa o botão ilegível, e foi exatamente o que
-# aconteceu quando a Borba's Pizzaria escolheu #c6ae10.
-# --------------------------------------------------------------------------- #
-
-# Uma volta inteira do seletor de cor, incluindo os extremos.
-CORES = [
-    "#c8102e", "#c6ae10", "#ffffff", "#000000", "#1e88e5",
-    "#f1c40f", "#0b1d3a", "#2ecc71", "#ff00ff", "#00ff00", "#7f7f7f",
-]
-
-
-@pytest.mark.parametrize("cor", CORES)
-def test_texto_sobre_a_marca_sempre_legivel(cor):
-    """O que fica POR CIMA de um preenchimento com a cor da marca."""
-    assert _contraste(contraste_da_marca(cor), cor) >= CONTRASTE_MINIMO
-
-
-@pytest.mark.parametrize("cor", CORES)
-def test_marca_como_texto_legivel_nos_dois_temas(cor):
-    """A marca usada COMO texto, sobre o painel claro e sobre o escuro."""
-    assert _contraste(marca_para_texto(cor, escuro=False), FUNDO_CLARO) >= CONTRASTE_MINIMO
-    assert _contraste(marca_para_texto(cor, escuro=True), FUNDO_ESCURO) >= CONTRASTE_MINIMO
-
-
-@pytest.mark.parametrize("cor", ["#c8102e", "#0b1d3a"])
-def test_cor_escura_que_ja_contrasta_fica_intacta(cor):
-    """Ajustar quem não precisa descaracterizaria a marca à toa."""
-    assert marca_para_texto(cor, escuro=False) == cor
-
-
-@pytest.mark.parametrize("cor", ["#c6ae10", "#f1c40f", "#2ecc71"])
-def test_cor_clara_que_ja_contrasta_no_escuro_fica_intacta(cor):
-    assert marca_para_texto(cor, escuro=True) == cor
-
-
-def test_ajuste_preserva_o_matiz():
-    """Escurecer um amarelo tem que continuar amarelo, não virar cinza."""
-    import colorsys
-
-    from app.layout import _hex_para_rgb
-
-    def matiz(cor):
-        return colorsys.rgb_to_hls(*[v / 255 for v in _hex_para_rgb(cor)])[0]
-
-    original = "#c6ae10"
-    assert matiz(marca_para_texto(original, escuro=False)) == pytest.approx(matiz(original), abs=0.01)
-
-
-def test_html_traz_as_variantes_de_contraste(app, two_tenants):
-    """As variantes derivadas continuam chegando ao HTML.
-
-    A cor é uma só desde que o tema virou padrão, mas ela segue entrando pelas
-    mesmas funções: é a derivação que garante texto legível, e trocar
-    COR_PADRAO um dia não pode voltar a produzir botão ilegível.
-    """
-    # Uma cor escolhida no passado continua no banco e não pode reaparecer.
-    _tenant(two_tenants["tenant_a"]).cor_marca = "#c6ae10"
-    db.session.commit()
-
-    client = app.test_client()
-    _logar_a(client)
-    html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
-
-    assert "#c6ae10" not in html, "a cor guardada não pinta mais nada"
-
-    # Compara com o que as funções devolvem, e não com um hex fixo: o valor
-    # exato é resultado do ajuste e pode mudar sem que o comportamento mude.
-    assert f"--brand: {COR_PADRAO}" in html
-    assert f"--brand-contraste: {contraste_da_marca(COR_PADRAO)}" in html
-    assert f"--brand-texto: {marca_para_texto(COR_PADRAO, escuro=False)}" in html
 
 
 # --------------------------------------------------------------------------- #
@@ -232,8 +102,10 @@ def test_painel_da_plataforma_usa_a_marca_do_produto(app, platform_admin):
     html = client.get("/plataforma/", base_url="http://app.localhost").get_data(as_text=True)
 
     assert 'v17-app-shell' in html
-    assert f"--brand: {COR_PADRAO}" in html
     assert "Comanda ai" in html
+    # A cor vem do CSS e nao mais de um <style> por requisicao. O que o HTML
+    # tem de provar e que a folha do tema esta ligada.
+    assert "css/tema-industry.css" in html
 
 
 def test_login_do_tenant_ainda_e_vitrine(app, two_tenants):
@@ -270,10 +142,11 @@ def test_o_formulario_nao_oferece_mais_a_cor(app, two_tenants):
 
 
 def test_cor_enviada_por_fora_do_formulario_e_ignorada(app, two_tenants):
-    """Formulário velho em cache, ou POST feito na mão, não regrava a cor.
+    """Formulário velho em cache, ou POST feito na mão, não pode quebrar a rota.
 
-    Gravar sem que nenhuma tela respeitasse o valor deixaria o banco dizendo
-    uma coisa e a tela outra — a pior das duas saídas.
+    A coluna não existe mais. O que este teste guarda é que a ausência dela
+    seja silenciosa: um campo que sobrou de um formulário antigo tem de ser
+    ignorado, e não virar erro 500 na cara de quem só queria trocar a logo.
     """
     client = app.test_client()
     _logar_a(client)
@@ -284,11 +157,10 @@ def test_cor_enviada_por_fora_do_formulario_e_ignorada(app, two_tenants):
     )
 
     assert resposta.status_code == 302
-    assert _tenant(two_tenants["tenant_a"]).cor_marca is None
+    assert not hasattr(_tenant(two_tenants["tenant_a"]), "cor_marca")
 
     html = client.get("/admin/", base_url="http://tenant-a.localhost").get_data(as_text=True)
     assert "#1e88e5" not in html
-    assert f"--brand: {COR_PADRAO}" in html
 
 
 def test_logo_fica_na_pasta_do_tenant_e_aparece_na_barra(app, two_tenants):
@@ -426,32 +298,6 @@ def test_vitrine_usa_a_logo_do_tenant_no_cabecalho(app, two_tenants):
     html = anonimo.get("/", base_url="http://tenant-a.localhost").get_data(as_text=True)
 
     assert caminho in html
-
-
-def test_a_marca_como_texto_passa_nas_DUAS_superficies_de_cada_tema():
-    """A calibragem tem de valer onde o texto está, não só onde é conveniente.
-
-    O `eyebrow` da introdução usa a marca como texto e fica sobre `--bg`, não
-    sobre o branco dos cartões. Calibrar contra `#ffffff` dava 4,67:1 no alvo e
-    4,29:1 no lugar real — reprovando por pouco, e sem ninguém notar, porque a
-    conta batia no papel.
-
-    No escuro a lógica se inverte: texto claro tem MAIS contraste quanto mais
-    escuro o fundo, então o pior caso é a superfície mais clara.
-    """
-    # Claro: --bg é o pior caso; o branco do cartão é o folgado.
-    CLARO_PIOR, CLARO_FOLGADO = "#f4f5f8", "#ffffff"
-    # Escuro: --panel-2 é o pior caso; o --bg quase preto é o folgado.
-    ESCURO_PIOR, ESCURO_FOLGADO = "#1a1d26", "#0a0b0e"
-
-    for cor in ("#e0243f", "#f6a723", "#2563eb", "#16a34a", "#111111", "#fefefe"):
-        claro = marca_para_texto(cor, escuro=False)
-        escuro = marca_para_texto(cor, escuro=True)
-
-        assert _contraste(claro, CLARO_PIOR) >= CONTRASTE_MINIMO, cor
-        assert _contraste(claro, CLARO_FOLGADO) >= CONTRASTE_MINIMO, cor
-        assert _contraste(escuro, ESCURO_PIOR) >= CONTRASTE_MINIMO, cor
-        assert _contraste(escuro, ESCURO_FOLGADO) >= CONTRASTE_MINIMO, cor
 
 
 def test_o_icone_da_aba_num_restaurante_e_do_restaurante(app, two_tenants):

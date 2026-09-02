@@ -25,3 +25,10 @@ Caddyfile     text eol=lf
 *.ico         binary
 *.db          binary
 *.wav         binary
+# Fonte convertida e fonte corrompida, e o sintoma seria a tipografia sumir
+# sem erro nenhum no log. O `text=auto` acima ate detectaria sozinho; declarar
+# custa uma linha e nao depende de heuristica.
+*.woff2       binary
+*.woff        binary
+*.ttf         binary
+*.otf         binary

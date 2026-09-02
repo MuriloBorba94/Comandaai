@@ -29,12 +29,13 @@ class Tenant(TimestampMixin, db.Model):
     asaas_customer_id = db.Column(db.String(60), index=True)
     proxima_cobranca_em = db.Column(db.DateTime)
 
-    # Identidade visual do restaurante. A logo é um caminho relativo dentro de
-    # static/uploads, como as fotos de produto — isolada na pasta do tenant. A
-    # cor entra no CSS, então é validada como hex antes de ser usada (ver
-    # app/layout.py); guardar aqui texto inválido não vira injeção.
+    # Identidade visual do restaurante: a logo, e só. É um caminho relativo
+    # dentro de static/uploads, como as fotos de produto — isolada na pasta do
+    # tenant.
+    #
+    # Havia aqui um `cor_marca` ao lado. Ele saiu com o tema Industry, que fixa
+    # a cor do sistema: a coluna guardava uma escolha que nenhuma tela mostrava.
     logo = db.Column(db.String(200))
-    cor_marca = db.Column(db.String(7))
 
     # Recebimento por PIX. A chave é do RESTAURANTE: o dinheiro cai direto na
     # conta dele e a plataforma não é intermediária de pagamento em momento

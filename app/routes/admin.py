@@ -217,10 +217,10 @@ def identidade():
     aqui não pode desfazer nem atrapalhar o salvamento de mesas e tempos, que
     são outro formulário.
 
-    Já cuidava também da cor da marca. A cor saiu quando o tema virou padrão:
-    o campo não existe mais no formulário, e um POST que ainda traga `cor_marca`
-    — formulário antigo em cache, script de terceiro — é ignorado de propósito,
-    em vez de gravar uma escolha que nenhuma tela respeitaria.
+    Já cuidava também da cor da marca. A cor saiu inteira quando o tema virou
+    padrão — campo, coluna e validação —, então um POST que ainda traga
+    `cor_marca` (formulário antigo em cache, script de terceiro) não encontra
+    mais onde gravar e é ignorado sem erro.
     """
     arquivo = request.files.get("logo")
     enviou_arquivo = bool(arquivo and getattr(arquivo, "filename", ""))

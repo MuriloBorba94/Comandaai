@@ -15,7 +15,6 @@
    declarado duas vezes. #}
 {% set contexto = contexto_layout() %}
 {% set painel = contexto in ("admin", "plataforma") %}
-{% set tons = tons_da_marca() %}
 <!doctype html>
 <html lang="pt-br">
 <head>
@@ -44,6 +43,9 @@
   {% else %}
     <link rel="icon" href="{{ url_for('static', filename='img/comandaai-marca.svg') }}?v=1" type="image/svg+xml">
   {% endif %}
+  {# As fontes primeiro: elas não dependem de nada e as folhas seguintes já
+     as encontram declaradas. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fontes.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/comanda.css') }}">
   {# Tema Industry. Entra DEPOIS do comanda.css porque não o substitui: remapeia
      os tokens que ele já usa. Inverter a ordem desliga o tema em silêncio.
@@ -51,23 +53,6 @@
      que existe se ele um dia precisar sair do ar às pressas. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tema-industry.css') }}">
 
-  {# A cor de destaque é uma só, do produto — não mais escolhida por
-     restaurante. O tema padroniza a aparência, e uma cor por loja voltaria a
-     abrir a porta que este bloco já teve de fechar duas vezes: injeção de CSS
-     pelo formulário e botão ilegível quando a marca era clara.
-
-     O bloco fica porque é ele quem entrega --brand-contraste e --brand-texto
-     derivados da cor. O tema, carregado acima, sobrepõe todos eles; sem o tema,
-     estes valores é que valem. #}
-  <style>
-    :root {
-      --brand: {{ cor_da_marca() }};
-      --brand-bg: {{ tons.fundo }};
-      --brand-border: {{ tons.borda }};
-      --brand-contraste: {{ tons.contraste }};
-      --brand-texto: {{ tons.texto_claro }};
-    }
-  </style>
   {% block head %}{% endblock %}
   {# Folhas de estilo que só uma tela precisa. Carregar o Leaflet em todas as
      páginas custaria 15 KB a quem nunca vai ver um mapa. #}

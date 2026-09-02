@@ -1,0 +1,91 @@
+/* As fontes do Comanda ai, servidas pelo próprio servidor.
+ *
+ * Antes vinham de um @import para fonts.googleapis.com, dentro do
+ * landing.css e do tema-industry.css. Funcionava, mas punha a página de
+ * vendas — a que mais depende de abrir rápido — atrás de um DNS, um TLS e um
+ * CSS de terceiro antes de saber sequer qual arquivo de fonte buscar.
+ *
+ * Aqui os arquivos são nossos: o Caddy os entrega do disco com sete dias de
+ * cache, na mesma conexão que já está aberta para o resto da página.
+ *
+ * Só o subconjunto **latin** (U+0000–00FF e companhia). Ele cobre o português
+ * inteiro, acento por acento — ã, ç, é, õ, â —, e é por isso que os subsets
+ * vietnamita e latin-ext do Google ficaram de fora: seriam mais 300 KB para
+ * caracteres que este sistema nunca escreve. O `unicode-range` abaixo é o que
+ * garante o desfecho certo se algum dia escrever: o caractere de fora cai na
+ * fonte seguinte da pilha em vez de virar quadradinho.
+ *
+ * `font-display: swap` mantém o texto legível desde o primeiro quadro, com a
+ * fonte do sistema, e troca quando a Barlow chega. Ninguém espera fonte para
+ * ler preço.
+ *
+ * Arquivos em static/fonts/, baixados do Google Fonts (Barlow e Barlow
+ * Condensed, licença SIL Open Font 1.1). Trocar de versão é baixar de novo e
+ * substituir; o nome do arquivo não carrega hash, então o `?v=` das folhas de
+ * estilo não cobre esta pasta — mas fonte não muda de conteúdo sem mudar de
+ * nome, que é o caso em que o cache velho atrapalharia.
+ */
+
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/barlow-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/barlow-500.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/barlow-600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/barlow-700.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/barlow-condensed-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/barlow-condensed-600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/barlow-condensed-700.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

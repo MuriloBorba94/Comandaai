@@ -11,7 +11,9 @@
    perderia para ele. Para manter a cor por tenant, apague o bloco --brand
    abaixo e cadastre #5980a6 como cor da marca no painel. */
 
-@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700&family=Barlow+Condensed:wght@400;600&display=swap');
+/* As faces da Barlow vêm de static/css/fontes.css, servido por nós. O
+   @import para o Google que ficava aqui saiu: ver o cabeçalho daquele
+   arquivo. */
 
 /* ── 1. Tokens ───────────────────────────────────────────────────────────── */
 
