@@ -291,3 +291,78 @@ def test_a_pagina_do_produto_declara_o_proprio_esquema():
     landing = Path("app/static/css/landing.css").read_text(encoding="utf-8")
 
     assert "color-scheme: light" in landing
+
+
+# --------------------------------------------------------------------------- #
+# Duas armadilhas do tema, cada uma cobrada por um defeito que chegou ao cliente
+# --------------------------------------------------------------------------- #
+
+
+def _bloco_que_contem(css: str, declaracao: str) -> list[str]:
+    """Os seletores da regra que declara isto. Lista limpa, um por item.
+
+    Comparar seletor por igualdade, e não por `in`, é o ponto: `".modal" in
+    texto` casa dentro de `.modal-content` e faz o teste passar com o defeito
+    de volta. Custou uma verificação por mutação descobrir isso.
+    """
+    for bloco in css.split("}"):
+        if "{" not in bloco:
+            continue
+        seletores, corpo = bloco.rsplit("{", 1)
+        if declaracao in corpo:
+            linhas = [s.strip() for s in seletores.split(",")]
+            return [t.splitlines()[-1].strip() for t in linhas if t]
+    raise AssertionError(f"nenhuma regra declara {declaracao!r}")
+
+
+def test_o_que_flutua_carrega_o_proprio_fundo():
+    """O modal do produto ficou transparente no cardápio, em produção.
+
+    O tema zera o fundo dos cartões — e num cartão isso funciona, porque atrás
+    dele está o papel da página. O `.modal` entrou na mesma lista por descuido,
+    e aí "sem fundo" passou a significar "enxerga-se a página inteira através
+    dos adicionais".
+
+    A regra que este teste guarda: superfície que se sobrepõe ao conteúdo tem
+    fundo próprio, sempre.
+    """
+    tema = Path("app/static/css/tema-industry.css").read_text(encoding="utf-8")
+
+    opacos = _bloco_que_contem(tema, "background: var(--superficie)")
+    transparentes = _bloco_que_contem(tema, "background: transparent")
+
+    assert "html:root .modal" in opacos, "o modal precisa de fundo próprio"
+    assert "html:root .modal" not in transparentes
+    # O cartão continua sendo desenho de linha: é a outra metade do acordo.
+    assert "html:root:root .card" in transparentes
+
+
+def test_o_layout_declara_o_tema_claro():
+    """O comanda.css tem 31 regras em `:root[data-theme="light"]`.
+
+    Elas dão fundo sólido a campo de formulário, linha de adicional e cabeçalho
+    de tabela. Enquanto o botão de alternância existia, o atributo era escrito
+    por JavaScript; quando ele saiu, o atributo sumiu junto e as 31 regras
+    deixaram de casar — o sistema passou a rodar o conjunto ESCURO com tokens
+    claros, e o fundo `rgba(255,255,255,.04)` sobre papel é invisível.
+
+    Foi assim que os adicionais do cardápio sumiram da tela.
+
+    A asserção olha a TAG `<html>`, não o arquivo inteiro: o texto
+    `data-theme="light"` também aparece no comentário que explica tudo isto, e
+    procurá-lo solto faria o teste passar com o atributo removido.
+    """
+    import re
+
+    raiz = Path(__file__).resolve().parents[1]
+    base = (raiz / "app" / "templates" / "base.html").read_text(encoding="utf-8")
+    comanda = (raiz / "app" / "static" / "css" / "comanda.css").read_text(encoding="utf-8")
+
+    tag = re.search(r"<html\s[^>]*>", base)
+    assert tag, "sem tag <html> no base.html"
+    assert 'data-theme="light"' in tag.group(0), (
+        "sem isto, 31 regras claras do comanda.css deixam de casar"
+    )
+    assert comanda.count(':root[data-theme="light"]') > 20, (
+        "se as regras claras sumiram do comanda.css, este teste perdeu o motivo"
+    )

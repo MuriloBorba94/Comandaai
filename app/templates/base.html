@@ -16,7 +16,20 @@
 {% set contexto = contexto_layout() %}
 {% set painel = contexto in ("admin", "plataforma") %}
 <!doctype html>
-<html lang="pt-br">
+{# `data-theme="light"` fixo, e não por escolha de quem opera.
+
+   O comanda.css nasceu escuro, com o claro declarado em `:root[data-theme=
+   "light"]` — 31 regras que dão fundo sólido a campo de formulário, linha de
+   adicional, cabeçalho de tabela e afins. Quando o botão de alternância saiu,
+   o atributo parou de ser escrito e essas 31 regras deixaram de casar: o
+   sistema passou a rodar o conjunto ESCURO com os tokens claros do tema.
+
+   O sintoma era fundo `rgba(255,255,255,.04)` — branco a 4% — sobre papel:
+   invisível. Apareceu primeiro nos adicionais do cardápio, que ficaram
+   ilegíveis, e estava esperando em outras dez telas.
+
+   O tema é claro e agora diz isso. #}
+<html lang="pt-br" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

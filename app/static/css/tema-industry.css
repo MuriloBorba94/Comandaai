@@ -6,10 +6,16 @@
      <link rel="stylesheet" href="{{ url_for('static', filename='css/comanda.css') }}">
      <link rel="stylesheet" href="{{ url_for('static', filename='css/tema-industry.css') }}">
 
-   Os seletores usam `html:root` (0,1,1) porque o base.html injeta um bloco
-   <style> com `:root { --brand: ... }` depois das folhas — `:root` sozinho
-   perderia para ele. Para manter a cor por tenant, apague o bloco --brand
-   abaixo e cadastre #5980a6 como cor da marca no painel. */
+   Os seletores usam `html:root` (0,1,1), e não `:root` sozinho, por causa de
+   uma disputa que já existiu: o base.html injetava um bloco <style> com
+   `:root { --brand: ... }` DEPOIS das folhas, e `:root` perderia para ele. Esse
+   bloco não existe mais — a cor por restaurante saiu junto com ele —, mas a
+   especificidade fica: o comanda.css tem regras em `:root[data-theme=...]` que
+   ainda precisam ser vencidas, e abaixar isso agora seria desligar parte do
+   tema sem aviso.
+
+   Onde `html:root` não basta, o arquivo usa `html:root:root`. Está marcado no
+   lugar, com a conta feita. */
 
 /* As faces da Barlow vêm de static/css/fontes.css, servido por nós. O
    @import para o Google que ficava aqui saiu: ver o cabeçalho daquele
@@ -73,8 +79,12 @@ html:root[data-theme="light"] {
   --shadow: 0 1px 2px color-mix(in srgb, #2b2b2d 14%, transparent);
   --shadow-lg: 0 12px 32px color-mix(in srgb, #2b2b2d 22%, transparent);
 
-  /* Gradientes viram campo chapado: a única superfície sólida é o botão primário. */
-  --gradiente: #5980a6;
+  /* Gradientes viram campo chapado. O tom é o --brand-2, não o --brand: branco
+     sobre #5980a6 dá 4,15:1, abaixo do mínimo de 4,5:1 para texto normal, e
+     texto escuro no mesmo fundo dá 4,04:1 — nenhuma das duas leituras passa.
+     Sobre #416180 o branco dá 6,5:1. O #5980a6 continua vivo em traço, borda e
+     texto sobre papel, onde ele é claro o bastante para funcionar. */
+  --gradiente: #416180;
 }
 
 /* ── 2. Tipografia ───────────────────────────────────────────────────────── */
@@ -106,21 +116,42 @@ html:root .v17-commandbar-title small {
 
 /* ── 3. Estrutura: cartões viram desenho de linha ────────────────────────── */
 
-html:root .card,
-html:root .panel,
-html:root .v17-card,
-html:root .v17-kanban-column,
-html:root .order-items,
-html:root .admin-item-form,
-html:root .notice,
-html:root .flash,
-html:root table,
-html:root .modal,
-html:root .gaveta {
+/* `html:root:root` (0,3,1) e nao `html:root` (0,2,1): as regras claras do
+   comanda.css sao (0,3,0) e devolveriam fundo cinza a estes quadros. Cartao
+   como desenho de linha e o que o Industry afirma; aqui ele precisa vencer. */
+html:root:root .card,
+html:root:root .panel,
+html:root:root .v17-card,
+html:root:root .v17-kanban-column,
+html:root:root .order-items,
+html:root:root .admin-item-form,
+html:root:root .notice,
+html:root:root .flash,
+html:root:root table {
   border-radius: 0;
   background: transparent;
   border: 1px solid var(--border);
   box-shadow: none;
+}
+
+/* O que FLUTUA não pode ser transparente.
+ *
+ * Um cartão transparente funciona: atrás dele está o papel da página, e o
+ * resultado continua opaco. Um modal transparente deixa ver a página inteira
+ * através do próprio conteúdo — foi o que aconteceu com a janela do produto no
+ * cardápio, onde os adicionais ficaram ilegíveis por cima da lista de trás.
+ *
+ * O comanda.css já tinha aprendido isto uma vez, no fundo opaco da gaveta.
+ * Aqui a lição volta escrita: superfície que se sobrepõe ao conteúdo carrega o
+ * seu próprio fundo, sempre. */
+html:root .modal,
+html:root .modal-content,
+html:root .modal-detalhes,
+html:root .gaveta {
+  border-radius: 0;
+  background: var(--superficie);
+  border: 1px solid var(--border-2);
+  box-shadow: var(--shadow-lg);
 }
 
 html:root .btn,
@@ -137,22 +168,25 @@ html:root .v17-user-chip {
   border-radius: 0;
 }
 
-/* O botão primário é o único objeto sólido da prancha. */
+/* O botão primário é o único objeto sólido da prancha. No --brand-2, não no
+   --brand: ver a nota do --gradiente lá em cima. */
 html:root .btn-save,
 html:root .btn-primary,
 html:root .btn-success {
-  background: var(--brand);
+  background: var(--brand-2);
   color: #fff;
-  border: 1px solid var(--brand);
+  border: 1px solid var(--brand-2);
   background-image: none;
 }
 html:root .btn-save:hover,
 html:root .btn-primary:hover,
-html:root .btn-success:hover { background: #416180; border-color: #416180; }
+html:root .btn-success:hover { background: #2c455d; border-color: #2c455d; }
 
-html:root .btn-secondary,
-html:root .btn-muted,
-html:root .tab-btn {
+/* Mesmo motivo: sem o (0,3,1) o botao secundario volta a ter preenchimento, e
+   o primario deixa de ser o unico objeto solido da prancha. */
+html:root:root .btn-secondary,
+html:root:root .btn-muted,
+html:root:root .tab-btn {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text);
@@ -166,6 +200,44 @@ html:root :focus-visible {
   outline-offset: 2px;
 }
 html:root ::selection { background: #d6ebff; }
+
+/* ── 3b. Texto legível sobre os tons que o tema trocou ───────────────────── */
+/*
+ * O comanda.css escreve algumas cores de texto à mão, e com razão: elas foram
+ * escolhidas para o preenchimento que existia embaixo. O `--price` era um âmbar
+ * claro, então `color: #16120a` — quase preto — era a leitura certa. O
+ * `--success` era um verde claro, e `#06150c` idem.
+ *
+ * O tema trocou os dois por azul de aço escuro, e o texto quase preto ficou
+ * ilegível: o carrinho flutuante do cardápio media 2,89:1. Nenhuma dessas
+ * regras é erro do comanda.css — elas só perderam o chão que as sustentava.
+ *
+ * A especificidade aqui é `html:root:root` (0,3,1) de propósito. O comanda.css
+ * usa `:root:not([data-theme="light"]) .btn-save` (0,3,0) para o mesmo tipo de
+ * regra, e `html:root` sozinho (0,2,1) perderia — em silêncio, que é o pior
+ * jeito de perder.
+ */
+
+html:root:root .product-add,
+html:root:root .floating-cart,
+html:root:root .category-nav button.active,
+html:root:root .qty-btn:hover,
+html:root:root .comanda-extra.ativo,
+html:root:root .tracking-progress li.current > span,
+html:root:root .tracking-progress li.done > span,
+html:root:root .finance-submit.success,
+html:root:root .btn-save {
+  color: #fff;
+}
+
+/* O `+` do produto e o carrinho flutuante são os dois convites ao clique no
+   cardápio. Ficam no aço escuro, onde o branco lê a 6,5:1. */
+html:root:root .product-add,
+html:root:root .floating-cart,
+html:root:root .category-nav button.active {
+  background: var(--brand-2);
+  border-color: var(--brand-2);
+}
 
 /* ── 4. Marcas de registro (+) nos quadros ───────────────────────────────── */
 /* Aplique a classe .blueprint no cartão; os quatro cantos são desenhados aqui,
