@@ -29,6 +29,7 @@ from app.models.pedido import (
     STATUS_PRONTO,
     STATUS_SAIU_ENTREGA,
     TIPO_ENTREGA,
+    TIPO_RETIRADA,
     Pedido,
 )
 from app.models.produto import Produto
@@ -379,3 +380,201 @@ def test_rastreio_de_um_pedido_nao_abre_no_outro_restaurante(client, loja):
     resposta = client.get(f"/pedido/{pedido.public_token}/rastreio.json", base_url=BASE_B)
 
     assert resposta.status_code == 404
+
+
+# --------------------------------------------------------------------------- #
+# A localização que o cliente escolhe compartilhar
+#
+# O endereço escrito continua sendo o que manda a comida chegar. O ponto é um
+# reforço para o caso em que texto não basta: vila sem placa, condomínio com
+# vários blocos, rua que o mapa não conhece pelo nome.
+#
+# Por ser opcional, a regra que estes testes protegem é uma só e vale mais que
+# todas as outras: NADA relacionado à localização pode impedir um pedido de
+# existir. Coordenada ausente, torta, fora do globo ou vinda de um POST montado
+# à mão — o pedido passa igual, com o endereço que a pessoa digitou.
+# --------------------------------------------------------------------------- #
+
+
+def test_localizacao_compartilhada_fica_no_pedido(loja):
+    pedido = _entrega(
+        loja["tenant_a"],
+        cliente_lat="-8.047562",
+        cliente_lng="-34.877000",
+        cliente_local_precisao="18",
+    )
+
+    assert pedido.cliente_lat == pytest.approx(-8.047562)
+    assert pedido.cliente_lng == pytest.approx(-34.877)
+    assert pedido.cliente_local_precisao == pytest.approx(18.0)
+    assert pedido.tem_local_do_cliente
+
+
+def test_pedido_sem_localizacao_continua_normal(loja):
+    """O caminho de sempre. Compartilhar é escolha, e a maioria não vai fazer."""
+    pedido = _entrega(loja["tenant_a"])
+
+    assert pedido.cliente_lat is None
+    assert pedido.cliente_lng is None
+    assert not pedido.tem_local_do_cliente
+    assert pedido.endereco == "Rua das Flores, 123"
+
+
+@pytest.mark.parametrize(
+    "lat, lng",
+    [
+        ("abacaxi", "-34.87"),          # não é número
+        ("", ""),                        # campo vazio, o caso comum
+        ("-91", "-34.87"),               # fora do globo
+        ("-8.04", "181"),                # idem
+        ("0", "0"),                      # a ilha nula
+        ("nan", "-34.87"),               # passa pelo float() e envenena comparação
+        ("inf", "-34.87"),
+        ("-8.04", None),                 # só metade chegou
+    ],
+)
+def test_coordenada_ruim_e_descartada_sem_derrubar_o_pedido(loja, lat, lng):
+    """O ponto mais importante deste arquivo.
+
+    Um valor estranho aqui não pode virar erro na cara de quem está com o
+    carrinho cheio. Ele é jogado fora e o pedido segue pelo endereço escrito.
+    """
+    pedido = _entrega(loja["tenant_a"], cliente_lat=lat, cliente_lng=lng)
+
+    assert pedido.id is not None, "o pedido tinha de existir mesmo assim"
+    assert pedido.cliente_lat is None
+    assert pedido.cliente_lng is None
+    assert not pedido.tem_local_do_cliente
+
+
+def test_retirada_no_balcao_nao_guarda_a_casa_do_cliente(loja):
+    """Quem busca no balcão não tem por que deixar a própria casa gravada.
+
+    A tela nem oferece o botão fora da entrega, mas tela não é trava: um POST
+    montado à mão mandaria as coordenadas junto de uma retirada.
+    """
+    pedido = _entrega(
+        loja["tenant_a"],
+        tipo=TIPO_RETIRADA,
+        endereco=None,
+        cliente_lat="-8.047562",
+        cliente_lng="-34.877000",
+    )
+
+    assert pedido.tipo == TIPO_RETIRADA
+    assert pedido.cliente_lat is None
+    assert pedido.cliente_lng is None
+
+
+def test_ponto_impreciso_nao_serve_para_rota(loja):
+    """Meio quilômetro de raio é bairro, não endereço.
+
+    Leitura de IP ou de torre de celular cai nessa faixa. Mandar o entregador
+    para o centro desse círculo com ar de certeza é pior do que não ter ponto:
+    ele deixaria de ler o endereço, que estava certo.
+    """
+    pedido = _entrega(
+        loja["tenant_a"],
+        cliente_lat="-8.047562",
+        cliente_lng="-34.877000",
+        cliente_local_precisao="2000",
+    )
+
+    # Guardado, para a tela poder explicar por que não usou.
+    assert pedido.cliente_lat is not None
+    assert not pedido.tem_local_do_cliente
+
+
+def test_a_rota_prefere_o_ponto_ao_texto(client, loja):
+    """É para isto que a localização existe."""
+    from app.routes.entregas import url_da_rota
+
+    pedido = _entrega(
+        loja["tenant_a"],
+        cliente_lat="-8.047562",
+        cliente_lng="-34.877000",
+        cliente_local_precisao="15",
+    )
+
+    with client.application.test_request_context(base_url=BASE_A):
+        from flask import g
+
+        g.tenant = loja["tenant_a"]
+        url = url_da_rota(pedido)
+
+    assert "destination=-8.047562,-34.877000" in url
+    assert "Flores" not in url, "com ponto exato, o texto não entra na rota"
+
+
+def test_a_rota_volta_ao_texto_quando_o_ponto_nao_serve(client, loja):
+    from app.routes.entregas import url_da_rota
+
+    pedido = _entrega(
+        loja["tenant_a"],
+        cliente_lat="-8.047562",
+        cliente_lng="-34.877000",
+        cliente_local_precisao="2000",
+    )
+
+    with client.application.test_request_context(base_url=BASE_A):
+        from flask import g
+
+        g.tenant = loja["tenant_a"]
+        url = url_da_rota(pedido)
+
+    assert "Rua%20das%20Flores" in url or "Rua+das+Flores" in url
+    assert "-8.047562" not in url
+
+
+def test_a_tela_do_entregador_avisa_que_ha_ponto(client, loja):
+    pedido = _entrega(
+        loja["tenant_a"],
+        cliente_lat="-8.047562",
+        cliente_lng="-34.877000",
+        cliente_local_precisao="18",
+    )
+    transicionar(pedido, STATUS_CONFIRMADO)
+    transicionar(pedido, STATUS_EM_PREPARO)
+    transicionar(pedido, STATUS_PRONTO)
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    texto = client.get("/entregas/", base_url=BASE_A).get_data(as_text=True)
+
+    assert "compartilhou a localização" in texto
+    assert "18 m" in texto, "a precisão precisa aparecer para o entregador julgar"
+    # E o endereço escrito continua lá em cima: o ponto não o substitui.
+    assert "Rua das Flores" in texto
+
+
+def test_a_tela_do_entregador_nao_inventa_ponto(client, loja):
+    _pronto(loja["tenant_a"])
+    login_tenant(client, "tenant-a", "admin", "senha-a-123")
+
+    texto = client.get("/entregas/", base_url=BASE_A).get_data(as_text=True)
+
+    assert "compartilhou a localização" not in texto
+
+
+def test_o_checkout_oferece_sem_obrigar(client, loja):
+    """Opcional na tela, e não só na validação.
+
+    Um campo escondido com `required` faria o navegador barrar o envio sem
+    dizer onde — foi o que já aconteceu com o endereço quando a escolha era
+    retirada.
+    """
+    produto = Produto.query.filter_by(tenant_id=loja["tenant_a"].id).first()
+    client.post(
+        "/carrinho/adicionar",
+        data={"produto_id": produto.id, "quantidade": 1},
+        base_url=BASE_A,
+    )
+
+    texto = client.get("/carrinho", base_url=BASE_A).get_data(as_text=True)
+
+    assert "Compartilhar minha localização" in texto
+    assert "Opcional" in texto
+    for campo in ("cliente_lat", "cliente_lng", "cliente_local_precisao"):
+        assert f'id="{campo}"' in texto
+    # Nenhum dos três pode ser obrigatório.
+    bloco = texto.split('class="local-cliente"', 1)[1].split("</div>", 1)[0]
+    assert "required" not in bloco

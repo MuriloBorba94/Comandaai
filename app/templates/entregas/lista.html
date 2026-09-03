@@ -23,6 +23,19 @@
           <p class="entrega-endereco">
             {{ pedido.endereco }}{% if pedido.bairro_nome %} — {{ pedido.bairro_nome }}{% endif %}
           </p>
+          {# O endereço escrito continua em cima, sempre. O ponto é um reforço:
+             quem toca a campainha precisa do número da casa, não de uma
+             coordenada — e é o texto que diz "fundos", "portão azul", "3º
+             andar". A etiqueta abaixo só avisa que o botão de rota vai levar
+             ao ponto exato em vez de à busca por texto. #}
+          {% if pedido.tem_local_do_cliente %}
+            <p class="entrega-local muted">
+              ◎ O cliente compartilhou a localização
+              {%- if pedido.cliente_local_precisao %} (precisão de cerca de
+              {{ pedido.cliente_local_precisao|round|int }} m){% endif %}.
+              A rota abre direto no ponto.
+            </p>
+          {% endif %}
           {% if pedido.observacao %}<p class="muted">Obs.: {{ pedido.observacao }}</p>{% endif %}
           <p class="muted">
             Pagamento: <strong>{{ pedido.pagamento }}</strong>

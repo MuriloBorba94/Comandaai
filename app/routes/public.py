@@ -278,6 +278,9 @@ def carrinho():
         # Identificador do envio: se o cliente clicar duas vezes em "Finalizar",
         # o segundo POST reencontra o mesmo pedido em vez de criar outro.
         client_request_id=secrets.token_urlsafe(18),
+        # O mesmo limite que o servidor aplica, para a tela não dizer
+        # "compartilhado" sobre um ponto que a rota vai descartar depois.
+        precisao_maxima=Pedido.PRECISAO_MAXIMA_M,
     )
 
 
@@ -463,6 +466,13 @@ def pedido_criar():
         "tipo": request.form.get("tipo"),
         "endereco": request.form.get("endereco"),
         "bairro_id": request.form.get("bairro_id"),
+        # Opcionais, e sem validação aqui: quem julga a coordenada é
+        # criar_pedido(), que descarta em silêncio o que não serve. Um ponto
+        # estranho não pode derrubar o pedido — o endereço escrito é que leva a
+        # comida ao lugar.
+        "cliente_lat": request.form.get("cliente_lat"),
+        "cliente_lng": request.form.get("cliente_lng"),
+        "cliente_local_precisao": request.form.get("cliente_local_precisao"),
         "pagamento": request.form.get("pagamento"),
         "observacao": request.form.get("observacao"),
         "client_request_id": request.form.get("client_request_id"),

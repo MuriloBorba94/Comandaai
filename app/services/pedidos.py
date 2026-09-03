@@ -17,6 +17,7 @@ Nada disso é aceito do navegador — é a diferença entre um cardápio e um ca
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -115,6 +116,51 @@ def _dinheiro(valor) -> Decimal:
 
 def _texto(valor, limite: int) -> str:
     return (str(valor or "").strip())[:limite]
+
+
+def _local_do_cliente(payload: dict) -> tuple[float | None, float | None, float | None]:
+    """Lat, lng e precisão do ponto que o cliente compartilhou — ou três Nones.
+
+    Nada aqui levanta erro, e isso é deliberado. Compartilhar a localização é
+    opcional; um valor estranho no formulário — navegador exótico, extensão,
+    POST montado à mão — não pode impedir um pedido de existir. Quem faz a
+    comida chegar é o endereço escrito, que continua obrigatório. Coordenada
+    suspeita é descartada em silêncio e o pedido segue.
+
+    O que é descartado:
+
+    - o que não vira número, e o que vira NaN ou infinito — os dois passam pelo
+      `float()` e envenenam qualquer comparação depois, inclusive a de precisão
+      que decide se alguém vai à rua atrás daquele ponto;
+    - o que cai fora do globo (lat além de ±90, lng além de ±180);
+    - a ilha nula, (0, 0). É um ponto real no Atlântico, e é também o que alguns
+      clientes quebrados mandam quando querem dizer "não sei". Entre atender a
+      um pedido do meio do oceano e perder um cliente que more exatamente ali, o
+      segundo risco é o menor.
+    """
+
+    def numero(valor):
+        try:
+            convertido = float(valor)
+        except (TypeError, ValueError):
+            return None
+        return convertido if math.isfinite(convertido) else None
+
+    lat = numero(payload.get("cliente_lat"))
+    lng = numero(payload.get("cliente_lng"))
+
+    if lat is None or lng is None:
+        return None, None, None
+    if not (-90.0 <= lat <= 90.0) or not (-180.0 <= lng <= 180.0):
+        return None, None, None
+    if lat == 0.0 and lng == 0.0:
+        return None, None, None
+
+    precisao = numero(payload.get("cliente_local_precisao"))
+    if precisao is not None and precisao <= 0:
+        precisao = None
+
+    return lat, lng, precisao
 
 
 def normalizar_mesa(valor, qtd_mesas: int) -> int:
@@ -299,6 +345,7 @@ def criar_pedido(tenant, payload: dict, *, permitir_mesa: bool = False) -> Pedid
     mesa = None
     endereco = None
     bairro = None
+    cliente_lat = cliente_lng = cliente_precisao = None
     pagamento = _texto(payload.get("pagamento"), 80)
     codigo_cupom = _texto(payload.get("cupom"), 40)
 
@@ -332,6 +379,10 @@ def criar_pedido(tenant, payload: dict, *, permitir_mesa: bool = False) -> Pedid
             endereco = _texto(payload.get("endereco"), 350)
             if len(endereco) < 8:
                 raise ValueError("Informe o endereço completo para entrega.")
+            # Só na entrega. Quem retira no balcão não tem por que deixar a
+            # própria casa gravada num pedido, e um POST que mande coordenada
+            # junto de uma retirada é exatamente o caso a ignorar.
+            cliente_lat, cliente_lng, cliente_precisao = _local_do_cliente(payload)
             # Sem o recurso de bairros no plano, a entrega sai com taxa zero
             # em vez de exigir uma escolha que a loja não pode configurar.
             bairro = (
@@ -358,6 +409,9 @@ def criar_pedido(tenant, payload: dict, *, permitir_mesa: bool = False) -> Pedid
         endereco=endereco,
         bairro_id=bairro.id if bairro else None,
         bairro_nome=bairro.nome if bairro else None,
+        cliente_lat=cliente_lat,
+        cliente_lng=cliente_lng,
+        cliente_local_precisao=cliente_precisao,
         pagamento=pagamento,
         observacao=observacao,
         taxa_entrega=float(taxa_entrega),

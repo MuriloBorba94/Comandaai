@@ -128,6 +128,24 @@
             {% endfor %}
           </select>
         {% endif %}
+
+        {# Compartilhar a localização é OPCIONAL, e a tela precisa dizer isso
+           antes de pedir qualquer coisa. O botão não dispara sozinho ao abrir
+           a página: permissão pedida sem motivo é negada, e quem nega uma vez
+           costuma negar para sempre — inclusive na próxima loja que usar o
+           sistema. #}
+        <div class="local-cliente">
+          <button type="button" id="btn-local" class="btn-secondary">
+            Compartilhar minha localização
+          </button>
+          <p class="muted" id="local-status">
+            Opcional. Ajuda o entregador a achar a sua casa quando a rua não
+            tem placa ou o número é difícil de ver.
+          </p>
+          <input type="hidden" name="cliente_lat" id="cliente_lat">
+          <input type="hidden" name="cliente_lng" id="cliente_lng">
+          <input type="hidden" name="cliente_local_precisao" id="cliente_local_precisao">
+        </div>
       </div>
 
       <label for="pagamento">Forma de pagamento</label>
@@ -184,6 +202,93 @@
       opcao.addEventListener("change", atualizar);
     });
     atualizar();
+  })();
+
+  /* O ponto no mapa, quando o cliente quiser dar.
+     Três decisões que vale escrever:
+
+     1. Nada acontece sem o clique. Chamar geolocation ao abrir a página faz o
+        navegador perguntar permissão antes de a pessoa entender por quê — e a
+        resposta a uma pergunta sem contexto é "bloquear", que fica gravada
+        para o domínio inteiro.
+     2. Ponto impreciso é recusado AQUI, com o mesmo limite do servidor. Sem
+        isso a tela diria "compartilhado" e a rota do entregador descartaria
+        depois, em silêncio: o cliente acharia que ajudou e ninguém teria sido
+        ajudado.
+     3. Erro nunca trava o pedido. Sem permissão, sem sinal ou sem suporte do
+        navegador, o texto explica e o formulário segue exatamente como antes. */
+  (function () {
+    var PRECISAO_MAXIMA = {{ precisao_maxima|int }};
+    var botao = document.getElementById("btn-local");
+    var status = document.getElementById("local-status");
+    var lat = document.getElementById("cliente_lat");
+    var lng = document.getElementById("cliente_lng");
+    var precisao = document.getElementById("cliente_local_precisao");
+    if (!botao) { return; }
+
+    var PADRAO = status.textContent;
+
+    function limpar() {
+      lat.value = "";
+      lng.value = "";
+      precisao.value = "";
+    }
+
+    function virarRemover() {
+      botao.textContent = "Remover localização";
+      botao.onclick = function () {
+        limpar();
+        status.textContent = PADRAO;
+        botao.textContent = "Compartilhar minha localização";
+        botao.onclick = pedir;
+        botao.disabled = false;
+      };
+    }
+
+    function pedir() {
+      if (!navigator.geolocation) {
+        status.textContent =
+          "Este navegador não informa localização. Sem problema: o endereço acima já basta.";
+        return;
+      }
+
+      botao.disabled = true;
+      status.textContent = "Procurando a sua localização...";
+
+      navigator.geolocation.getCurrentPosition(
+        function (posicao) {
+          var metros = Math.round(posicao.coords.accuracy || 0);
+          if (metros > PRECISAO_MAXIMA) {
+            limpar();
+            botao.disabled = false;
+            status.textContent =
+              "Só foi possível achar um ponto aproximado (cerca de " + metros +
+              " m). Ele atrapalharia mais do que ajudaria, então não foi usado — " +
+              "vale o endereço que você escreveu.";
+            return;
+          }
+          lat.value = posicao.coords.latitude.toFixed(6);
+          lng.value = posicao.coords.longitude.toFixed(6);
+          precisao.value = metros;
+          status.textContent =
+            "Localização compartilhada, com precisão de cerca de " + metros +
+            " m. Ela vai junto do pedido, só para o entregador.";
+          botao.disabled = false;
+          virarRemover();
+        },
+        function (erro) {
+          limpar();
+          botao.disabled = false;
+          status.textContent =
+            erro.code === erro.PERMISSION_DENIED
+              ? "Localização não liberada — e tudo bem. O pedido segue normalmente pelo endereço acima."
+              : "Não foi possível pegar a localização agora. O endereço acima já basta.";
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    botao.onclick = pedir;
   })();
 </script>
 {% endif %}

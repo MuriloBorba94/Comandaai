@@ -121,6 +121,22 @@ class Pedido(TimestampMixin, db.Model):
     bairro_id = db.Column(db.Integer, db.ForeignKey("bairro_entrega.id", ondelete="SET NULL"), index=True)
     bairro_nome = db.Column(db.String(100))
 
+    # Onde o cliente disse que está, quando ele escolheu dizer.
+    #
+    # É COMPLEMENTO do endereço escrito, nunca substituto: o texto continua
+    # obrigatório na entrega. Endereço em vila, condomínio ou rua sem placa é
+    # justamente onde o entregador se perde, e é lá que um ponto no mapa
+    # resolve — mas alguém tem de poder pedir sem GPS, do computador, com a
+    # localização negada no navegador.
+    #
+    # A precisão vem junto porque nem toda leitura vale o mesmo. Um ponto de
+    # 2 km de raio, tirado do IP em vez do GPS, mandaria o entregador para o
+    # bairro errado com ar de certeza — pior do que não ter ponto nenhum. Com o
+    # número guardado, a tela do entregador mostra a dúvida em vez de escondê-la.
+    cliente_lat = db.Column(db.Float)
+    cliente_lng = db.Column(db.Float)
+    cliente_local_precisao = db.Column(db.Float)
+
     # Cupom aplicado, também com o código congelado.
     cupom_id = db.Column(db.Integer, db.ForeignKey("cupom.id", ondelete="SET NULL"), index=True)
     cupom_codigo = db.Column(db.String(40), index=True)
@@ -248,6 +264,21 @@ class Pedido(TimestampMixin, db.Model):
         if self.entrega_lat is None or self.entrega_atualizado_em is None:
             return False
         return datetime.now() - self.entrega_atualizado_em < timedelta(minutes=5)
+
+    # Acima disto o ponto não é localização, é palpite: leitura de IP ou de
+    # torre de celular cai nessa faixa, e mandar alguém a um raio de meio
+    # quilômetro é mandá-lo à rua errada. O número é generoso de propósito —
+    # GPS de celular na rua fica entre 5 e 50 m, e num prédio pode passar de
+    # 100 sem estar errado.
+    PRECISAO_MAXIMA_M = 500.0
+
+    @property
+    def tem_local_do_cliente(self) -> bool:
+        """Se há um ponto do cliente em que se possa confiar para traçar rota."""
+        if self.cliente_lat is None or self.cliente_lng is None:
+            return False
+        precisao = self.cliente_local_precisao
+        return precisao is None or precisao <= self.PRECISAO_MAXIMA_M
 
     def recalcular_total(self) -> None:
         """Soma os itens e aplica taxa e desconto.

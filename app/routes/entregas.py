@@ -57,7 +57,23 @@ def url_da_rota(pedido: Pedido) -> str:
     `api=1` é o formato universal do Google Maps: funciona no aplicativo quando
     ele está instalado e no navegador quando não está, sem precisar detectar o
     aparelho.
+
+    Quando o cliente compartilhou a localização, o destino é o PONTO, e não o
+    texto. A diferença aparece justamente onde entregar é difícil: em vila,
+    condomínio e rua sem placa, a busca por texto acerta o começo da rua e
+    deixa o resto por conta de quem está com a moto na mão. Coordenada não tem
+    esse problema.
+
+    Ponto impreciso não entra — `tem_local_do_cliente` corta acima de meio
+    quilômetro. Nesse caso vale mais o endereço escrito, que pelo menos foi
+    digitado por alguém que sabe onde mora.
     """
+    if pedido.tem_local_do_cliente:
+        return (
+            "https://www.google.com/maps/dir/?api=1&destination="
+            f"{pedido.cliente_lat:.6f},{pedido.cliente_lng:.6f}"
+        )
+
     partes = [pedido.endereco or "", pedido.bairro_nome or "", g.tenant.pix_cidade or ""]
     destino = ", ".join(parte.strip() for parte in partes if parte and parte.strip())
     if not destino:
